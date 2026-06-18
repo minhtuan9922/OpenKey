@@ -1386,7 +1386,7 @@
                                         <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="74U-4J-gv7">
                                             <rect key="frame" x="18" y="94" width="234" height="18"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
-                                            <string key="toolTip">VD: bạn định nghĩa "ko=không" Nếu bạn gõ: "ko" sẽ thành "không" Nếu bạn gõ "Ko" sẽ thành "Không" Nếu bạn gõ "KO" sẽ thành "KHÔNG"</string>
+                                            <string key="toolTip">VD: bạn định nghĩa "ko=không"Nếu bạn gõ: "ko" sẽ thành "không"Nếu bạn gõ "Ko" sẽ thành "Không"Nếu bạn gõ "KO" sẽ thành "KHÔNG"</string>
                                             <buttonCell key="cell" type="check" title="Tự động viết hoa theo phím tắt" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="gpa-rV-U8I">
                                                 <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                                 <font key="font" metaFont="system"/>
@@ -1406,7 +1406,7 @@
                                                 <action selector="onMacroButton:" target="XfG-lQ-9wD" id="1UH-Er-oMx"/>
                                             </connections>
                                         </button>
-                                        <button toolTip="Thay thế nhanh các phụ âm đầu như f, j, w bằng ph, gi, qu. Ví dụ: fải→phải, jảng→giảng, wên→quên" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="V4i-Pw-iL5">
+                                        <button toolTip="Thay thế nhanh các phụ âm đầu như f, j, w bằng ph, gi, qu.Ví dụ: fải→phải, jảng→giảng, wên→quên" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="V4i-Pw-iL5">
                                             <rect key="frame" x="243" y="129" width="262" height="18"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                             <buttonCell key="cell" type="check" title="Gõ tắt phụ âm đầu: f→ph, j→gi, w→qu" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="U1b-wh-loy">
@@ -1417,7 +1417,7 @@
                                                 <action selector="onQuickStartConsonant:" target="XfG-lQ-9wD" id="vt3-qy-DjB"/>
                                             </connections>
                                         </button>
-                                        <button toolTip="Thay thế nhanh các phụ âm cuối như g, h, k bằng ng, nh, ch. Ví dụ: trươg→trương, nhah→nhanh, bák→bách" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2k8-6T-Cyn">
+                                        <button toolTip="Thay thế nhanh các phụ âm cuối như g, h, k bằng ng, nh, ch.Ví dụ: trươg→trương, nhah→nhanh, bák→bách" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="2k8-6T-Cyn">
                                             <rect key="frame" x="243" y="94" width="276" height="18"/>
                                             <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                             <buttonCell key="cell" type="check" title="Gõ tắt phụ âm cuối: g→ng, h→nh, k→ch" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="D2S-oM-Vvy">
@@ -1944,7 +1944,7 @@
                             <button verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="LXc-GH-oYK">
                                 <rect key="frame" x="269" y="9" width="208" height="18"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                                <string key="toolTip">VD: bạn định nghĩa "ko=không" Nếu bạn gõ: "ko" sẽ thành "không" Nếu bạn gõ "Ko" sẽ thành "Không" Nếu bạn gõ "KO" sẽ thành "KHÔNG"</string>
+                                <string key="toolTip">VD: bạn định nghĩa "ko=không"Nếu bạn gõ: "ko" sẽ thành "không"Nếu bạn gõ "Ko" sẽ thành "Không"Nếu bạn gõ "KO" sẽ thành "KHÔNG"</string>
                                 <buttonCell key="cell" type="check" title="Tự động viết hoa theo phím tắt" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="JdD-dm-U8K">
                                     <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
                                     <font key="font" metaFont="system"/>
