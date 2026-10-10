@@ -13,6 +13,7 @@ template<typename Result, typename... Arguments> Result forbiddenClipboard(Argum
 #define CloseClipboard forbiddenClipboard<BOOL>
 #define RegisterClipboardFormatW forbiddenClipboard<UINT>
 #define GetClipboardData forbiddenClipboard<HANDLE>
+#define IsClipboardFormatAvailable forbiddenClipboard<BOOL>
 #define EmptyClipboard forbiddenClipboard<BOOL>
 #define SetClipboardData forbiddenClipboard<HANDLE>
 #define GlobalAlloc forbiddenClipboard<HGLOBAL>

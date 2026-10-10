@@ -1,5 +1,12 @@
 # Kiem thu OpenKey trong Windows Sandbox
 
+Phien moi ngay 2026-10-11 sau sua About workflow:
+- x64: dist/sandbox-023a5ca909a447b182252a5bf5af43ab/OpenKey.wsb
+- x86: dist/sandbox-f83d8c38ba82403c8068ab1e14e864b5/OpenKey.wsb
+Duong dan tinh tu repo root; ten ZIP/hash trong BETA_PACKAGING.md.
+Chi chuan bi, chua mo guest; hai phien nay KHONG kem vc_redist.
+Phien runtime offline cu ben duoi van giu nguyen, khong tu copy vao phien moi.
+
 Double-click OpenKey.wsb trong thu muc session do prepare-sandbox.ps1 tao.
 Script khong tu mo Sandbox, bat Windows feature, tai/cai runtime hoac doi settings may host.
 

@@ -13,6 +13,7 @@ redistribute your new version, it MUST be open source.
 -----------------------------------------------------------*/
 #pragma once
 #include "stdafx.h"
+#include "UpdateCheckService.h"
 
 class OpenKeyManager {
 public:
@@ -23,7 +24,7 @@ public:
 	static void initEngine();
 	static void freeEngine();
 
-	static bool checkUpdate(string& newVersion);
+	static UpdateCheckService::Result checkUpdate(string& newVersion);
 
 	static void createDesktopShortcut();
 };

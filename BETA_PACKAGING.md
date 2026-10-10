@@ -3,7 +3,152 @@
 Đọc [hướng dẫn sao lưu, thử beta và rollback](MIGRATION_FLUENT_BETA.md) trước khi chạy.
 Gói ở thư mục riêng vẫn dùng chung settings/macro với bản cũ của cùng tài khoản.
 
-## Artifact mới nhất — alias HTML legacy
+## Artifact mới nhất — About workflow và bộ Sandbox (2026-10-11)
+
+Chứa toàn bộ thay đổi metadata dùng chung bên dưới, dọn helper tải cũ,
+latest-action-wins cho liên kết About và giữ khóa kiểm tra cập nhật đến hết
+ContentDialog/Launcher. Dialog dùng theme của trang; hủy/lỗi/stale khôi phục
+nút trên UI thread. Không thay engine gõ hoặc updater tải/cài ZIP stable.
+
+- x64: `dist/OpenKey-Fluent-beta-x64-7a943eaebd96486eb4679708c3ca7616.zip`; SHA-256 `DBEEEC0B3CB4C31809A206606702DD8C1D2C5E78A26F9E3A44AF9374ECC5AE67`.
+- x86: `dist/OpenKey-Fluent-beta-x86-184f2a67e6374a149e5159f987477386.zip`; SHA-256 `EAA05EBB3B4D74D5B8C7B4EE3CCA29D0146DE1A88AF3CD72B75D51143CF65736`.
+
+Release All không SkipBuild sạch mỗi kiến trúc, 281 payload/hash/PE đạt
+verifier PowerShell 7 và 5.1. Ba executable khớp output Release, notice
+WHATWG khớp nguồn; UI resources 4/4 mỗi kiến trúc. Metadata/notices thu thập
+cho 9 restored packages, vẫn cần rà giấy phép trước phát hành.
+Logs dist/about-workflow-beta-{x64,x86}.log. Mã trước đóng gói đã đạt
+14/14 nhóm hồi quy trên hai shell và 62 shared update/lifecycle fixtures.
+
+Sandbox mới (chỉ chuẩn bị, chưa chạy guest):
+
+- x64: `dist/sandbox-023a5ca909a447b182252a5bf5af43ab/OpenKey.wsb`.
+- x86: `dist/sandbox-f83d8c38ba82403c8068ab1e14e864b5/OpenKey.wsb`.
+
+Input riêng read-only, Logs riêng có quyền ghi; mạng/clipboard host/mic/camera/
+printer redirection tắt. ZIP staged được đối chiếu SHA-256. 27/27 fixture
+Sandbox đạt PS7/PS5.1, logs dist/about-workflow-sandbox-tests*.log.
+Các phiên mới không kèm VC++ Redistributable; bootstrap dừng khi thiếu runtime,
+không tự tải/cài. Xem Sandbox/README.md, chưa nghiệm thu máy sạch/UI/hook.
+Không mở/cài/ký/phát hành app hoặc thay settings/clipboard host. Gói và
+Sandbox input cũ được giữ nguyên. Hash manifest không chứng minh nhà phát hành.
+Tài liệu BETA_PACKAGING.md bên trong ZIP có trước khi ghi nhận hash gói này;
+dùng phần này của tài liệu workspace để đối chiếu artifact mới nhất.
+
+## Artifact trước About workflow — metadata cập nhật dùng chung (2026-10-10)
+
+Gói này chứa UpdateService/UpdateCheckService/WinHTTP chung cho engine,
+About Fluent và metadata updater độc lập. Engine kiểm tra trên worker nền;
+Fluent sửa packed version 2.0.5 và bỏ qua kết quả cũ sau unload. Updater bỏ
+metadata temp file/locale reader, dừng khi transport/schema lỗi. Fluent vẫn
+chỉ mở Releases sau xác nhận; updater stable engine-only bị chặn trong bundle.
+
+- x64: `dist/OpenKey-Fluent-beta-x64-1387e7a9774244ab8070e5f46a134464.zip`; SHA-256 `39D1B118C8AA585955353A53592571B93B17CFD41334C21721AA8B181B4100AB`.
+- x86: `dist/OpenKey-Fluent-beta-x86-87cf21e6149e47adb8e15a1e622ff29b.zip`; SHA-256 `EF270C8E36DB117C6584ECADAC9FE33B723E37F1D353655CE508F5A470C8914C`.
+
+Release All không SkipBuild đạt 0 cảnh báo/0 lỗi mỗi kiến trúc. Mỗi ZIP có
+281 payload, verifier/hash/PE đạt PowerShell 7 và 5.1; 3 executable khớp
+output Release, HTML_ENTITIES_NOTICE.md khớp nguồn; resources 4/4 mỗi UI.
+Thu thập notice/metadata cho 9 restored NuGet packages, vẫn cần rà soát
+giấy phép trước phát hành. Logs dist/shared-update-beta-{x64,x86}.log.
+Hồi quy mã trước đóng gói đạt 14/14 nhóm trên cả hai shell, xem FLUENT_UI_QA.md.
+
+Không chạy/cài/ký/phát hành app, tải cập nhật thật, đổi settings/clipboard
+hoặc Sandbox input cũ. Tải ZIP/cài đặt updater chưa thay, chưa xác minh
+chữ ký; UI/network/máy sạch/nâng cấp thật còn chờ. ZIP cũ giữ nguyên.
+Tài liệu BETA_PACKAGING.md bên trong ZIP là bản trước khi ghi nhận hash gói
+này; dùng phần này của tài liệu workspace để đối chiếu artifact mới nhất.
+
+## Artifact trước metadata dùng chung — service mở updater legacy
+
+About/MainControl/startup dùng UpdateLaunchService: policy chặn Fluent trước
+launch, updater/working directory theo thư mục executable, không thoát engine
+khi Windows không chấp nhận mở updater. Không đổi updater stable engine-only
+hoặc parser/network checkUpdate; chưa thực hiện cập nhật thật.
+
+- x64: `dist/OpenKey-Fluent-beta-x64-4d6e3ae148994cc78d8785f13c9af9e1.zip`; SHA-256 `32089801D0FE9C9ADC164199BBFE83BE7ED7E6FA9B3D669E857D05615F976774`.
+- x86: `dist/OpenKey-Fluent-beta-x86-946334b505fb47efad230f72f3d6480a.zip`; SHA-256 `75953C56E8477D049B29F07243587BEA1AD08C375E5D55A5284BFEE677A39DA1`.
+
+77 injected launch cases và 31 updater/metadata/module-policy fixtures mỗi
+kiến trúc đạt, cùng 14/14 nhóm hồi quy PS7/PS5.1. Bốn All Debug/Release
+engine/updater/UI x64/x86 sạch; Debug x64 All static analysis sạch.
+Beta Release All không SkipBuild sạch, 281 payload/hash/PE đạt hai shell,
+resources 4/4 và notice khớp nguồn. Logs dist/update-launch-*.log.
+Không mở/cài/ký/phát hành hoặc cập nhật app thật, không thay settings/Clipboard
+hay Sandbox input cũ. Launch/dialog/cancel/lỗi thật, máy sạch và giấy phép vẫn
+cần QA; launch accepted không chứng minh updater chạy/cập nhật thành công.
+
+## Artifact trước update launch — bảo toàn format khi đọc Clipboard lỗi
+
+Service dùng chung phân biệt format vắng/rỗng/đọc lỗi. Lỗi lấy handle,
+kích thước/lock/terminator hoặc đăng ký HTML dừng trước EmptyClipboard;
+không bỏ format lỗi khi format kia chuyển được. Unicode rỗng được giữ khi
+chuyển HTML hợp lệ; chưa có rollback cho lỗi ghi sau clear.
+
+- x64: `dist/OpenKey-Fluent-beta-x64-c560d5aefb6c4c018b2de35e63520e9a.zip`; SHA-256 `DA6FDBF67DF5879E29A4DE7B3C1366BBCFF5448DFD07F9B268BABA409AF40BA5`.
+- x86: `dist/OpenKey-Fluent-beta-x86-a65a3066b68c4e3e9178f12cc9eb4653.zip`; SHA-256 `24049F6AB67B86AAC77FB55122596754E6E8F238CF40B75EB01956D00532FF64`.
+
+3.575 Clipboard fake mỗi kiến trúc, 175 pure-text/20 engine và 14/14 nhóm
+hồi quy đạt PS7/PS5.1. Bốn All Debug/Release engine/updater/UI x64/x86
+sạch; Debug x64 All có static analysis. Beta Release All không SkipBuild
+sạch; 281 payload/hash/PE mỗi ZIP đạt hai shell, resources 4/4 và notice khớp.
+Logs dist/clipboard-read-*.log. Không mở/cài/ký/phát hành app, đổi Clipboard/
+settings thật hoặc Sandbox input cũ. Delayed rendering/hotkey/tray/paste HTML
+thật và máy sạch vẫn cần QA; chưa bảo toàn mọi format ngoài Unicode/HTML.
+
+## Artifact trước read failure — chuyển mã nhanh legacy dùng service chung
+
+Hotkey/tray/dialog Win32 dùng LegacyQuickConvert → ConvertService với HWND
+engine và snapshot cấu hình legacy. UI Fluent không link globals engine.
+HTML dùng parser/offset/entity chung, không chuyển cả header/thẻ qua converter.
+HTML bảng mã legacy hoặc fragment không hỗ trợ bị từ chối trước clear.
+
+- x64: `dist/OpenKey-Fluent-beta-x64-5384e43574144234b412e7736f6594ac.zip`; SHA-256 `FB3DF3E736DD782211BE6399A4E0E9B206A68F2901F96A53EF113CF5F8466C56`.
+- x86: `dist/OpenKey-Fluent-beta-x86-7ac753acf87f4ab9a3fd7b96a91804f1.zip`; SHA-256 `BFF5AA0C13601D8269343CBEA40814F4E3FE0DBA131C0A13E9A6784A2CA7187C`.
+
+3.543 Clipboard fake mỗi kiến trúc, 175 pure-text/20 engine và 14/14 nhóm
+hồi quy đạt PS7/PS5.1 trên mã cuối. Bốn All Debug/Release engine/updater/UI
+x64/x86 sạch; Debug x64 All có static analysis. Beta Release All không SkipBuild
+sạch, 281 payload/hash/PE mỗi ZIP đạt hai shell, resources 4/4 và notice khớp.
+Logs dist/quick-convert-final-*.log, dist/quick-convert-beta-*.log.
+Không mở/cài/ký/phát hành app hoặc đổi Clipboard/settings/Sandbox input trước;
+người dùng tự thoát engine Debug để giải phóng binary. Hotkey/tray/HTML thật,
+máy sạch, quyền phân phối và rollback khi SetClipboardData lỗi vẫn cần QA sau.
+
+## Artifact trước bridge legacy — literal reference recovery
+
+Ampersand/tên không khớp và entity số không có digit hiện được giữ như text,
+chuyển casing và escape lại, không giải mã đệ quy. Selection trong literal
+được ánh xạ; entity hợp lệ vẫn không cho cắt giữa. Xem FLUENT_UI_QA.md.
+
+- x64: `dist/OpenKey-Fluent-beta-x64-71c037481c7d4099ba8b91254c8efefc.zip`; SHA-256 `646950AB016381B3445B5C93E44A0FDAA9506D1552D5AD2124CA117964637FB9`.
+- x86: `dist/OpenKey-Fluent-beta-x86-3bfd56745e124aa4bd714555d679cdc3.zip`; SHA-256 `95F36DA1C5A23A37E9065181AA3290E29A81B0CC0D1E0C7CA1D5D664C17EF723`.
+
+2.732 Clipboard mỗi kiến trúc, 175 pure-text/20 engine và 14/14 nhóm hồi quy
+đạt PS7/PS5.1. Bốn UI Debug/Release, static analysis Debug x64 và Release All
+build sạch. 281 payload/hash/PE mỗi ZIP đạt hai shell, binary resources 4/4
+mỗi kiến trúc, notice WHATWG khớp nguồn. Logs dist/cfhtml-literal-*.log.
+Không mở/cài/ký/phát hành app, đổi settings/Clipboard thật hoặc Sandbox input cũ.
+Máy sạch, paste HTML thật và rà soát giấy phép vẫn cần kiểm thử sau.
+
+## Artifact trước literal recovery — numeric recovery
+
+Mã nguồn hiện hỗ trợ entity số thiếu dấu chấm phẩy, số dài không overflow,
+U+FFFD cho null/surrogate/ngoài Unicode và mapping C1 của HTML. Selection vẫn
+không được cắt giữa entity; attributes/context không đổi và casing legacy giữ nguyên.
+Notice WHATWG đã bổ sung bảng C1.
+
+- x64: `dist/OpenKey-Fluent-beta-x64-ff37a17640ee4b37bc3ec809e93bedf2.zip`; SHA-256 `5AA6B304674C76497B4949F33A0592945FA055619EFE4325D43B37FE059E34AF`.
+- x86: `dist/OpenKey-Fluent-beta-x86-dcc6bcb8951d43049f85ca14a2a6d328.zip`; SHA-256 `DE452352EBBAE0F88B1CD0C1ED8D080C025A3696A4B2899D23AEC585225BAC8F`.
+
+2.641 Clipboard mỗi kiến trúc, 175 pure-text/20 engine và 14/14 regression suites
+đạt PS7/PS5.1. Bốn UI Debug/Release, static analysis Debug x64 và Release All sạch.
+281 payload/hash/PE đạt hai shell, 4/4 binary resources mỗi kiến trúc, notice khớp
+nguồn. Logs dist/cfhtml-numeric-*.log. Không mở/cài/ký/phát hành app hoặc đổi dữ liệu
+người dùng; runtime máy sạch/Clipboard thật và rà soát giấy phép vẫn cần QA.
+Gói và Sandbox input trước giữ nguyên.
+
+## Artifact trước numeric recovery — alias HTML legacy
 
 Mã nguồn hiện hỗ trợ thêm 106 alias thiếu dấu chấm phẩy trong text node,
 longest-match và selection preview từ toàn text node. 2.452 ca Clipboard mỗi

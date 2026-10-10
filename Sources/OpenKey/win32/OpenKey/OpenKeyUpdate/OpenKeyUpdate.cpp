@@ -15,9 +15,9 @@ redistribute your new version, it MUST be open source.
 #include "framework.h"
 #include "OpenKeyUpdate.h"
 #include "../OpenKey/UpdatePolicy.h"
+#include "../OpenKey/UpdateService.h"
 #include <Urlmon.h>
 #include <fstream>
-#include <sstream>
 #include <string>
 #pragma comment(lib, "Urlmon.lib")
 
@@ -131,41 +131,15 @@ bool InstallDownloadedUpdate(const WCHAR* currentDir, const wstring& stagingName
 			MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
 }
 
-// Extract only the flat latestWinVersion section used by version.json.
-// This is intentionally not a general JSON parser. Reject unsupported/unsafe tags.
+// Compatibility adapter for regression fixtures; production uses UpdateService.
 bool ReadUpdateVersion(const wstring& data, wstring& versionName) {
-	versionName.clear();
-	if (data.empty() || data.size() > 65536) return false;
-	size_t position = data.find(L"\"latestWinVersion\"");
-	if (position == wstring::npos) return false;
-	position = data.find_first_not_of(L" \t\r\n", position + 18);
-	if (position == wstring::npos || data[position] != L':') return false;
-	position = data.find_first_not_of(L" \t\r\n", position + 1);
-	if (position == wstring::npos || data[position] != L'{') return false;
-	const size_t sectionEnd = data.find(L'}', position + 1);
-	if (sectionEnd == wstring::npos) return false;
-	const wstring section = data.substr(position + 1, sectionEnd - position - 1);
-	if (section.find(L'{') != wstring::npos) return false;
-	position = section.find(L"\"versionName\"");
-	if (position == wstring::npos || section.find(L"\"versionName\"", position + 13) != wstring::npos) return false;
-	position = section.find_first_not_of(L" \t\r\n", position + 13);
-	if (position == wstring::npos || section[position] != L':') return false;
-	position = section.find_first_not_of(L" \t\r\n", position + 1);
-	if (position == wstring::npos || section[position] != L'"') return false;
-	const size_t end = section.find(L'"', position + 1);
-	if (end == wstring::npos || end == position + 1 || end - position - 1 > 64) return false;
-	const wstring tag = section.substr(position + 1, end - position - 1);
-	for (wchar_t character : tag) {
-		if (!((character >= L'0' && character <= L'9') ||
-			(character >= L'A' && character <= L'Z') ||
-			(character >= L'a' && character <= L'z') ||
-			character == L'.' || character == L'-' || character == L'_')) return false;
-	}
-	if (tag == L"." || tag == L"..") return false;
-	const size_t next = section.find_first_not_of(L" \t\r\n", end + 1);
-	if (next != wstring::npos && section[next] != L',') return false;
-	versionName = tag;
-	return true;
+    versionName.clear();
+    string tag;
+    const auto result = UpdateCheckService::Check(data, 0, tag);
+    if (result != UpdateCheckService::Result::Available &&
+        result != UpdateCheckService::Result::UpToDate) return false;
+    versionName.assign(tag.begin(), tag.end());
+    return true;
 }
 
 DWORD WINAPI UpdateThreadFunction(LPVOID lpParam) {
@@ -188,42 +162,25 @@ DWORD WINAPI UpdateThreadFunction(LPVOID lpParam) {
 		ExitProcess(1);
 		return 1;
 	}
-	wstring path = currentDir + L"\\_OpenKey.tempf";
-	HRESULT res = URLDownloadToFileW(NULL, L"https://raw.githubusercontent.com/tuyenvm/OpenKey/master/version.json", path.c_str(), 0, NULL);
-
-	wstring data;
-	if (res == S_OK) {
-		std::wifstream t(path);
-		if (!t) {
-			MessageBox(hDlg, L"Không đọc được thông tin cập nhật.", L"OpenKey Update", MB_OK | MB_ICONERROR);
-			ExitProcess(1);
-		}
-		std::wstringstream buffer;
-		// Limit input before allocation/parsing; release metadata is small.
-		wchar_t character;
-		size_t count = 0;
-		while (count <= 65536 && t.get(character)) { buffer << character; ++count; }
-		t.close();
-		DeleteFileW(path.c_str());
-		data = buffer.str();
-	} else {
-		MessageBox(hDlg, _T("Có lỗi trong quá trình cập nhật, vui lòng thử lại sau!"), _T("OpenKey Update"), MB_OK);
-		ExitProcess(0);
-		return 0;
-	}
-
-	wstring versionName;
-	if (!ReadUpdateVersion(data, versionName)) {
-		MessageBox(hDlg, L"Thông tin phiên bản cập nhật không hợp lệ.", L"OpenKey Update", MB_OK | MB_ICONERROR);
-		ExitProcess(1);
-		return 1;
-	}
+    UpdateService::Outcome metadata;
+    try { metadata = UpdateService::Check(0); }
+    catch (...) { /* Fail closed; never continue to archive installation. */ }
+    if (metadata.result != UpdateCheckService::Result::Available &&
+        metadata.result != UpdateCheckService::Result::UpToDate) {
+        const wchar_t* message = metadata.result == UpdateCheckService::Result::InvalidMetadata
+            ? L"Thông tin phiên bản cập nhật không hợp lệ."
+            : L"Có lỗi trong quá trình cập nhật, vui lòng thử lại sau!";
+        MessageBox(hDlg, message, L"OpenKey Update", MB_OK | MB_ICONERROR);
+        ExitProcess(1);
+        return 1;
+    }
+    const wstring versionName(metadata.version.begin(), metadata.version.end());
 	
 	//download zip file
 	const wstring updateUrl = L"https://github.com/tuyenvm/OpenKey/releases/download/" +
 		versionName + L"/OpenKey" + versionName + L"-Windows.zip";
-	path = currentDir + L"\\_OpenKeyUpdate.zip";
-	res = URLDownloadToFileW(NULL, updateUrl.c_str(), path.c_str(), 0, NULL);
+	const wstring path = currentDir + L"\\_OpenKeyUpdate.zip";
+	const HRESULT res = URLDownloadToFileW(NULL, updateUrl.c_str(), path.c_str(), 0, NULL);
 
 	if (res == S_OK) {
 		// A new directory prevents a leftover executable from an earlier failed update

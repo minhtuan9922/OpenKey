@@ -12,15 +12,12 @@ You can fork, modify, improve this program. If you
 redistribute your new version, it MUST be open source.
 -----------------------------------------------------------*/
 #include "OpenKeyHelper.h"
+#include "LegacyQuickConvert.h"
 #include <stdarg.h>
-#include <Urlmon.h>
-#include <fstream>
-#include <sstream>
 #include <algorithm>
 #include <memory>
 
 #pragma comment(lib, "version.lib")
-#pragma comment(lib, "Urlmon.lib")
 
 static BYTE* _regData = 0;
 
@@ -186,7 +183,7 @@ void OpenKeyHelper::registerRunOnStartup(const int& val) {
 				REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, nullptr, &runKey, &disposition) == ERROR_SUCCESS) {
 				const wstring path = L"\"" + getFullPath() + L"\"";
 				RegSetValueEx(runKey, _T("OpenKey"), 0, REG_SZ,
-					reinterpret_cast<const byte*>(path.c_str()),
+					reinterpret_cast<const BYTE*>(path.c_str()),
 					(static_cast<DWORD>(path.size()) + 1) * sizeof(TCHAR));
 				RegCloseKey(runKey);
 			}
@@ -276,55 +273,7 @@ void OpenKeyHelper::setClipboardText(LPCTSTR data, const int& len, const int& ty
 
 bool OpenKeyHelper::quickConvert() {
 	const HWND owner = FindWindow(APP_CLASS, nullptr);
-	if (!owner || !OpenClipboard(owner)) {
-		return false;
-	}
-	const ClipboardCloser closer;
-	const string sourceHTML = readClipboardString<char>(CF_HTML);
-	const wstring sourceUnicode = readClipboardString<wchar_t>(CF_UNICODETEXT);
-	if (sourceHTML.empty() && sourceUnicode.empty()) {
-		return false;
-	}
-
-	// Keep the existing conversion rules, but copy input while its memory is locked.
-	const string dataHTML = sourceHTML.empty() ? string{} : convertUtil(sourceHTML);
-	const wstring dataUnicode = sourceUnicode.empty() ? wstring{} :
-		utf8ToWideString(convertUtil(wideStringToUtf8(sourceUnicode)));
-	GlobalMemory htmlMemory;
-	GlobalMemory unicodeMemory;
-	if (!sourceHTML.empty()) {
-		htmlMemory = copyClipboardBytes(dataHTML.c_str(), dataHTML.size() + 1);
-		if (!htmlMemory) {
-			return false;
-		}
-	}
-	if (!sourceUnicode.empty()) {
-		unicodeMemory = copyClipboardBytes(dataUnicode.c_str(), (dataUnicode.size() + 1) * sizeof(wchar_t));
-		if (!unicodeMemory) {
-			return false;
-		}
-	}
-
-	// Finish all allocations before discarding the original clipboard contents.
-	if (!EmptyClipboard()) {
-		return false;
-	}
-	bool succeeded = true;
-	if (htmlMemory) {
-		if (SetClipboardData(CF_HTML, htmlMemory.get())) {
-			htmlMemory.release();
-		} else {
-			succeeded = false;
-		}
-	}
-	if (unicodeMemory) {
-		if (SetClipboardData(CF_UNICODETEXT, unicodeMemory.get())) {
-			unicodeMemory.release();
-		} else {
-			succeeded = false;
-		}
-	}
-	return succeeded;
+	return LegacyQuickConvert::convertClipboard(owner) == ConvertService::ClipboardResult::Success;
 }
 
 DWORD OpenKeyHelper::getVersionNumber() {
@@ -374,27 +323,4 @@ wstring OpenKeyHelper::getVersionString() {
 	if (GetModuleFileName(NULL, szFilename, MAX_PATH) == 0) { 
 		return _T("");
 	}
-}
-
-wstring OpenKeyHelper::getContentOfUrl(LPCTSTR url){
-	WCHAR path[MAX_PATH];
-	GetTempPath2(MAX_PATH, path);
-	wsprintf(path, TEXT("%s\\_OpenKey.tempf"), path);
-	HRESULT res = URLDownloadToFile(NULL, url, path, 0, NULL);
-	
-	if (res == S_OK) {
-		std::wifstream t(path);
-		std::wstringstream buffer;
-		buffer << t.rdbuf();
-		t.close();
-		DeleteFile(path);
-		return buffer.str();
-	} else if (res == E_OUTOFMEMORY) {
-		
-	} else if (res == INET_E_DOWNLOAD_FAILURE) {
-		
-	} else {
-		
-	}
-	return L"";
 }

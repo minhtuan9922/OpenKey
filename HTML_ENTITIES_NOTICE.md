@@ -16,6 +16,11 @@ Copyright © WHATWG (Apple, Google, Mozilla, Microsoft).
 The HTML Standard's source-code incorporation terms specify BSD 3-Clause:
 https://html.spec.whatwg.org/multipage/acknowledgements.html#ipr
 
+The numeric C1 replacement mapping in HtmlClipboard.h is also derived from:
+https://html.spec.whatwg.org/multipage/parsing.html#numeric-character-reference-end-state
+It is stored as a dense 32-entry table; the five unmapped C1 controls map to
+themselves. The source-code incorporation notice below also covers this table.
+
 ## BSD 3-Clause License — incorporated table
 
 Redistribution and use in source and binary forms, with or without modification,

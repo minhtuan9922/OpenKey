@@ -14,7 +14,6 @@ redistribute your new version, it MUST be open source.
 #include "stdafx.h"
 #include "AboutDialog.h"
 #include "AppDelegate.h"
-#include "UpdatePolicy.h"
 
 AboutDialog::AboutDialog(const HINSTANCE & hInstance, const int & resourceId)
 	: BaseDialog(hInstance, resourceId) {
@@ -85,37 +84,5 @@ void AboutDialog::initDialog() {
 }
 
 void AboutDialog::onUpdateButton() {
-	EnableWindow(hUpdateButton, false);
-	string newVersion;
-	if (OpenKeyManager::checkUpdate(newVersion)) {
-		WCHAR msg[256];
-		wsprintf(msg, 
-			TEXT("OpenKey Có phiên bản mới (%s), bạn có muốn cập nhật không?"),
-			utf8ToWideString(newVersion).c_str());
-
-		int msgboxID = MessageBox(
-			hDlg,
-			msg,
-			_T("OpenKey Update"),
-			MB_ICONEXCLAMATION | MB_YESNO
-		);
-			if (msgboxID == IDYES) {
-				if (!OpenKeyUpdatePolicy::CanUseLegacyUpdater()) {
-					OpenKeyUpdatePolicy::ShowManualUpdateNotice(hDlg);
-					EnableWindow(hUpdateButton, true);
-					return;
-				}
-			//Call OpenKeyUpdate
-			WCHAR path[MAX_PATH];
-			GetCurrentDirectory(MAX_PATH, path);
-			wsprintf(path, TEXT("%s\\OpenKeyUpdate.exe"), path);
-			ShellExecute(0, L"", path, 0, 0, SW_SHOWNORMAL);
-
-			AppDelegate::getInstance()->onOpenKeyExit();
-		}
-		
-	} else {
-		MessageBox(hDlg, _T("Bạn đang dùng phiên bản mới nhất!"), _T("OpenKey Update"), MB_OK);
-	}
-	EnableWindow(hUpdateButton, true);
+	AppDelegate::getInstance()->beginUpdateCheck(hDlg, hUpdateButton);
 }

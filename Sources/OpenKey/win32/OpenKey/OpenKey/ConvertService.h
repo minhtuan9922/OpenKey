@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <windows.h>
 
 class ConvertService {
 public:
@@ -24,4 +25,6 @@ public:
 	static bool isValidCodeTable(int codeTable);
 	static std::wstring convert(const std::wstring& source, const Options& options);
 	static ClipboardResult convertClipboard(const Options& options);
+	// Caller supplies its own HWND when no UI window is active (e.g. engine hotkey).
+	static ClipboardResult convertClipboard(const Options& options, HWND owner);
 };

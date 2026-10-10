@@ -25,7 +25,7 @@ inline void appendUtf8(unsigned int value, std::string& output) {
     }
 }
 
-// Numeric references remain strict. Named references use longest-match
+// Numeric references use bounded HTML recovery. Named references use longest-match
 // data-state rules, including the 106 historical no-semicolon aliases.
 // A preview limit is resolved against the complete text node, never a sliced
 // prefix (which could incorrectly match &not inside the longer &notin;).
@@ -68,39 +68,56 @@ inline bool decodeText(const std::string& source, std::string& output,
                     match = candidate; matchEnd = end;
                 }
             }
-            if (!match || matchEnd > limit) return false;
+            // Unknown names and bare ampersands are literal data, not a failed
+            // conversion. Reconsume the suffix normally (without decoding twice).
+            if (!match) { output += '&'; continue; }
+            if (matchEnd > limit) return false;
             appendUtf8(match->first, output);
             if (match->second) appendUtf8(match->second, output);
             cursor = matchEnd - 1;
             continue;
         }
-        const auto finish = source.find(';', cursor + 1);
-        if (finish == std::string::npos) return false;
-        if (finish >= limit) return false;
-        const auto entity = source.substr(cursor + 1, finish - cursor - 1);
+        if (cursor + 1 >= source.size() || source[cursor + 1] != '#') {
+            output += '&'; continue;
+        }
+        size_t end = cursor + 2;
+        unsigned int base = 10;
+        if (end < source.size() && (source[end] == 'x' || source[end] == 'X')) {
+            base = 16;
+            ++end;
+        }
+        const size_t digitStart = end;
         unsigned int value = 0;
-        if (!entity.empty() && entity[0] == '#') {
-            size_t digitStart = 1;
-            unsigned int base = 10;
-            if (entity.size() > 1 && (entity[1] == 'x' || entity[1] == 'X')) { base = 16; digitStart = 2; }
-            if (digitStart == entity.size()) return false;
-            for (size_t index = digitStart; index < entity.size(); ++index) {
-                const char character = entity[index];
-                unsigned int digit;
-                if (character >= '0' && character <= '9') digit = character - '0';
-                else if (character >= 'a' && character <= 'f') digit = character - 'a' + 10;
-                else if (character >= 'A' && character <= 'F') digit = character - 'A' + 10;
-                else return false;
-                if (digit >= base || value > (0x10FFFFu - digit) / base) return false;
+        for (; end < source.size(); ++end) {
+            const char character = source[end];
+            unsigned int digit;
+            if (character >= '0' && character <= '9') digit = character - '0';
+            else if (character >= 'a' && character <= 'f') digit = character - 'a' + 10;
+            else if (character >= 'A' && character <= 'F') digit = character - 'A' + 10;
+            else break;
+            if (digit >= base) break;
+            // Saturate above Unicode's maximum but consume every input digit,
+            // including arbitrarily long numbers, without integer overflow.
+            if (value > (0x10FFFFu - digit) / base) value = 0x110000u;
+            else
                 value = value * base + digit;
-            }
-            if (!value || (value >= 0xD800 && value <= 0xDFFF) ||
-                (value < 0x20 && value != 9 && value != 10 && value != 13) ||
-                (value >= 0x7F && value <= 0x9F) || (value >= 0xFDD0 && value <= 0xFDEF) ||
-                (value & 0xFFFF) >= 0xFFFE) return false;
-        } else return false;
+        }
+        if (end == digitStart) { output += '&'; continue; }
+        if (end < source.size() && source[end] == ';') ++end;
+        if (end > limit) return false;
+        if (!value || value > 0x10FFFFu || (value >= 0xD800u && value <= 0xDFFFu))
+            value = 0xFFFDu;
+        // HTML's historical Windows-1252 replacements; five unmapped C1
+        // controls, other controls and noncharacters survive unchanged.
+        static constexpr std::array<unsigned int, 32> c1 = {
+            0x20AC, 0x81, 0x201A, 0x192, 0x201E, 0x2026, 0x2020, 0x2021,
+            0x2C6, 0x2030, 0x160, 0x2039, 0x152, 0x8D, 0x17D, 0x8F,
+            0x90, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
+            0x2DC, 0x2122, 0x161, 0x203A, 0x153, 0x9D, 0x17E, 0x178
+        };
+        if (value >= 0x80u && value <= 0x9Fu) value = c1[value - 0x80u];
         appendUtf8(value, output);
-        cursor = finish;
+        cursor = end - 1;
     }
     return true;
 }

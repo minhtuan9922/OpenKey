@@ -1,5 +1,455 @@
 # Kiểm thử giao diện Fluent
 
+## Beta và Sandbox mới sau About workflow — 2026-10-11
+
+Release All x64/x86 không SkipBuild sạch; mỗi ZIP 281 payload/hash/PE đạt
+verifier PS7/5.1, ba executable khớp Release output, WHATWG notice khớp
+nguồn, resources UI 4/4. Tên/hash và hai .wsb mới ở BETA_PACKAGING.md.
+Gói mới đã chứa lượt dọn helper/liên kết About/khóa workflow; các ghi chú
+"ZIP cũ chưa chứa" bên dưới là trạng thái lịch sử tại từng bước.
+27/27 fixture Sandbox đạt cả hai shell; chuẩn bị session có input riêng
+read-only và logs riêng, không chia sẻ repo/user profile. Staged ZIP khớp
+hash đã xác minh; config tắt mạng/clipboard host/mic/camera/printer.
+Logs dist/about-workflow-beta-{x64,x86}.log và
+dist/about-workflow-sandbox-tests*.log.
+
+Không mở Sandbox hoặc chạy/cài app/runtime. Phiên mới không kèm VC++ runtime,
+bootstrap sẽ dừng khi thiếu runtime; không coi chuẩn bị/harness là nghiệm thu
+máy sạch. Giữ gói/session cũ, không đổi settings/clipboard host, không ký
+hoặc phát hành stable. UI/dialog/browser thật và engine/hook trong guest
+vẫn chờ kiểm thử. Source không thay sau hồi quy 14/14 nhóm ở bước workflow.
+
+## Khóa toàn bộ workflow xác nhận cập nhật — 2026-10-10
+
+About giữ active ticket đến hết tải metadata, ContentDialog và Launcher,
+không Finish/bật lại nút ngay sau tải như bước trước. Spinner dừng sau tải;
+nút Kiểm tra cập nhật vẫn khóa trong lúc xác nhận/mở Releases.
+FinishUpdate tập trung nhả đúng ticket và khôi phục control nếu trang còn
+loaded, bắt hresult_error khi window đang đóng. Hủy, lỗi show dialog, root
+null, Launcher false/lỗi và request stale đều đi qua cleanup trên UI thread.
+Nếu UI apartment không còn thì dừng không chạm XAML; không tuyên bố hủy
+worker/native async hoặc khôi phục trang trên apartment đã đóng.
+
+Sau ShowAsync/LaunchUriAsync trở lại UI apartment tường minh trước kiểm tra
+ticket/cleanup/XAML. ContentDialog dùng ActualTheme của trang. Link mới vẫn
+được quyền sở hữu InfoBar và vô hiệu hóa xác nhận cũ, nhưng không nhả khóa
+workflow đang chờ. Không cho download thứ hai hoặc dialog cập nhật thứ hai
+bắt đầu khi ticket cũ chưa được nhả.
+
+Thêm 12 ca state cho giữ khóa xuyên confirmation/launch, retry sau Finish,
+status mới khi đang busy và unload/reload trong workflow. Đây là fixture
+state, không mô phỏng XAML/ContentDialog/Launcher thật hoặc chứng minh
+thứ tự callback UI; QA hủy/lỗi/nhấn lặp/đóng window vẫn cần thực hiện.
+ZIP beta cũ chưa chứa lượt sửa này và các lượt dọn helper/liên kết trước.
+Logs dist/about-update-gate-regression.log,
+dist/about-update-gate-regression-ps51.log,
+dist/about-update-gate-analyze-ui-x64.log và
+dist/about-update-gate-{Debug,Release}-{x64,x86}.log.
+Hồi quy đạt 14/14 nhóm trên PowerShell 7 và 5.1, x64/x86; tổng shared
+update/lifecycle 62 ca (50 trước + 12 mới). Báo cáo:
+dist/regression-ff201580621a4acda4d329aad8474132/summary.json và
+dist/regression-b7fa047a6a1441b5ba56a06588e83163/summary.json.
+UI Debug x64 static analysis đạt 0 cảnh báo/0 lỗi.
+Bốn build UI Debug/Release x64/x86 đều đạt 0 cảnh báo/0 lỗi.
+
+## Liên kết About và quyền sở hữu thông báo — 2026-10-10
+
+OnLinkClicked dùng cùng epoch với kiểm tra cập nhật: thao tác mới nhất sở hữu
+InfoBar. Kết quả Launcher cũ sau nhấn liên kết khác, bắt đầu kiểm tra cập nhật,
+Unloaded/Loaded không ghi đè thông báo hiện tại. BeginStatus không nhả worker
+đang chạy; Begin vẫn chặn tải metadata trùng, Finish vẫn thu dọn worker cũ.
+Liên kết mới cũng vô hiệu hóa continuation xác nhận mở Releases của request
+cập nhật cũ. Không hủy ContentDialog/Launcher/download đã bắt đầu.
+
+Giữ strong lifetime, bắt hresult_error của sender/tag/URI/Launcher, trở về
+UI apartment trước chạm XAML; apartment đã đóng thì dừng. Lỗi mở liên kết
+luôn đặt InfoBarSeverity::Error, không giữ severity Success từ lần kiểm tra
+cập nhật trước. Không thêm resource hoặc đổi địa chỉ liên kết.
+
+Thêm 13 fixture state về latest-link-wins, link/update xen kẽ, busy download,
+finish stale, unload/reload và dialog continuation. Fixture không chạy XAML,
+ContentDialog hoặc mở browser thật; cần QA runtime sau. ZIP beta hiện có
+chưa chứa lượt sửa liên kết này hoặc lượt dọn helper trước đó.
+Logs dist/about-links-regression.log, dist/about-links-regression-ps51.log,
+dist/about-links-analyze-ui-x64.log và dist/about-links-{Debug,Release}-{x64,x86}.log.
+Hồi quy 14/14 nhóm đạt trên PowerShell 7 và 5.1, gồm x64/x86; tổng
+shared update/lifecycle 50 ca (37 trước + 13 mới). Báo cáo:
+dist/regression-d69e01c484cf45f886e0e4eb92481543/summary.json và
+dist/regression-e4e8f027eecf4291ba022baf3994c165/summary.json.
+UI Debug x64 static analysis đạt 0 cảnh báo/0 lỗi.
+Bốn build UI Debug/Release x64/x86 cuối đều đạt 0 cảnh báo/0 lỗi.
+
+## Dọn helper tải metadata cũ — 2026-10-10
+
+Sau khi mọi caller metadata đã chuyển sang UpdateService, bỏ declaration và
+implementation OpenKeyHelper::getContentOfUrl không còn caller. Bỏ include
+Urlmon/fstream/sstream và pragma Urlmon.lib khỏi OpenKeyHelper.cpp; không
+giữ đường tải unbounded/locale reader dùng chung _OpenKey.tempf.
+URLDownloadToFileW của tải ZIP trong updater vẫn giữ nguyên, không phải
+mọi đường tải mạng đều đã chuyển sang WinHTTP. Không xóa tệp temp của người dùng.
+Gói beta vừa tạo ở bước trước chưa chứa lượt dọn mã này.
+Lượt compile đầu phát hiện kiểu byte đến gián tiếp từ Urlmon; đổi cast ghi
+REG_SZ sang kiểu Win32 BYTE (cùng dữ liệu/độ dài), không đổi hành vi startup.
+Log hồi quy: dist/update-cleanup-regression.log và
+dist/update-cleanup-regression-ps51.log. Log build cuối:
+dist/update-cleanup-analyze-final-x64.log và
+dist/update-cleanup-{Debug,Release}-{x64,x86}.log; log analysis ban đầu
+dist/update-cleanup-analyze-x64.log giữ lại để ghi nhận lỗi compile đã sửa.
+Hồi quy PS7 và PS5.1 đều đạt 14/14 nhóm:
+dist/regression-246e4d3547744898b4cda040a241d062/summary.json và
+dist/regression-c2910566547b42048b70fd8ce06d719d/summary.json.
+Static analysis engine Debug x64 trên bản sửa BYTE đạt 0 cảnh báo/0 lỗi.
+Bốn build All Debug/Release x64/x86 cuối đều đạt 0 cảnh báo/0 lỗi.
+Sau build chỉ bỏ dòng trắng cuối OpenKeyHelper.cpp để diff --check sạch,
+không thay token C++. Không mở app, tải mạng hay sửa registry/clipboard thật.
+
+## Làm mới beta sau metadata dùng chung — 2026-10-10
+
+Đã tạo ZIP x64/x86 từ Release All không SkipBuild, 0 cảnh báo/0 lỗi; tên và
+SHA-256 ghi ở BETA_PACKAGING.md. Mỗi gói 281 payload/hash/PE đạt verifier
+PowerShell 7 và 5.1; executable engine/updater/UI khớp output Release,
+notice WHATWG khớp nguồn và UI resources đạt 4/4 mỗi kiến trúc.
+Logs dist/shared-update-beta-{x64,x86}.log. Các ghi chú "ZIP cũ chưa chứa"
+ở những bước bên dưới mô tả trạng thái tại thời điểm bước đó; gói mới này
+đã chứa thay đổi parser/background/Fluent/metadata updater vừa hoàn tất.
+Không chạy/cài app hoặc đổi Sandbox input, settings/clipboard; chưa nghiệm
+thu UI/mạng/máy sạch/nâng cấp thật, chưa ký hoặc phát hành stable.
+
+## Metadata updater độc lập dùng chung — 2026-10-10
+
+OpenKeyUpdate tải metadata qua UpdateService/WinHTTP như engine và Fluent,
+không còn tải version.json vào _OpenKey.tempf hoặc đọc bằng locale wifstream.
+Giữ cả hai policy gate (thư mục module và thư mục cài đặt) trước tải metadata.
+Lỗi transport/schema/exception dừng trước tải ZIP với exit code 1.
+Schema yêu cầu versionCode hợp lệ và latestWinVersion ở root, không nhận
+metadata chỉ có tên phiên bản. Parser chung từ chối tag "." và "..".
+
+23 fixture metadata updater (trước đây 16) gồm thiếu/overflow versionCode,
+root lồng, root trùng, trailing garbage, dot tags và versionCode 0 hợp lệ.
+Adapter ReadUpdateVersion dùng parser chung; production gọi UpdateService.
+Fixture không gọi UpdateThreadFunction, không tải mạng hoặc chạy updater thật.
+Tải ZIP vẫn dùng URLDownloadToFileW; staging/PE/install không đổi, chưa xác minh
+chữ ký archive/executable hoặc cập nhật toàn bundle Fluent. Policy vẫn chặn
+updater legacy cho Fluent. ZIP beta cũ chưa chứa thay đổi này.
+
+Log xác minh: dist/updater-shared-regression.log,
+dist/updater-shared-regression-ps51.log, dist/updater-shared-analyze-x64.log
+và dist/updater-shared-{Debug,Release}-{x64,x86}.log.
+
+Kết quả: 14/14 nhóm trên PowerShell 7 và 5.1, gồm x64/x86; 23 metadata
+fixture đều đạt. Báo cáo JSON:
+dist/regression-6d2e5d9a14604bd09f37bca8c6f29f1e/summary.json và
+dist/regression-7c83f18cd49f4b0e8800555a460820b2/summary.json.
+Static analysis updater Debug x64 và bốn build All Debug/Release x64/x86
+đạt 0 cảnh báo, 0 lỗi. Lần đầu Debug x64 bị LNK1168 do engine đang chạy;
+sau khi người dùng thoát, build lại đạt. Không tự dừng process người dùng.
+
+## Kiểm tra cập nhật dùng chung với Fluent — 2026-10-10
+
+UpdateService kết hợp downloader và parser thành một Outcome cho cả
+OpenKeyManager legacy và AboutPage Fluent. Bỏ parser find/stoul riêng của
+Fluent, không dùng GetStringAsync unbounded: HTTP/status/redirect/size/timeouts
+và schema validation đều đi qua service đã kiểm thử. Fluent vẫn xác nhận rồi
+mở trang Releases bằng Launcher, không chạy updater legacy/thoát engine.
+Không thêm chuỗi UI; giữ resources tiếng Việt/Anh và InfoBar lỗi/thành công.
+
+Sửa OpenKeyVersionCode của Fluent 2.0.5 từ ordered 0x00020005 sang packed
+0x00050002 (major ở byte thấp), để so sánh theo cùng major/minor/patch như
+engine. 37 ca service/lifecycle mới kiểm tra 2.0.2/2.0.4/2.0.5/2.0.6/2.1.0/
+3.0.0/1.255.255, lỗi transport tới Outcome, malformed metadata không thành
+UpToDate, và Begin/Busy/Finish/Loaded/Unloaded/stale ticket.
+
+Coroutine giữ strong lifetime, tải/parse sau resume_background, trở lại UI
+qua apartment_context trước chạm XAML. Nếu UI apartment không còn, dừng
+không cập nhật XAML trên worker. UpdateRequestState chặn yêu cầu trùng,
+đánh dấu epoch khi load/unload/request; kết quả cũ sau rời trang/đóng window/
+load lại không hiện InfoBar hay dialog. Job đang chạy không bị reset bởi
+Unloaded; khi hoàn tất vẫn khôi phục nút/spinner cho trang đang loaded.
+Kiểm tra ticket lần nữa sau ContentDialog và Launcher async, không mở trang
+download nếu xác nhận thuộc request cũ. Bắt lỗi tạo/show dialog; root null
+không mở dialog. OnLinkClicked của các liên kết thường không đổi ở bước này.
+
+Test service dùng HTTP giả và state thuần C++; chưa chứng minh coroutine,
+ContentDialog, proxy/TLS hoặc navigation/window close trên UI thật. Background
+download không bị ngắt khi unload, vẫn tuân thủ limits đã mô tả ở phần trước.
+Gói ZIP beta hiện có chưa chứa thay đổi này. Nguồn threading:
+[C++/WinRT concurrency](https://learn.microsoft.com/en-us/windows/apps/develop/cpp-winrt/concurrency-2).
+
+Xác minh mã cuối: full regression 14/14 nhóm mỗi PS7/PS5.1, gồm 37 ca
+shared service/lifecycle mới mỗi x64/x86 và toàn bộ fixtures cũ:
+dist/regression-7e9370bddd8a4abe96b163e3a36a5fa3/summary.json,
+dist/regression-f8297f2267b74e9184b9323900efa960/summary.json.
+UI Debug x64 static analysis sạch (AboutPage mới có trong CL /analyze):
+dist/shared-update-analyze-ui-x64.log. Bốn All Debug/Release x64/x86 đều
+0 cảnh báo/0 lỗi, logs dist/shared-update-final-{Debug,Release}-{x64,x86}.log.
+Không khởi chạy app/browser/updater, không tải metadata thật, không thay
+settings/clipboard, không đóng gói/cài/ký/phát hành.
+
+## Kiểm tra cập nhật legacy trên luồng nền — 2026-10-10
+
+About/MainControl và startup chuyển sang beginUpdateCheck: một worker nền tải/
+parse metadata, không giữ AppDelegate/dialog hoặc gọi UI. AsyncUpdateCheck giữ
+shared state với release/acquire publication, nhận kết quả bằng polling trên
+luồng UI. Chặn yêu cầu trùng; nút yêu cầu bị khóa trong lúc kiểm tra, bật lại
+trước thông báo. Timer 100 ms chỉ tồn tại khi có job; thu dọn khi kết thúc/thoát.
+Property token của cửa sổ giúp bỏ qua HWND đã đóng/tái sử dụng; closeDialog
+gỡ property trước DestroyWindow, giữ job busy tới completion nhưng không báo
+kết quả cho dialog đã đóng. Startup không báo lỗi mạng. Guard exiting tránh
+free engine lặp và tránh mở updater sau khi đã thoát trong một modal loop.
+
+UpdateDownloadService dùng WinHTTP HTTPS tới đúng host/path metadata, không
+dùng URLDownloadToFile/getContentOfUrl hoặc shared temp file. Đặt timeout
+DNS/connect/send/receive 3/5/5/5 giây, chỉ nhận HTTP 200, không theo redirect,
+không bỏ xác minh TLS. Đọc buffer 8192, giới hạn body 65536 byte trước tăng
+payload; từ chối empty/NUL/non-ASCII. Kiểm tra budget 20 giây giữa các thao tác;
+đây không phải deadline cứng 20 giây (một thao tác/OS network có thể kết thúc
+muộn hơn). Hủy UI/thoát chỉ bỏ theo dõi kết quả, không đồng bộ chờ worker hoặc
+ngắt WinHTTP từ thread khác. Worker còn giữ shared state đến lúc trả về.
+
+37 ca transport/background mới: lỗi từng bước/HTTP status, đóng handle đủ và
+đúng thứ tự, partial-read failure, malformed read count, body empty/đúng ngưỡng/
+vượt ngưỡng, NUL/non-ASCII, chunk 1/7/8192, budget giữa reads; busy/pending/
+completion/consume-once/launch failure/exception/abandon/destruction. Một
+worker detached thật được gate bằng promise để chứng minh caller vẫn poll
+được và worker không cùng thread caller. HTTP hoàn toàn giả; không có network,
+UI, registry/clipboard hoặc updater thật trong tests.
+
+Chưa nghiệm thu responsiveness/nút/đóng dialog/thoát/timeout với mạng thật.
+Fluent About có coroutine riêng, chưa đổi trong bước này. Downloader của
+updater riêng vẫn là luồng cũ; ZIP beta hiện có chưa chứa thay đổi mới.
+Nguồn API: [WinHTTP timeouts](https://learn.microsoft.com/en-us/windows/win32/api/winhttp/nf-winhttp-winhttpsettimeouts),
+[WinHTTP reads](https://learn.microsoft.com/en-us/windows/win32/api/winhttp/nf-winhttp-winhttpreaddata),
+[timers](https://learn.microsoft.com/en-us/windows/win32/winmsg/using-timers).
+
+Full regression mã cuối đạt 14/14 nhóm mỗi PS7/PS5.1, gồm 37 ca mới mỗi kiến
+trúc và 32 parser/77 launch/16 updater metadata/10 archive/5 policy cũ:
+dist/regression-cf078fdb3dab479d81ce266db053848e/summary.json,
+dist/regression-379b61e8895d4a1baebe3197d4a8a983/summary.json.
+Debug/Release All x64/x86 (engine/updater/UI) đều 0 cảnh báo/0 lỗi;
+logs dist/background-update-{Debug,Release}-{x64,x86}.log. Static analysis
+project engine Debug x64 sạch: dist/background-update-analyze-x64.log.
+Không khởi chạy app, ký, cài, phát hành, hoặc thay settings/clipboard thật.
+
+## Service kiểm tra metadata legacy — 2026-10-10
+
+UpdateCheckService tách parser/so sánh phiên bản khỏi OpenKeyManager. Phân biệt
+Available, UpToDate, DownloadFailed và InvalidMetadata; About/MainControl chỉ
+báo phiên bản mới nhất khi metadata hợp lệ, lỗi kiểm tra báo thử lại. Startup
+không hiện lỗi mạng và chỉ hỏi cập nhật khi Available. Không đổi engine/hook.
+
+Parser giới hạn 65536 ký tự, độ sâu 16; chỉ chấp nhận schema release hiện tại
+(object, chuỗi ASCII không escape, số nguyên không dấu). Yêu cầu đúng object
+latestWinVersion cấp root, versionName ASCII an toàn tối đa 64 ký tự,
+versionCode 24 bit; từ chối thiếu/trùng trường quan trọng, số âm/thập phân/
+overflow/leading-zero, dữ liệu cắt cụt hoặc dư. Schema JSON khác sẽ báo lỗi
+metadata, không suy ra máy đang dùng phiên bản mới nhất. Giữ thứ tự so sánh
+major/minor/patch từ packed version legacy.
+
+Giới hạn: transport vẫn dùng getContentOfUrl đồng bộ, temp file dùng chung và
+chưa giới hạn download trước khi đọc; empty payload gộp với lỗi download.
+Fluent About và updater riêng chưa chuyển sang parser này. Chưa nghiệm thu
+dialog/network thật; không đánh dấu hoàn thành toàn bộ hạng mục updater.
+ZIP beta ở BETA_PACKAGING.md được tạo trước thay đổi này, chưa chứa service mới.
+
+Xác minh: 32 ca update-check metadata cuối + 77 launch + 16 updater metadata
++ 10 archive + 5 module-policy đạt mỗi x64/x86 trên PS7/PS5.1. Không dùng mạng,
+không mở updater. Full regression trước sửa explicit ASCII cast và thêm 3 ca
+boundary đạt 14/14 nhóm mỗi shell:
+dist/regression-ebb6a887fe3d44ba9e2f088681ecaade/summary.json,
+dist/regression-30b109bbad304401bbed6987f9f13cf5/summary.json.
+Sau sửa cast, chạy lại toàn bộ updater tests ở process shell riêng; không có
+cảnh báo compile. Lần chạy redirect trước có lỗi PowerShell runtime, không dùng
+lần đó làm bằng chứng. Static analysis mã cuối sạch 0 cảnh báo/0 lỗi tại
+dist/update-check-final-analyze-x64.log.
+
+Bốn All Debug/Release x64/x86 trên mã cuối (engine/updater/UI) đều sạch
+0 cảnh báo/0 lỗi. Logs dist/update-check-final-{Debug,Release}-{x64,x86}.log.
+Không chạy ứng dụng, đổi settings/clipboard, đóng gói hoặc phát hành.
+
+## Service mở updater legacy — 2026-10-10
+
+UpdateLaunchService dùng chung cho AboutDialog, MainControlDialog và startup
+AppDelegate. Policy Fluent được kiểm tra trước đọc module/launch; đường dẫn updater
+và working directory lấy từ thư mục executable, không dùng CWD/MAX_PATH buffer.
+Kiểm tra lỗi/truncation/NUL/đường dẫn tương đối trước gọi launch. Controllers chỉ
+thoát engine khi ShellExecuteW trả INT_PTR >32; thất bại giữ engine và báo lỗi,
+dialog vẫn bật lại nút. Chuỗi lỗi tiếng Việt dùng Unicode escape không phụ thuộc
+code page nguồn. Nguồn: https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecutew
+
+77 injected launch cases mỗi x64/x86 đạt: 0..33 với policy cho/chặn, lỗi module,
+NUL/tương đối/drive-relative/trailing separator/truncation, root drive,
+UNC, đường dẫn dài và tiếng Việt/khoảng trắng, truyền đúng owner/path/directory.
+Không khởi chạy process hoặc hiện dialog. 16 metadata/10 archive/5 module-policy
+fixtures cũ vẫn đạt. Full regression 14/14 nhóm trên mã cuối đạt PS7/PS5.1:
+dist/regression-b2dfd2c2168c4179be51117491cb1070/summary.json,
+dist/regression-81a8ab90fa4d442489d59b9551d17c07/summary.json.
+
+Bốn All Debug/Release x64/x86 (engine/updater/UI) sạch 0 cảnh báo/0 lỗi;
+Debug x64 All có static analysis. Logs dist/update-launch-{debug,release}-{x64,x86}.log.
+
+Beta Release All không SkipBuild x64/x86 sạch 0 cảnh báo/0 lỗi; 281 payload/
+hash/PE đạt PS7/PS5.1, resources 4/4 mỗi kiến trúc và notice WHATWG khớp.
+Tên/hash ở BETA_PACKAGING.md, logs dist/update-launch-beta-{x64,x86}.log.
+Tài liệu trong gói snapshot trước khi biết tên/hash ZIP mới nên ghi rõ gói
+read-failure cũ chưa chứa service launch; binary mới đã chứa mã cuối.
+Không cài/chạy/ký/phát hành hay thay Sandbox input trước.
+
+ShellExecute chấp nhận launch không chứng minh updater sống/chạy thành công.
+Chưa thử nút/hủy/lỗi/thoát engine thực tế. Chỉ tách bước launch: checkUpdate
+network/parser vẫn ở OpenKeyManager, có thể nhầm lỗi metadata/network là không có
+phiên bản mới. Chưa hoàn thành tách toàn bộ update service; updater vẫn kênh stable
+engine-only và bị chặn trong gói Fluent. Không tải/cài/phát hành update thật.
+
+## Clipboard read failure không bỏ format — 2026-10-10
+
+ConvertService phân biệt format vắng mặt, text rỗng và dữ liệu không đọc được.
+Kiểm tra IsClipboardFormatAvailable trước GetClipboardData; format có sẵn nhưng
+handle/GlobalSize/GlobalLock lỗi, allocation Unicode lẻ byte hoặc không có
+terminator đều trả WriteFailed trước EmptyClipboard. Đăng ký HTML Format lỗi
+cũng dừng vì chưa xác định được có rich text hay không. Unicode rỗng vẫn được
+ghi lại khi chuyển HTML hợp lệ; HTML rỗng đi kèm Unicode có text bị từ chối,
+không âm thầm bỏ format. Không có text hoặc chỉ Unicode rỗng vẫn NoText/no-op.
+Nguồn API: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-isclipboardformatavailable
+và https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclipboarddata
+
+3.575 ca Clipboard fake mỗi x64/x86 đạt (thêm 32 fixture), gồm ma trận lỗi
+trên cả Unicode/HTML, gọi qua Fluent và LegacyQuickConvert, đối chiếu map handle
+và byte buffer nguyên vẹn, không allocation/clear và CloseClipboard đúng một lần.
+175 pure-text/20 engine giữ nguyên; pure tests trap cả API kiểm tra availability.
+Ba fixture lỗi đọc cũ chuyển từ kỳ vọng NoText sang WriteFailed. Harness không
+dispatch delayed-rendering thật, không chạm Clipboard/settings hoặc mở ứng dụng.
+SetClipboardData lỗi sau clear vẫn chưa có rollback; format ngoài Unicode/HTML
+vẫn bị bỏ khi chuyển thành công theo chính sách hiện có, chưa bảo toàn mọi format.
+
+Full regression 14/14 nhóm đạt PS7 và PS5.1:
+dist/regression-a2743a5289174f429ea29a8602534479/summary.json,
+dist/regression-71613971a0204164bb32e1b3a08aa220/summary.json.
+
+Bốn build All Debug/Release x64/x86 (engine/updater/UI) sạch 0 cảnh báo/0 lỗi;
+Debug x64 All có static analysis. Logs dist/clipboard-read-{debug,release}-{x64,x86}.log.
+
+Beta Release All không SkipBuild x64/x86 sạch 0 cảnh báo/0 lỗi, 281 payload/
+hash/PE đạt PS7/PS5.1. Resources 4/4 mỗi kiến trúc; notice WHATWG khớp nguồn.
+Tên/hash ở BETA_PACKAGING.md, logs dist/clipboard-read-beta-{x64,x86}.log.
+Tài liệu trong ZIP được snapshot trước khi biết tên/hash gói mới, ghi rõ gói
+bridge legacy cũ chưa chứa read-failure fix; binary trong gói mới chứa mã cuối.
+Không cài/chạy/ký/phát hành hoặc thay Sandbox input trước.
+
+## Chuyển mã nhanh legacy dùng service chung — 2026-10-10
+
+OpenKeyHelper::quickConvert (hotkey/tray và dialog Win32) chuyển sang
+LegacyQuickConvert::convertClipboard với HWND của engine. Bridge snapshot
+hai bảng mã và năm flag từ globals legacy, không ghi ngược cấu hình. UI Fluent
+vẫn dùng GetActiveWindow của UI thread; bridge legacy không gọi GetActiveWindow.
+Owner null/busy được từ chối, không mượn HWND của ứng dụng đang gõ.
+Nguồn quy tắc owner: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-openclipboard
+
+3.543 ca Clipboard fake mỗi x64/x86 đạt, thêm 811 ca: 800 tổ hợp 5×5 bảng mã
+và 32 flag (kể cả flag đồng thời), HTML/selection/thuộc tính và Unicode song song,
+owner khi không có UI active, null/busy/no-text, lỗi cấp phát, HTML không hỗ trợ
+và bảng mã sai. Kiểm tra globals giữ nguyên. 175 pure-text/20 engine giữ nguyên.
+Ma trận bridge dùng public convert làm oracle mapping; 175 pure-text hiện có
+đối chiếu riêng với legacy convertUtil và goldens. Chưa dispatch hotkey/tray thật.
+
+HTML không còn đưa toàn bộ header/thẻ qua convertUtil: dùng parser/offset/entity
+đã kiểm thử ở Fluent. HTML bảng mã legacy/raw-text không hỗ trợ bị từ chối trước
+EmptyClipboard, không tự bỏ rich text; plain text vẫn hỗ trợ năm bảng mã.
+Service giữ bản sửa ký tự cuối packed-output đã có ở Fluent. Không sửa engine
+gõ/hook hay converter macOS. SetClipboardData lỗi sau clear chưa có rollback.
+Không chạm Clipboard/settings thật hoặc chạy ứng dụng trong harness.
+
+Mã bridge cuối sau khi tách globals khỏi service đã đạt 14/14 nhóm PS7:
+dist/regression-a444bde8fe3548bbacd9ea557f75803e/summary.json.
+14/14 nhóm PS5.1 trên cùng mã cuối cũng đạt:
+dist/regression-afbc6373229c47178eddf1472f6e6c83/summary.json.
+Debug x64 All/static analysis build sạch 0 cảnh báo/0 lỗi:
+dist/quick-convert-final-debug-x64.log. Lượt build đầu chưa đạt do UI link globals
+legacy và engine Debug bị process đang chạy giữ file; đã tách bridge và người
+dùng xác nhận thoát process, không tự dừng engine/debugger.
+
+Bốn build All (engine/updater/UI) Debug/Release x64/x86 cuối đều đạt
+0 cảnh báo/0 lỗi. Debug x64 All chạy static analysis.
+Logs: dist/quick-convert-final-{debug,release}-{x64,x86}.log.
+
+Beta x64/x86 từ Release All không SkipBuild sạch 0 cảnh báo/0 lỗi;
+281 payload/hash/PE đạt PS7/PS5.1, binary resources 4/4 mỗi kiến trúc,
+notice WHATWG khớp nguồn. Tên/hash ở BETA_PACKAGING.md; logs
+dist/quick-convert-beta-{x64,x86}.log. Gói snapshot tài liệu trước khi biết
+tên/hash ZIP mới, nên BETA_PACKAGING.md bên trong ghi artifact literal là gói
+trước bridge. Binary đã chứa bridge cuối. Không cài/chạy/ký/phát hành,
+không thay Sandbox input cũ. QA hotkey/tray/paste HTML thật vẫn cần người dùng.
+
+## CF_HTML literal reference recovery — 2026-10-10
+
+Ampersand/tên không khớp và entity số không có digit được giữ như text literal,
+chuyển casing rồi escape lại ampersand. Không giải mã đệ quy; longest-match
+cho entity hợp lệ vẫn giữ nguyên. Selection được đặt trong chuỗi literal nhưng
+vẫn bị từ chối khi cắt giữa entity đã nhận diện hoặc byte UTF-8.
+Nguồn: https://html.spec.whatwg.org/multipage/parsing.html#ambiguous-ampersand-state
+
+2.732 ca Clipboard fake mỗi kiến trúc đạt x64/x86, gồm goldens,
+selection/caret hai loại context, casing xuyên node, escape roundtrip,
+tên không khớp dài 10.000 ký tự và lỗi UTF-8/cấp phát trước EmptyClipboard.
+175 pure-text/20 engine giữ nguyên. Full regression 14/14 nhóm đạt ở cả PS7
+và PS5.1: dist/regression-b06cee00af1c4afd93d8cd39f34c278b/summary.json,
+dist/regression-69f99366c2b9413cb6be2a3d57bbcf55/summary.json.
+Không chạm Clipboard/settings thật hoặc mở UI.
+
+Bốn UI Debug/Release x64/x86 build sạch 0 cảnh báo/0 lỗi; Debug x64 có
+static analysis. Logs: dist/cfhtml-literal-{debug,release}-{x64,x86}.log.
+
+Beta mới từ Release All không SkipBuild x64/x86 có 0 cảnh báo/0 lỗi,
+281 payload/hash/PE đạt PS7/PS5.1. Binary resources 4/4 mỗi kiến trúc;
+notice WHATWG khớp nguồn. Tên/hash ở BETA_PACKAGING.md, logs
+dist/cfhtml-literal-beta-{x64,x86}.log. Không cài/chạy/ký/phát hành hoặc
+đổi Sandbox input trước. BETA_PACKAGING.md trong gói ghi rõ artifact numeric cũ chưa
+chứa literal recovery vì tài liệu được snapshot trước khi biết tên/hash ZIP mới.
+
+Raw-text tags, HTML bảng mã legacy và layout/CSS chưa hỗ trợ; parser vẫn chỉ
+xử lý tập con, không phải sanitizer. SetClipboardData lỗi sau clear vẫn chưa
+có rollback. QA Clipboard thật/máy sạch và hotkey engine legacy còn riêng.
+
+## CF_HTML numeric recovery — 2026-10-10
+
+Entity số thập phân/hex tiêu thụ liên tiếp các chữ số hợp lệ, chấp nhận thiếu
+dấu chấm phẩy và để nguyên suffix không thuộc entity. Giá trị tích lũy saturate
+ở 0x110000, không tràn số nhưng vẫn tiêu thụ hết chuỗi digit. Null, surrogate
+và ngoài Unicode được thay bằng U+FFFD. C1 dùng 27 mapping HTML/Windows-1252;
+5 C1 không có mapping, control khác và noncharacter giữ scalar.
+Nguồn: https://html.spec.whatwg.org/multipage/parsing.html#numeric-character-reference-end-state
+Notice WHATWG đã bổ sung attribution cho bảng C1.
+
+2.641 ca Clipboard fake mỗi kiến trúc đạt x64/x86; 175 pure-text và 20 engine giữ nguyên.
+Thêm 204 ca và chuyển 15 fixture numeric cũ từ từ chối sang recovery:
+goldens decimal/hex/thiếu dấu ;, 128 biến thể C1 đối chiếu Windows CP1252 độc lập,
+control/noncharacter, 10.000 digit/leading zeroes, selection/full digit run,
+attributes nguyên vẹn và stateful casing. Preview vẫn dùng toàn text node;
+không cho selection cắt giữa entity số, dù prefix ngắn cũng là số hợp lệ.
+
+Kỳ vọng decoder và casing được kiểm tra riêng: converter hiện có lowercase
+khi không bật flag viết hoa. Integration so với public convert() văn bản thuần;
+không sửa engine/converter hoặc thay semantics casing trong lượt này.
+
+Ampersand/named reference không khớp và numeric không có digit vẫn bị từ chối;
+raw-text tags, HTML bảng mã legacy và layout/CSS vẫn chưa hỗ trợ. Không phải
+HTML parser tổng quát. Test fake không chạm Clipboard/settings thật hoặc chạy UI;
+paste vào ứng dụng đích và máy sạch vẫn cần kiểm thử người dùng.
+
+14/14 regression suites PowerShell 7 đạt:
+dist/regression-8b228046d7b742bba8f5723c142af9a9/summary.json.
+14/14 regression suites PowerShell 5.1 đạt:
+dist/regression-f6c32ff9e3234abf9f8e81a355ebd295/summary.json.
+Static analysis UI Debug x64 đạt 0 cảnh báo/0 lỗi:
+dist/cfhtml-numeric-debug-x64.log.
+Bốn UI Debug/Release x64/x86 đều build 0 cảnh báo/0 lỗi:
+dist/cfhtml-numeric-{debug,release}-{x64,x86}.log.
+
+Beta x64/x86 từ Release All không SkipBuild đạt 0 cảnh báo/0 lỗi.
+281 payload/hash/PE đạt PS7/PS5.1, binary resources 4/4 mỗi kiến trúc,
+notice WHATWG/C1 khớp nguồn. Đường dẫn/hash ở BETA_PACKAGING.md, logs
+dist/cfhtml-numeric-beta-{x64,x86}.log. Không chạy/cài/ký/phát hành app,
+không đổi settings/Clipboard thật; ZIP và Sandbox input trước được giữ nguyên.
+
 ## CF_HTML alias thiếu dấu chấm phẩy — 2026-10-10
 
 Hỗ trợ 106 tên legacy trong text node, dựa trên longest-match của WHATWG:

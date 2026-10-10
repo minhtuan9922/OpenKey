@@ -70,15 +70,26 @@ namespace {
 	using ClipboardMemory = std::unique_ptr<void, MemoryDeleter>;
 
 	template<typename Character>
-	std::basic_string<Character> readClipboardText(const UINT format) {
+	struct ClipboardText {
+		std::basic_string<Character> text;
+		bool present = false;
+		bool valid = true;
+	};
+
+	template<typename Character>
+	ClipboardText<Character> readClipboardText(const UINT format) {
+		if (!IsClipboardFormatAvailable(format)) return {};
+		const ClipboardText<Character> failed{ {}, true, false };
 		const HANDLE memory = GetClipboardData(format);
-		if (!memory) return {};
-		const size_t count = GlobalSize(memory) / sizeof(Character);
+		if (!memory) return failed;
+		const size_t bytes = GlobalSize(memory);
+		if (!bytes || bytes % sizeof(Character)) return failed;
+		const size_t count = bytes / sizeof(Character);
 		const auto* text = static_cast<const Character*>(GlobalLock(memory));
-		if (!text) return {};
+		if (!text) return failed;
 		struct Unlocker { HANDLE memory; ~Unlocker() { GlobalUnlock(memory); } } unlocker{ memory };
 		const auto* end = std::find(text, text + count, Character{});
-		return end == text + count ? std::basic_string<Character>{} : std::basic_string<Character>(text, end);
+		return end == text + count ? failed : ClipboardText<Character>{ { text, end }, true, true };
 	}
 
 	ClipboardMemory copyClipboardBytes(const void* data, const size_t size) {
@@ -213,19 +224,29 @@ std::wstring ConvertService::convert(const std::wstring& source, const Options& 
 }
 
 ConvertService::ClipboardResult ConvertService::convertClipboard(const Options& options) {
+	// Never borrow the foreground window of another application.
+	return convertClipboard(options, GetActiveWindow());
+}
+
+ConvertService::ClipboardResult ConvertService::convertClipboard(const Options& options, HWND owner) {
 	if (!isValidCodeTable(options.fromCode) || !isValidCodeTable(options.toCode)) {
 		return ClipboardResult::WriteFailed;
 	}
-	// This synchronous service is called on the UI thread; never use another app's foreground HWND.
-	const HWND owner = GetActiveWindow();
 	if (!owner || !OpenClipboard(owner)) {
 		return ClipboardResult::ClipboardUnavailable;
 	}
 	const ClipboardCloser closer;
 
 	const UINT htmlFormat = RegisterClipboardFormatW(L"HTML Format");
-	const auto unicodeText = readClipboardText<wchar_t>(CF_UNICODETEXT);
-	const auto htmlText = htmlFormat ? readClipboardText<char>(htmlFormat) : std::string{};
+	// Without the registered ID we cannot safely rule out an HTML payload.
+	if (!htmlFormat) return ClipboardResult::WriteFailed;
+	const auto unicodeInput = readClipboardText<wchar_t>(CF_UNICODETEXT);
+	const auto htmlInput = readClipboardText<char>(htmlFormat);
+	// Missing, empty and unreadable are different states. Never drop one format
+	// merely because the other format can be converted successfully.
+	if (!unicodeInput.valid || !htmlInput.valid) return ClipboardResult::WriteFailed;
+	const auto& unicodeText = unicodeInput.text;
+	const auto& htmlText = htmlInput.text;
 
 	if (unicodeText.empty() && htmlText.empty()) {
 		return ClipboardResult::NoText;
@@ -233,7 +254,7 @@ ConvertService::ClipboardResult ConvertService::convertClipboard(const Options& 
 
 	const std::wstring convertedUnicode = unicodeText.empty() ? std::wstring{} : convert(unicodeText, options);
 	std::string convertedHtml;
-	if (!htmlText.empty()) {
+	if (htmlInput.present) {
 		// CF_HTML remains Unicode, independent of the plain-text code table.
 		if (htmlText.size() > INT_MAX || !MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, htmlText.data(), static_cast<int>(htmlText.size()), nullptr, 0) ||
 			options.fromCode != 0 || options.toCode != 0 ||
@@ -247,11 +268,11 @@ ConvertService::ClipboardResult ConvertService::convertClipboard(const Options& 
 	}
 	ClipboardMemory htmlMemory;
 	ClipboardMemory unicodeMemory;
-	if (!htmlText.empty()) {
+	if (htmlInput.present) {
 		htmlMemory = copyClipboardBytes(convertedHtml.c_str(), convertedHtml.size() + 1);
 		if (!htmlMemory) return ClipboardResult::WriteFailed;
 	}
-	if (!unicodeText.empty()) {
+	if (unicodeInput.present) {
 		unicodeMemory = copyClipboardBytes(convertedUnicode.c_str(), (convertedUnicode.size() + 1) * sizeof(wchar_t));
 		if (!unicodeMemory) return ClipboardResult::WriteFailed;
 	}

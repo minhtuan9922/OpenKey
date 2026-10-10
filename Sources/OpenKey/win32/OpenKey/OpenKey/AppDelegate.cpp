@@ -13,10 +13,11 @@ redistribute your new version, it MUST be open source.
 -----------------------------------------------------------*/
 #include "AppDelegate.h"
 #include "SettingsService.h"
-#include "UpdatePolicy.h"
+#include "UpdateLaunchService.h"
 #include "../../../engine/Macro.h"
 
 static AppDelegate* _instance;
+static constexpr wchar_t updateCheckProperty[] = L"OpenKey.UpdateCheck.Owner";
 
 namespace {
 	bool launchModernControlPanel() {
@@ -125,32 +126,72 @@ bool AppDelegate::isDialogMsg(MSG & msg) const {
 }
 
 void AppDelegate::checkUpdate() {
-	string newVersion;
-	if (OpenKeyManager::checkUpdate(newVersion)) {
-		WCHAR msg[256];
-		wsprintf(msg,
-			TEXT("OpenKey Có phiên bản mới (%s), bạn có muốn cập nhật không?"),
-			utf8ToWideString(newVersion).c_str());
+	beginUpdateCheck();
+}
 
-		int msgboxID = MessageBox(
-			0,
-			msg,
-			_T("OpenKey Update"),
-			MB_ICONEXCLAMATION | MB_YESNO
-		);
-			if (msgboxID == IDYES) {
-				if (!OpenKeyUpdatePolicy::CanUseLegacyUpdater()) {
-					OpenKeyUpdatePolicy::ShowManualUpdateNotice(nullptr);
-					return;
-				}
-			//Call OpenKeyUpdate
-			WCHAR path[MAX_PATH];
-			GetCurrentDirectory(MAX_PATH, path);
-			wsprintf(path, TEXT("%s\\OpenKeyUpdate.exe"), path);
-			ShellExecute(0, L"", path, 0, 0, SW_SHOWNORMAL);
-			AppDelegate::getInstance()->onOpenKeyExit();
-		}
+void AppDelegate::beginUpdateCheck(HWND owner, HWND button) {
+	if (exiting) return;
+	if (updateCheck.Busy()) {
+		if (owner) MessageBoxW(owner, L"Đang kiểm tra cập nhật. Vui lòng chờ.", L"OpenKey Update", MB_OK);
+		return;
+	}
+	updateTimer = SetTimer(nullptr, 0, 100, [](HWND, UINT, UINT_PTR timer, DWORD) {
+		AppDelegate::getInstance()->pollUpdateCheck(timer);
+	});
+	if (!updateTimer) {
+		if (owner) MessageBoxW(owner, L"Không thể bắt đầu kiểm tra cập nhật.", L"OpenKey Update", MB_OK | MB_ICONERROR);
+		return;
+	}
+	if (!updateCheck.Start([] {
+		AsyncUpdateCheck::Outcome outcome;
+		outcome.result = OpenKeyManager::checkUpdate(outcome.version);
+		return outcome;
+	})) {
+		stopUpdateCheck();
+		if (owner) MessageBoxW(owner, L"Không thể bắt đầu kiểm tra cập nhật.", L"OpenKey Update", MB_OK | MB_ICONERROR);
+		return;
+	}
+	updateOwner = owner; updateButton = button; manualUpdateCheck = owner != nullptr;
+	updateToken = updateCheck.Token();
+	if (owner && !SetPropW(owner, updateCheckProperty, updateToken)) {
+		stopUpdateCheck();
+		MessageBoxW(owner, L"Không thể bắt đầu kiểm tra cập nhật.", L"OpenKey Update", MB_OK | MB_ICONERROR);
+		return;
+	}
+	if (button) EnableWindow(button, false);
+}
 
+void AppDelegate::stopUpdateCheck() {
+	if (updateTimer) KillTimer(nullptr, updateTimer);
+	updateTimer = 0;
+	if (updateOwner && GetPropW(updateOwner, updateCheckProperty) == updateToken) {
+		RemovePropW(updateOwner, updateCheckProperty);
+		if (updateButton) EnableWindow(updateButton, true);
+	}
+	updateOwner = nullptr; updateButton = nullptr; updateToken = nullptr;
+	manualUpdateCheck = false;
+	updateCheck.Abandon();
+}
+
+void AppDelegate::pollUpdateCheck(UINT_PTR timer) {
+	if (!updateTimer || timer != updateTimer) return;
+	AsyncUpdateCheck::Outcome outcome;
+	if (!updateCheck.Poll(outcome)) return;
+	const HWND owner = updateOwner;
+	const bool manual = manualUpdateCheck;
+	const bool validOwner = owner && GetPropW(owner, updateCheckProperty) == updateToken;
+	stopUpdateCheck(); // Release request/timer before any modal/re-entrant UI.
+	if (manual && !validOwner) return;
+	if (outcome.result == UpdateCheckService::Result::Available) {
+		const auto message = L"OpenKey có phiên bản mới (" + utf8ToWideString(outcome.version)
+			+ L"), bạn có muốn cập nhật không?";
+		if (MessageBoxW(owner, message.c_str(), L"OpenKey Update", MB_ICONEXCLAMATION | MB_YESNO) == IDYES
+			&& !exiting && UpdateLaunchService::StartOrNotify(owner)) onOpenKeyExit();
+	} else if (manual) {
+		const bool current = outcome.result == UpdateCheckService::Result::UpToDate;
+		MessageBoxW(owner, current ? L"Bạn đang dùng phiên bản mới nhất!"
+			: L"Không thể kiểm tra cập nhật. Vui lòng thử lại sau.", L"OpenKey Update",
+			MB_OK | (current ? 0 : MB_ICONERROR));
 	}
 }
 
@@ -201,6 +242,7 @@ int AppDelegate::run(HINSTANCE hInstance) {
 			DispatchMessage(&msg);
 		}
 	}
+	stopUpdateCheck();
 	return 0;
 }
 
@@ -214,6 +256,12 @@ void AppDelegate::createMainDialog() {
 }
 
 void AppDelegate::closeDialog(BaseDialog * dialog) {
+	if (updateOwner == dialog->getHwnd()) {
+		if (GetPropW(updateOwner, updateCheckProperty) == updateToken)
+			RemovePropW(updateOwner, updateCheckProperty);
+		updateOwner = nullptr; updateButton = nullptr;
+		// Keep the request busy until completion; never prompt for a closed dialog.
+	}
 	dialog->closeDialog();
 	if (mainDialog == dialog) {
 		delete mainDialog;
@@ -366,6 +414,9 @@ void AppDelegate::onOpenKeyAbout() {
 }
 
 void AppDelegate::onOpenKeyExit() {
+	if (exiting) return;
+	exiting = true;
+	stopUpdateCheck();
 	OpenKeyManager::freeEngine();
 	SystemTrayHelper::removeSystemTray();
 	PostQuitMessage(0);

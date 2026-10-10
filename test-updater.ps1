@@ -82,5 +82,5 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Update policy failed: $($policy.Name)" }
     }
     Write-Host "5/5 module-directory update policy cases passed ($Platform)."
-    Write-Host "10 updater fixture cases + 16 metadata cases passed ($Platform). Fixtures retained: $fixtureRoot"
+    Write-Host "10 updater fixture cases + 23 metadata cases passed ($Platform). Fixtures retained: $fixtureRoot"
 } finally { Pop-Location }

@@ -45,6 +45,5 @@ public:
 	static DWORD getVersionNumber();
 	static wstring getVersionString();
 
-	static wstring getContentOfUrl(LPCTSTR url);
 };
 

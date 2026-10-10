@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AboutPage.g.h"
+#include "UpdateRequestState.h"
 
 namespace winrt::OpenKeyUI::implementation
 {
@@ -14,6 +15,9 @@ namespace winrt::OpenKeyUI::implementation
         winrt::fire_and_forget OnCheckUpdatesClicked(
             winrt::Windows::Foundation::IInspectable const& sender,
             winrt::Microsoft::UI::Xaml::RoutedEventArgs const& args);
+    private:
+        void FinishUpdate(uint64_t ticket) noexcept;
+        UpdateRequestState updateRequest;
     };
 }
 

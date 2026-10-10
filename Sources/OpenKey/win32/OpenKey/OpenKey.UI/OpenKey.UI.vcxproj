@@ -165,6 +165,10 @@
     <ClInclude Include="..\OpenKey\ConvertService.h">
       <Link>ConvertService.h</Link>
     </ClInclude>
+    <ClInclude Include="UpdateRequestState.h" />
+    <ClInclude Include="..\OpenKey\UpdateService.h"><Link>UpdateService.h</Link></ClInclude>
+    <ClInclude Include="..\OpenKey\UpdateCheckService.h"><Link>UpdateCheckService.h</Link></ClInclude>
+    <ClInclude Include="..\OpenKey\UpdateDownloadService.h"><Link>UpdateDownloadService.h</Link></ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml" />

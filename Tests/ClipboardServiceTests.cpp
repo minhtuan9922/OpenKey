@@ -12,13 +12,18 @@ std::map<UINT, HANDLE> formats;
 bool active = true, busy = false, emptyFails = false, isOpen = false;
 int allocFail = 0, lockFail = 0, allocations = 0, locks = 0, closes = 0, empties = 0, passed = 0;
 UINT setFail = 0;
+UINT getFail = 0, sizeFail = 0;
+bool registerFails = false;
+HWND expectedOwner = reinterpret_cast<HWND>(1);
+int windowCalls = 0;
 constexpr UINT Html = 500;
 void require(bool condition) { if (!condition) throw std::runtime_error("Clipboard fixture assertion failed"); }
-HWND window() { return active ? reinterpret_cast<HWND>(1) : nullptr; }
-BOOL open(HWND owner) { require(owner == reinterpret_cast<HWND>(1)); if (busy) return FALSE; isOpen = true; return TRUE; }
+HWND window() { ++windowCalls; return active ? reinterpret_cast<HWND>(1) : nullptr; }
+BOOL open(HWND owner) { require(owner == expectedOwner); if (busy) return FALSE; isOpen = true; return TRUE; }
 BOOL close() { require(isOpen); isOpen = false; ++closes; return TRUE; }
-UINT registerFormat(LPCWSTR) { return Html; }
-HANDLE get(UINT format) { require(isOpen); return formats.count(format) ? formats.at(format) : nullptr; }
+UINT registerFormat(LPCWSTR) { return registerFails ? 0 : Html; }
+BOOL available(UINT format) { require(isOpen); return formats.count(format) != 0; }
+HANDLE get(UINT format) { require(isOpen); return format != getFail && formats.count(format) ? formats.at(format) : nullptr; }
 HGLOBAL alloc(UINT flags, SIZE_T size) {
     require(flags == GMEM_MOVEABLE);
     if (++allocations == allocFail) return nullptr;
@@ -30,7 +35,7 @@ LPVOID lock(HGLOBAL handle) {
     auto& block = *blocks.at(handle); ++block.locks; return block.bytes.data();
 }
 BOOL unlock(HGLOBAL handle) { auto& block = *blocks.at(handle); require(block.locks > 0); --block.locks; return TRUE; }
-SIZE_T size(HGLOBAL handle) { return blocks.at(handle)->bytes.size(); }
+SIZE_T size(HGLOBAL handle) { return sizeFail && formats.count(sizeFail) && formats.at(sizeFail) == handle ? 0 : blocks.at(handle)->bytes.size(); }
 HGLOBAL free(HGLOBAL handle) { require(!blocks.at(handle)->owned && !blocks.at(handle)->locks); blocks.erase(handle); return nullptr; }
 BOOL empty() {
     require(isOpen); ++empties; if (emptyFails) return FALSE;
@@ -81,6 +86,8 @@ std::wstring text() { const auto& bytes = blocks.at(formats.at(CF_UNICODETEXT))-
 template<typename Action> void test(const char* name, Action action) {
     blocks.clear(); formats.clear(); active = true; busy = emptyFails = isOpen = false;
     allocFail = lockFail = allocations = locks = closes = empties = 0; setFail = 0;
+    windowCalls = 0; expectedOwner = reinterpret_cast<HWND>(1);
+    getFail = sizeFail = 0; registerFails = false;
     try {
         action(); require(!isOpen);
         for (const auto& block : blocks) require(block.second->owned && !block.second->locks);
@@ -92,6 +99,7 @@ template<typename Action> void test(const char* name, Action action) {
 #define CloseClipboard fixture::close
 #define RegisterClipboardFormatW fixture::registerFormat
 #define GetClipboardData fixture::get
+#define IsClipboardFormatAvailable fixture::available
 #define EmptyClipboard fixture::empty
 #define SetClipboardData fixture::set
 #define GlobalAlloc fixture::alloc
@@ -101,10 +109,82 @@ template<typename Action> void test(const char* name, Action action) {
 #define GlobalSize fixture::size
 #define GetActiveWindow fixture::window
 #include "../Sources/OpenKey/win32/OpenKey/OpenKey/ConvertService.cpp"
+#include "../Sources/OpenKey/win32/OpenKey/OpenKey/LegacyQuickConvert.h"
 int main() {
     using namespace fixture; using R = ConvertService::ClipboardResult;
     ConvertService::Options options; options.toAllCaps = true;
     try {
+        const auto setLegacyOptions = [](const ConvertService::Options& value) {
+            convertToolFromCode = static_cast<Uint8>(value.fromCode);
+            convertToolToCode = static_cast<Uint8>(value.toCode);
+            convertToolToAllCaps = value.toAllCaps;
+            convertToolToAllNonCaps = value.toAllNonCaps;
+            convertToolToCapsFirstLetter = value.toCapsFirstLetter;
+            convertToolToCapsEachWord = value.toCapsEachWord;
+            convertToolRemoveMark = value.removeMark;
+        };
+        for (int from = 0; from < 5; ++from) for (int to = 0; to < 5; ++to)
+            for (int flags = 0; flags < 32; ++flags) test("legacy quick convert options matrix", [&] {
+                ConvertService::Options value; value.fromCode = from; value.toCode = to;
+                value.toAllCaps = (flags & 1) != 0; value.toAllNonCaps = (flags & 2) != 0;
+                value.toCapsFirstLetter = (flags & 4) != 0; value.toCapsEachWord = (flags & 8) != 0;
+                value.removeMark = (flags & 16) != 0;
+                ConvertService::Options encode; encode.toCode = from;
+                const auto source = ConvertService::convert(L"tiếng Việt. đường ệ", encode);
+                const auto expected = ConvertService::convert(source, value);
+                setLegacyOptions(value); unicode(source); active = false;
+                expectedOwner = reinterpret_cast<HWND>(2);
+                require(LegacyQuickConvert::convertClipboard(expectedOwner) == R::Success
+                    && text() == expected && windowCalls == 0 && closes == 1 && empties == 1);
+                require(convertToolFromCode == from && convertToolToCode == to
+                    && convertToolToAllCaps == value.toAllCaps && convertToolToAllNonCaps == value.toAllNonCaps
+                    && convertToolToCapsFirstLetter == value.toCapsFirstLetter
+                    && convertToolToCapsEachWord == value.toCapsEachWord && convertToolRemoveMark == value.removeMark);
+            });
+        test("legacy quick convert HTML and selection", [&] {
+            setLegacyOptions(options); unicode(L"việt"); active = false;
+            expectedOwner = reinterpret_cast<HWND>(2);
+            rawHtml(document("<b title='việt'>&unknown; vi&#7879;t</b>", "\r\n", false, true, 16, 25));
+            require(LegacyQuickConvert::convertClipboard(expectedOwner) == R::Success
+                && text() == L"VIỆT" && htmlText() == document("<b title='việt'>&amp;UNKNOWN; VIỆT</b>", "\r\n", false, true, 16, 29)
+                && windowCalls == 0);
+        });
+        for (const auto* fragment : { "<script>việt</script>", "<span title='broken>việt" })
+            test("legacy quick convert invalid HTML preserves formats", [&] {
+                setLegacyOptions(options); unicode(L"old"); html(fragment); const auto original = htmlText();
+                require(LegacyQuickConvert::convertClipboard(expectedOwner) == R::WriteFailed
+                    && !empties && text() == L"old" && htmlText() == original && windowCalls == 0);
+            });
+        test("legacy quick convert null owner preserves data", [&] {
+            setLegacyOptions(options); unicode(L"old");
+            require(LegacyQuickConvert::convertClipboard(nullptr) == R::ClipboardUnavailable
+                && !empties && !closes && text() == L"old" && windowCalls == 0);
+        });
+        test("legacy quick convert busy Clipboard", [&] {
+            setLegacyOptions(options); unicode(L"old"); busy = true;
+            require(LegacyQuickConvert::convertClipboard(expectedOwner) == R::ClipboardUnavailable
+                && !empties && !closes && text() == L"old");
+        });
+        test("legacy quick convert no text", [&] {
+            setLegacyOptions(options);
+            require(LegacyQuickConvert::convertClipboard(expectedOwner) == R::NoText && !empties && closes == 1);
+        });
+        for (int failure : { 1, 2 }) test("legacy quick convert allocation failure", [&] {
+            setLegacyOptions(options); unicode(L"old"); html("việt"); const auto original = htmlText(); allocFail = failure;
+            require(LegacyQuickConvert::convertClipboard(expectedOwner) == R::WriteFailed
+                && !empties && text() == L"old" && htmlText() == original);
+        });
+        for (bool source : { false, true }) test("legacy quick convert legacy HTML preserves data", [&] {
+            auto value = options; if (source) value.fromCode = 1; else value.toCode = 1;
+            setLegacyOptions(value); unicode(L"old"); html("việt"); const auto original = htmlText();
+            require(LegacyQuickConvert::convertClipboard(expectedOwner) == R::WriteFailed
+                && !empties && text() == L"old" && htmlText() == original);
+        });
+        test("legacy quick convert invalid code preserves data", [&] {
+            auto value = options; value.toCode = 255; setLegacyOptions(value); unicode(L"old");
+            require(LegacyQuickConvert::convertClipboard(expectedOwner) == R::WriteFailed
+                && !empties && !closes && text() == L"old");
+        });
         test("Unicode success", [&] { unicode(L"tiếng việt 😀"); require(ConvertService::convertClipboard(options) == R::Success); require(text() == L"TIẾNG VIỆT 😀" && closes == 1 && empties == 1); });
         test("HTML text success", [&] { html("tiếng việt"); require(ConvertService::convertClipboard(options) == R::Success); require(htmlText() == document("TIẾNG VIỆT") && closes == 1); });
         test("both formats", [&] { unicode(L"việt"); html("việt"); require(ConvertService::convertClipboard(options) == R::Success && formats.size() == 2 && allocations == 2); });
@@ -112,9 +192,60 @@ int main() {
         test("no active window", [&] { unicode(L"old"); active = false; require(ConvertService::convertClipboard(options) == R::ClipboardUnavailable && !empties && !closes); });
         test("no text", [&] { require(ConvertService::convertClipboard(options) == R::NoText && closes == 1 && !empties); });
         test("non-text format", [&] { const BYTE data = 42; seed(CF_BITMAP, &data, 1); require(ConvertService::convertClipboard(options) == R::NoText && formats.count(CF_BITMAP) && !empties); });
-        test("unterminated Unicode", [&] { const wchar_t data[] = { L'a', L'b' }; seed(CF_UNICODETEXT, data, sizeof(data)); require(ConvertService::convertClipboard(options) == R::NoText && !empties && closes == 1); });
-        test("unterminated HTML", [&] { const char data[] = { 'a', 'b' }; seed(Html, data, sizeof(data)); require(ConvertService::convertClipboard(options) == R::NoText && !empties); });
-        test("read lock failure", [&] { unicode(L"old"); lockFail = 1; require(ConvertService::convertClipboard(options) == R::NoText && !empties && text() == L"old"); });
+        test("unterminated Unicode", [&] { const wchar_t data[] = { L'a', L'b' }; seed(CF_UNICODETEXT, data, sizeof(data)); require(ConvertService::convertClipboard(options) == R::WriteFailed && !empties && closes == 1); });
+        test("unterminated HTML", [&] { const char data[] = { 'a', 'b' }; seed(Html, data, sizeof(data)); require(ConvertService::convertClipboard(options) == R::WriteFailed && !empties); });
+        test("read lock failure", [&] { unicode(L"old"); lockFail = 1; require(ConvertService::convertClipboard(options) == R::WriteFailed && !empties && text() == L"old"); });
+        for (bool legacy : { false, true }) for (UINT broken : { UINT(CF_UNICODETEXT), Html })
+            for (int failure = 0; failure < 6; ++failure) test("unreadable format aborts both formats before clear", [&] {
+                setLegacyOptions(options);
+                if (broken == CF_UNICODETEXT && failure >= 3) {
+                    const BYTE bytes[] = { 'a', 0, 'b', 0 };
+                    seed(broken, bytes, failure == 3 ? sizeof(bytes) : failure == 4 ? 0 : 3);
+                } else unicode(L"việt");
+                if (broken == Html && failure >= 3) {
+                    const char bytes[] = { 'a', 'b', 'c' };
+                    seed(broken, bytes, failure == 4 ? 0 : sizeof(bytes));
+                } else html("<b>việt</b>");
+                if (failure == 0) getFail = broken;
+                if (failure == 1) sizeFail = broken;
+                if (failure == 2) lockFail = broken == CF_UNICODETEXT ? 1 : 2;
+                const auto originalFormats = formats;
+                std::map<HANDLE, std::vector<BYTE>> originalBytes;
+                for (const auto& block : blocks) originalBytes.emplace(block.first, block.second->bytes);
+                const auto result = legacy ? LegacyQuickConvert::convertClipboard(expectedOwner)
+                    : ConvertService::convertClipboard(options);
+                require(result == R::WriteFailed && !empties && !allocations && closes == 1
+                    && formats == originalFormats && blocks.size() == originalBytes.size());
+                for (const auto& block : blocks) require(block.second->bytes == originalBytes.at(block.first));
+            });
+        for (bool legacy : { false, true }) test("format registration failure preserves clipboard", [&] {
+            setLegacyOptions(options); unicode(L"việt"); html("việt");
+            const auto original = htmlText(); registerFails = true;
+            const auto result = legacy ? LegacyQuickConvert::convertClipboard(expectedOwner)
+                : ConvertService::convertClipboard(options);
+            require(result == R::WriteFailed && !empties && !allocations && closes == 1
+                && text() == L"việt" && htmlText() == original && formats.size() == 2);
+        });
+        for (bool legacy : { false, true }) test("empty Unicode companion is retained", [&] {
+            setLegacyOptions(options); unicode(L""); html("việt");
+            const auto result = legacy ? LegacyQuickConvert::convertClipboard(expectedOwner)
+                : ConvertService::convertClipboard(options);
+            require(result == R::Success && formats.size() == 2 && text().empty()
+                && htmlText() == document("VIỆT") && allocations == 2 && empties == 1);
+        });
+        for (bool legacy : { false, true }) test("empty HTML companion is not discarded", [&] {
+            setLegacyOptions(options); unicode(L"việt"); rawHtml("");
+            const auto result = legacy ? LegacyQuickConvert::convertClipboard(expectedOwner)
+                : ConvertService::convertClipboard(options);
+            require(result == R::WriteFailed && !empties && !allocations
+                && formats.size() == 2 && text() == L"việt" && htmlText().empty());
+        });
+        for (bool legacy : { false, true }) test("empty text is a no-op", [&] {
+            setLegacyOptions(options); unicode(L"");
+            const auto result = legacy ? LegacyQuickConvert::convertClipboard(expectedOwner)
+                : ConvertService::convertClipboard(options);
+            require(result == R::NoText && !empties && !allocations && formats.count(CF_UNICODETEXT));
+        });
         for (int failure : { 1, 2 }) test("allocation failure before clear", [&] { unicode(L"old"); html("old"); allocFail = failure; require(ConvertService::convertClipboard(options) == R::WriteFailed && !empties && closes == 1 && text() == L"old" && formats.size() == 2); });
         test("output lock failure", [&] { unicode(L"old"); lockFail = 2; require(ConvertService::convertClipboard(options) == R::WriteFailed && !empties && text() == L"old"); });
         test("empty failure", [&] { unicode(L"old"); emptyFails = true; require(ConvertService::convertClipboard(options) == R::WriteFailed && text() == L"old" && closes == 1); });
@@ -125,7 +256,7 @@ int main() {
         test("HTML comments preserved", [&] { html("<!--Giữ Nguyên >-->việt"); require(ConvertService::convertClipboard(options) == R::Success && htmlText() == document("<!--Giữ Nguyên >-->VIỆT")); });
         for (const auto& newline : { std::string("\n"), std::string("\r") }) test("HTML newline variants", [&] { rawHtml(document("việt", newline)); require(ConvertService::convertClipboard(options) == R::Success && htmlText() == document("VIỆT", newline)); });
         test("HTML empty fragment", [&] { html(""); require(ConvertService::convertClipboard(options) == R::Success && htmlText() == document("")); });
-        for (const auto& fragment : { "&unknown; Việt", "<script>Việt</script>", "<STYLE>Việt</STYLE>", "<span title='broken>Việt", "<!--broken" }) test("unsupported HTML preserves data", [&] { unicode(L"old"); html(fragment); const auto original = htmlText(); require(ConvertService::convertClipboard(options) == R::WriteFailed && !empties && text() == L"old" && htmlText() == original); });
+        for (const auto& fragment : { "<script>Việt</script>", "<STYLE>Việt</STYLE>", "<span title='broken>Việt", "<!--broken" }) test("unsupported HTML preserves data", [&] { unicode(L"old"); html(fragment); const auto original = htmlText(); require(ConvertService::convertClipboard(options) == R::WriteFailed && !empties && text() == L"old" && htmlText() == original); });
         test("HTML invalid UTF8", [&] { html(std::string("bad\xFF")); require(ConvertService::convertClipboard(options) == R::WriteFailed && !empties); });
         test("HTML malformed header", [&] { unicode(L"old"); rawHtml("not CF_HTML"); require(ConvertService::convertClipboard(options) == R::WriteFailed && !empties && text() == L"old"); });
         test("HTML out of range offset", [&] { auto value = document("việt"); value.replace(value.find("EndFragment:") + 12, 10, "9999999999"); rawHtml(value); require(ConvertService::convertClipboard(options) == R::WriteFailed && !empties); });
@@ -163,8 +294,59 @@ int main() {
             test("HTML entity conversion", [&] { html(pair.first); require(ConvertService::convertClipboard(options) == R::Success && htmlText() == document(pair.second)); });
         test("HTML entity remove marks", [&] { html("vi&#7879;t &#x111;ẹp"); auto remove = options; remove.removeMark = true; require(ConvertService::convertClipboard(remove) == R::Success && htmlText() == document("VIET DEP")); });
         test("HTML entities lowercase", [&] { html("VI&#x1EC6;T &AMP;"); auto lower = options; lower.toAllCaps = false; lower.toAllNonCaps = true; require(ConvertService::convertClipboard(lower) == R::Success && htmlText() == document("việt &amp;")); });
-        for (const auto& invalid : { "&apos", "&", "&Amp;", "&unknownEntity;", "&#;", "&#x;", "&#-1;", "&#0;", "&#xD800;", "&#xDFFF;", "&#x110000;", "&#999999999999999999999999;", "&#xFFFFFFFFFFFFFFFF;", "&#12;", "&#127;", "&#128;", "&#xFDD0;", "&#xFFFF;", "&#x10FFFF;", "&#12A;", "&#xG1;", "&amp&;" })
-            test("HTML invalid entity preserves data", [&] { unicode(L"old"); html(invalid); const auto original = htmlText(); require(ConvertService::convertClipboard(options) == R::WriteFailed && !empties && text() == L"old" && htmlText() == original); });
+        for (const auto& pair : { std::pair<std::string, std::string>{ "&apos", "&amp;APOS" },
+            { "&", "&amp;" }, { "&Amp;", "&amp;AMP;" }, { "&unknownEntity;", "&amp;UNKNOWNENTITY;" },
+            { "&#;", "&amp;#;" }, { "&#x;", "&amp;#X;" }, { "&#-1;", "&amp;#-1;" },
+            { "&#xG1;", "&amp;#XG1;" }, { "&amp&;", "&amp;&amp;;" },
+            { "&unknown; Việt", "&amp;UNKNOWN; VIỆT" }, { "&&copy;", "&amp;©" },
+            { "&amp;unknown;", "&amp;UNKNOWN;" }, { "& Việt", "&amp; VIỆT" } })
+            test("HTML literal reference recovery integration", [&] {
+                html(pair.first);
+                require(ConvertService::convertClipboard(options) == R::Success
+                    && htmlText() == document(pair.second));
+            });
+        for (const auto& source : { std::string("&unknownEntity;"), std::string("&#xG1;"),
+            std::string("&#;"), std::string("&apos"), std::string("&") }) {
+            for (size_t offset = 0; offset <= source.size(); ++offset)
+                for (bool noContext : { false, true }) test("HTML literal reference selection", [&] {
+                    const auto expected = HtmlClipboard::escapeText(wideToUtf8(
+                        ConvertService::convert(utf8ToWide(source), options)));
+                    const auto prefix = HtmlClipboard::escapeText(wideToUtf8(
+                        ConvertService::convert(utf8ToWide(source.substr(0, offset)), options)));
+                    rawHtml(document(source, "\r\n", noContext, true, offset, offset));
+                    require(ConvertService::convertClipboard(options) == R::Success
+                        && htmlText() == document(expected, "\r\n", noContext, true, prefix.size(), prefix.size()));
+                });
+        }
+        for (const auto& pair : { std::pair<std::string, std::string>{ "&unknown;", "&unknown;" },
+            { "&", "&" }, { "&#", "&#" }, { "&#x", "&#x" }, { "&#X;", "&#X;" },
+            { "&#+1;", "&#+1;" }, { "&#x-1;", "&#x-1;" }, { "&#xG1;", "&#xG1;" },
+            { "&&copy;", "&©" }, { "&amp&;", "&&;" }, { "&#&amp;", "&#&" },
+            { "&amp;copy;", "&copy;" }, { "&unknown;&lt;", "&unknown;<" },
+            { "&\r\nViệt", "&\nViệt" }, { "&é;", "&é;" } })
+            test("HTML literal reference golden and escape roundtrip", [&] {
+                std::string decoded, roundtrip;
+                require(HtmlClipboard::decodeText(pair.first, decoded) && decoded == pair.second);
+                require(HtmlClipboard::decodeText(HtmlClipboard::escapeText(decoded), roundtrip)
+                    && roundtrip == decoded);
+            });
+        test("HTML long unknown name is bounded and literal", [&] {
+            const std::string source = "&" + std::string(10000, 'z') + ";";
+            std::string decoded;
+            require(HtmlClipboard::decodeText(source, decoded) && decoded == source);
+            html(source); require(ConvertService::convertClipboard(options) == R::Success
+                && htmlText() == document("&amp;" + std::string(10000, 'Z') + ";"));
+        });
+        test("HTML recovered reference invalid UTF8 preserves data", [&] {
+            unicode(L"old"); html("&unknown;\xFF"); const auto original = htmlText();
+            require(ConvertService::convertClipboard(options) == R::WriteFailed
+                && !empties && text() == L"old" && htmlText() == original);
+        });
+        test("HTML recovered reference allocation failure preserves data", [&] {
+            unicode(L"old"); html("&unknown;"); const auto original = htmlText(); allocFail = true;
+            require(ConvertService::convertClipboard(options) == R::WriteFailed
+                && !empties && text() == L"old" && htmlText() == original);
+        });
         for (bool noContext : { false, true }) test("HTML entity selection mapping", [&] { const std::string original = "<b>vi&#7879;t &amp; nam</b>", expected = "<b>VIET &amp; NAM</b>"; rawHtml(document(original, "\r\n", noContext, true, std::string("<b>vi&#7879;t ").size(), original.size() - 4)); auto remove = options; remove.removeMark = true; require(ConvertService::convertClipboard(remove) == R::Success && htmlText() == document(expected, "\r\n", noContext, true, 8, expected.size() - 4)); });
         for (size_t offset = 1; offset < std::string("&#7879;").size(); ++offset) test("HTML selection inside numeric entity", [&] { rawHtml(document("&#7879;", "\r\n", false, true, offset, std::string("&#7879;").size())); require(ConvertService::convertClipboard(options) == R::WriteFailed && !empties); });
         for (size_t offset = 1; offset < std::string("&amp;").size(); ++offset) test("HTML selection inside named entity", [&] { rawHtml(document("&amp;", "\r\n", false, true, 0, offset)); require(ConvertService::convertClipboard(options) == R::WriteFailed && !empties); });
@@ -179,7 +361,7 @@ int main() {
             test("HTML linebreak boundary", [&] { html("xin<br/>CHÀO"); require(ConvertService::convertClipboard(casing) == R::Success && htmlText() == document("Xin<br/>Chào")); });
             test("HTML paragraph boundary", [&] { html("<P>xin</P><div>CHÀO</div>"); require(ConvertService::convertClipboard(casing) == R::Success && htmlText() == document("<P>Xin</P><div>Chào</div>")); });
             test("HTML literal linebreak casing", [&] { html("xin\r\n<i>CHÀO</i>"); require(ConvertService::convertClipboard(casing) == R::Success && htmlText() == document("Xin\n<i>Chào</i>")); });
-            test("HTML unknown entity still preserves data", [&] { html("xin <b>&unknown;</b>"); const auto original = htmlText(); require(ConvertService::convertClipboard(casing) == R::WriteFailed && !empties && htmlText() == original); });
+            test("HTML unknown entity participates in casing", [&] { html("xin <b>&unknown;</b>"); require(ConvertService::convertClipboard(casing) == R::Success && htmlText() == document("Xin <b>&amp;unknown;</b>")); });
             for (bool noContext : { false, true }) test("HTML selection preview does not advance casing", [&] {
                 const std::string original = "<b>TIẾNG</b> vi&#7879;t <i>NAM</i>", expected = words ? "<b>Tiếng</b> Việt <i>Nam</i>" : "<b>Tiếng</b> việt <i>nam</i>";
                 rawHtml(document(original, "\r\n", noContext, true, 3, original.size() - 4));
@@ -278,12 +460,13 @@ int main() {
                 std::string actual;
                 require(HtmlClipboard::decodeText(pair.first, actual) && actual == pair.second);
             });
-        for (const auto* unsupported : { "&apos", "&NotEqualTilde", "&Copy",
-            "&copy&unknown;", "&#169", "&#xA9" })
-            test("HTML unsupported recovery preserves data", [&] {
-                unicode(L"old"); html(unsupported); const auto original = htmlText();
-                require(ConvertService::convertClipboard(options) == R::WriteFailed
-                    && !empties && text() == L"old" && htmlText() == original);
+        for (const auto& pair : { std::pair<std::string, std::string>{ "&apos", "&amp;APOS" },
+            { "&NotEqualTilde", "&amp;NOTEQUALTILDE" }, { "&Copy", "&amp;COPY" },
+            { "&copy&unknown;", "©&amp;UNKNOWN;" } })
+            test("HTML unmatched reference recovery", [&] {
+                html(pair.first);
+                require(ConvertService::convertClipboard(options) == R::Success
+                    && htmlText() == document(pair.second));
             });
         test("HTML legacy aliases integration and attributes", [&] {
             html("<b title='&notit; &copy=Việt'>&copy việt &amp=nam &notit;</b>");
@@ -325,6 +508,110 @@ int main() {
         test("HTML preview cannot split CRLF normalization", [&] {
             rawHtml(document("a\r\nb", "\r\n", false, true, 0, 2));
             require(ConvertService::convertClipboard(options) == R::WriteFailed && !empties);
+        });
+        for (const auto& pair : { std::pair<std::string, std::string>{ "&#0;", "�" },
+            { "&#xD800;", "�" }, { "&#xDFFF;", "�" }, { "&#x110000;", "�" },
+            { "&#999999999999999999999999;", "�" }, { "&#xFFFFFFFFFFFFFFFF;", "�" },
+            { "&#128;", "€" }, { "&#169", "©" }, { "&#xA9", "©" },
+            { "&#X0001F600", "😀" }, { "&#12A;", "\fA;" }, { "&#65=hi", "A=hi" },
+            { "&#x41Z", "AZ" }, { "&#x41F", "П" }, { "&#65;&#x42; &#67", "AB C" },
+            { "&#38lt;", "&lt;" }, { "&#60script&#62", "<script>" },
+            { "&#13\n", "\r\n" }, { "&#0việt", "�việt" }, { "&#128việt", "€việt" } })
+            test(pair.first.c_str(), [&] {
+                std::string decoded;
+                require(HtmlClipboard::decodeText(pair.first, decoded) && decoded == pair.second);
+                html(pair.first);
+                require(ConvertService::convertClipboard(ConvertService::Options{}) == R::Success
+                    && htmlText() == document(HtmlClipboard::escapeText(wideToUtf8(
+                        ConvertService::convert(utf8ToWide(pair.second), ConvertService::Options{})))));
+            });
+        // Independent C1 oracle: Windows' CP1252 decoder, not the HTML table.
+        for (unsigned int number = 0x80; number <= 0x9F; ++number)
+            for (bool hex : { false, true }) for (bool terminated : { false, true })
+                test("HTML all C1 replacements and unmapped controls", [&] {
+                    const char byte = static_cast<char>(number);
+                    wchar_t wide;
+                    require(MultiByteToWideChar(1252, 0, &byte, 1, &wide, 1) == 1);
+                    char expected[4]{};
+                    const int count = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS,
+                        &wide, 1, expected, sizeof(expected), nullptr, nullptr);
+                    require(count > 0);
+                    const char digits[] = "0123456789ABCDEF";
+                    const std::string value = hex ? std::string(1, digits[number >> 4]) + digits[number & 15]
+                        : std::to_string(number);
+                    const auto source = std::string(hex ? "&#x" : "&#") + value + (terminated ? ";" : "");
+                    std::string decoded;
+                    require(HtmlClipboard::decodeText(source, decoded) && decoded == std::string(expected, count));
+                    html(source);
+                    require(ConvertService::convertClipboard(ConvertService::Options{}) == R::Success
+                        && htmlText() == document(wideToUtf8(ConvertService::convert(
+                            std::wstring(1, wide), ConvertService::Options{}))));
+                });
+        for (unsigned int number : { 1u, 9u, 10u, 12u, 13u, 31u, 127u,
+            0xD7FFu, 0xE000u, 0xFDD0u, 0xFDEFu, 0xFFFEu, 0xFFFFu, 0x10FFFFu })
+            test("HTML controls/noncharacters retain scalar", [&] {
+                std::string expected, decoded; HtmlClipboard::appendUtf8(number, expected);
+                const auto source = "&#" + std::to_string(number) + ";";
+                require(HtmlClipboard::decodeText(source, decoded) && decoded == expected);
+                html(source);
+                require(ConvertService::convertClipboard(ConvertService::Options{}) == R::Success
+                    && htmlText() == document(HtmlClipboard::escapeText(expected)));
+            });
+        for (const auto& digits : { std::string(10000, '9'), std::string(10000, 'F') })
+            test("HTML numeric saturation consumes all digits", [&] {
+                const auto source = std::string(digits[0] == 'F' ? "&#x" : "&#") + digits + "; Việt";
+                std::string decoded;
+                require(HtmlClipboard::decodeText(source, decoded) && decoded == "� Việt");
+                html(source);
+                require(ConvertService::convertClipboard(options) == R::Success
+                    && htmlText() == document("� VIỆT"));
+            });
+        test("HTML very long leading zeroes", [&] {
+            std::string decoded;
+            require(HtmlClipboard::decodeText("&#" + std::string(10000, '0') + "128;", decoded)
+                && decoded == "€");
+        });
+        for (bool noContext : { false, true }) {
+            for (const auto* source : { "&#128; Việt", "&#128 Việt", "&#0; Việt", "&#xD800 Việt" })
+                test("HTML recovered numeric selection maps bytes", [&] {
+                    const std::string original(source);
+                    const size_t end = original.find(' ');
+                    rawHtml(document(original, "\r\n", noContext, true, 0, end));
+                    const std::string expected = original.find("128") != std::string::npos ? "€ VIỆT" : "� VIỆT";
+                    require(ConvertService::convertClipboard(options) == R::Success
+                        && htmlText() == document(expected, "\r\n", noContext, true, 0, 3));
+                });
+            test("HTML numeric selection uses full digit run", [&] {
+                unicode(L"old"); const auto original = document("&#1285", "\r\n", noContext, true, 0, 5);
+                rawHtml(original);
+                require(ConvertService::convertClipboard(options) == R::WriteFailed
+                    && !empties && text() == L"old" && htmlText() == original);
+            });
+            test("HTML numeric selection before non-digit suffix", [&] {
+                rawHtml(document("&#128x", "\r\n", noContext, true, 0, 5));
+                require(ConvertService::convertClipboard(options) == R::Success
+                    && htmlText() == document("€X", "\r\n", noContext, true, 0, 3));
+            });
+        }
+        for (const auto* source : { "&#128", "&#128;", "&#xD800", "&#x110000;" })
+            for (size_t offset = 1; offset < std::strlen(source); ++offset)
+                test("HTML selection inside numeric recovery preserves data", [&] {
+                    unicode(L"old"); const auto original = document(source, "\r\n", false, true, 0, offset);
+                    rawHtml(original);
+                    require(ConvertService::convertClipboard(options) == R::WriteFailed
+                        && !empties && text() == L"old" && htmlText() == original);
+                });
+        test("HTML numeric recovery attributes untouched", [&] {
+            html("<b title='&#0; &#128'>vi&#7879t &#128</b>");
+            require(ConvertService::convertClipboard(options) == R::Success
+                && htmlText() == document("<b title='&#0; &#128'>VIỆT €</b>"));
+        });
+        for (bool words : { false, true }) test("HTML numeric recovery stateful casing", [&] {
+            auto casing = options; casing.toAllCaps = false;
+            casing.toCapsEachWord = words; casing.toCapsFirstLetter = !words;
+            html("vi&#7879t <b>NAM</b>");
+            require(ConvertService::convertClipboard(casing) == R::Success
+                && htmlText() == document(words ? "Việt <b>Nam</b>" : "Việt <b>nam</b>"));
         });
         std::cout << "Clipboard service: " << passed << "/" << passed << " passed (fake APIs only)\n";
         return 0;

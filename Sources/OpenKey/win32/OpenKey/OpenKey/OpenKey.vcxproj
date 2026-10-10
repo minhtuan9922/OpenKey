@@ -167,6 +167,13 @@
     <ClInclude Include="AppDelegate.h" />
     <ClInclude Include="BaseDialog.h" />
     <ClInclude Include="ConvertToolDialog.h" />
+    <ClInclude Include="ConvertService.h" />
+    <ClInclude Include="LegacyQuickConvert.h" />
+    <ClInclude Include="UpdateLaunchService.h" />
+    <ClInclude Include="UpdateCheckService.h" />
+    <ClInclude Include="AsyncUpdateCheck.h" />
+    <ClInclude Include="UpdateDownloadService.h" />
+    <ClInclude Include="UpdateService.h" />
     <ClInclude Include="MacroDialog.h" />
     <ClInclude Include="MainControlDialog.h" />
     <ClInclude Include="OpenKeyHelper.h" />
@@ -187,6 +194,11 @@
     <ClCompile Include="AppDelegate.cpp" />
     <ClCompile Include="BaseDialog.cpp" />
     <ClCompile Include="ConvertToolDialog.cpp" />
+    <ClCompile Include="ConvertService.cpp">
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PreprocessorDefinitions>_HAS_STD_BYTE=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
     <ClCompile Include="MacroDialog.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MainControlDialog.cpp" />
