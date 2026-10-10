@@ -13,6 +13,7 @@ redistribute your new version, it MUST be open source.
 -----------------------------------------------------------*/
 #include "stdafx.h"
 #include "AppDelegate.h"
+#include "SettingsService.h"
 
 #pragma comment(lib, "imm32")
 #define IMC_GETOPENSTATUS 0x0005
@@ -78,52 +79,8 @@ void OpenKeyFree() {
 }
 
 void OpenKeyInit() {
-	APP_GET_DATA(vLanguage, 1);
-	APP_GET_DATA(vInputType, 0);
-	vFreeMark = 0;
-	APP_GET_DATA(vCodeTable, 0);
-	APP_GET_DATA(vCheckSpelling, 1);
-	APP_GET_DATA(vUseModernOrthography, 0);
-	APP_GET_DATA(vQuickTelex, 0);
-	APP_GET_DATA(vSwitchKeyStatus, 0x7A000206);
-	APP_GET_DATA(vRestoreIfWrongSpelling, 1);
-	APP_GET_DATA(vFixRecommendBrowser, 1);
-	APP_GET_DATA(vUseMacro, 1);
-	APP_GET_DATA(vUseMacroInEnglishMode, 0);
-	APP_GET_DATA(vAutoCapsMacro, 0);
-	APP_GET_DATA(vSendKeyStepByStep, 1);
-	APP_GET_DATA(vUseGrayIcon, 0);
-	APP_GET_DATA(vShowOnStartUp, 1);
-	APP_GET_DATA(vRunWithWindows, 1);
+	SettingsService::load();
 	OpenKeyHelper::registerRunOnStartup(vRunWithWindows);
-	APP_GET_DATA(vUseSmartSwitchKey, 1);
-	APP_GET_DATA(vUpperCaseFirstChar, 0);
-	APP_GET_DATA(vAllowConsonantZFWJ, 0);
-	APP_GET_DATA(vTempOffSpelling, 0);
-	APP_GET_DATA(vQuickStartConsonant, 0);
-	APP_GET_DATA(vQuickEndConsonant, 0);
-	APP_GET_DATA(vSupportMetroApp, 0);
-	APP_GET_DATA(vRunAsAdmin, 0);
-	APP_GET_DATA(vCreateDesktopShortcut, 0);
-	APP_GET_DATA(vCheckNewVersion, 0);
-	APP_GET_DATA(vRememberCode, 1);
-	APP_GET_DATA(vOtherLanguage, 1);
-	APP_GET_DATA(vTempOffOpenKey, 0);
-	APP_GET_DATA(vFixChromiumBrowser, 0);
-
-	//init convert tool
-	APP_GET_DATA(convertToolDontAlertWhenCompleted, 0);
-	APP_GET_DATA(convertToolToAllCaps, 0);
-	APP_GET_DATA(convertToolToAllNonCaps, 0);
-	APP_GET_DATA(convertToolToCapsFirstLetter, 0);
-	APP_GET_DATA(convertToolToCapsEachWord, 0);
-	APP_GET_DATA(convertToolRemoveMark, 0);
-	APP_GET_DATA(convertToolFromCode, 0);
-	APP_GET_DATA(convertToolToCode, 0);
-	APP_GET_DATA(convertToolHotKey, EMPTY_HOTKEY);
-	if (convertToolHotKey == 0) {
-		convertToolHotKey = EMPTY_HOTKEY;
-	}
 
 	pData = (vKeyHookState*)vKeyInit();
 
@@ -308,7 +265,7 @@ static void SendNewCharString(const bool& dataFromMacro = false) {
 	
 	if (_newCharSize > 0) {
 		for (_k = dataFromMacro ? 0 : pData->newCharCount - 1;
-			dataFromMacro ? _k < pData->macroData.size() : _k >= 0;
+			dataFromMacro ? static_cast<size_t>(_k) < pData->macroData.size() : _k >= 0;
 			dataFromMacro ? _k++ : _k--) {
 
 			_tempChar = DYNA_DATA(dataFromMacro, _k);
@@ -443,7 +400,7 @@ static void handleMacro() {
 	if (!vSendKeyStepByStep) {
 		SendNewCharString(true);
 	} else {
-		for (int i = 0; i < pData->macroData.size(); i++) {
+		for (int i = 0; static_cast<size_t>(i) < pData->macroData.size(); i++) {
 			if (pData->macroData[i] & PURE_CHARACTER_MASK) {
 				SendPureCharacter(pData->macroData[i]);
 			} else {

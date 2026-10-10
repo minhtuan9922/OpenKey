@@ -1,5 +1,22 @@
 
 # [OpenKey](http://open-key.org)
+
+## Windows Fluent UI beta trong nhánh này
+
+Giao diện Windows đang được chuyển sang WinUI/Fluent. Đây là bản thử nghiệm nội bộ,
+không thay bản stable ở liên kết tải bên dưới. Xem [hướng dẫn Windows](Sources/OpenKey/win32/README.md#fluent-ui-beta),
+[build/đóng gói beta](BETA_PACKAGING.md) và [sao lưu/nâng cấp/rollback](MIGRATION_FLUENT_BETA.md).
+Các mục chưa kiểm thử (máy sạch, DPI/Narrator, startup, nâng cấp) được theo dõi trong
+[checklist](TODO_FLUENT_UI.md) và [ghi chú QA](FLUENT_UI_QA.md).
+
+Chạy regression tự động bằng `./test-all.ps1 All` tại root repository;
+log từng bộ và báo cáo JSON nằm trong `dist`. Đây không thay thế kiểm thử giao diện,
+keyboard hook hoặc chạy bản beta trên máy sạch.
+
+Chuẩn bị môi trường kiểm thử cô lập bằng `./prepare-sandbox.ps1 -ZipPath <file.zip>
+-ExpectedSha256 <hash> -Platform x64`. Script chỉ tạo cấu hình, không mở máy ảo
+hoặc cài runtime. Xem [hướng dẫn Windows Sandbox](Sandbox/README.md).
+
 ### [Download bản mới nhất](https://github.com/tuyenvm/OpenKey/releases)
 [![GitHub release](https://img.shields.io/github/v/release/tuyenvm/OpenKey.svg)](https://github.com/tuyenvm/OpenKey/releases/latest)
 

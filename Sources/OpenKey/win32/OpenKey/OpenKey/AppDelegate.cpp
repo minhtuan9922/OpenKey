@@ -12,8 +12,74 @@ You can fork, modify, improve this program. If you
 redistribute your new version, it MUST be open source.
 -----------------------------------------------------------*/
 #include "AppDelegate.h"
+#include "SettingsService.h"
+#include "UpdatePolicy.h"
+#include "../../../engine/Macro.h"
 
 static AppDelegate* _instance;
+
+namespace {
+	bool launchModernControlPanel() {
+		std::vector<std::wstring> candidates;
+			constexpr DWORD pathCapacity = 32768;
+			std::wstring configuredPath(pathCapacity, L'\0');
+			const DWORD configuredLength = GetEnvironmentVariableW(
+				L"OPENKEY_UI_PATH", &configuredPath[0], pathCapacity);
+			if (configuredLength > 0 && configuredLength < pathCapacity) {
+				configuredPath.resize(configuredLength);
+			candidates.emplace_back(configuredPath);
+		}
+
+			std::wstring modulePath(pathCapacity, L'\0');
+			const DWORD moduleLength = GetModuleFileNameW(nullptr, &modulePath[0], pathCapacity);
+			if (moduleLength == 0 || moduleLength >= pathCapacity) {
+			return false;
+		}
+
+			modulePath.resize(moduleLength);
+			std::wstring directory = std::move(modulePath);
+		const size_t separator = directory.find_last_of(L"\\/");
+		if (separator == std::wstring::npos) {
+			return false;
+		}
+		directory.resize(separator);
+		candidates.push_back(directory + L"\\OpenKey.UI.exe");
+		candidates.push_back(directory + L"\\OpenKey.UI\\OpenKey.UI.exe");
+
+#ifdef _DEBUG
+		constexpr wchar_t configuration[] = L"Debug";
+#else
+		constexpr wchar_t configuration[] = L"Release";
+#endif
+#ifdef _WIN64
+		candidates.push_back(directory + L"\\..\\..\\OpenKey.UI\\x64\\" + configuration +
+			L"\\OpenKey.UI\\OpenKey.UI.exe");
+#else
+		candidates.push_back(directory + L"\\..\\OpenKey.UI\\" + configuration +
+			L"\\OpenKey.UI\\OpenKey.UI.exe");
+#endif
+
+		for (const auto& candidate : candidates) {
+				std::wstring fullPath(pathCapacity, L'\0');
+				const DWORD length = GetFullPathNameW(candidate.c_str(), pathCapacity, &fullPath[0], nullptr);
+				if (length == 0 || length >= pathCapacity) {
+				continue;
+			}
+				fullPath.resize(length);
+				const DWORD attributes = GetFileAttributesW(fullPath.c_str());
+			if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+				continue;
+			}
+
+			const auto result = reinterpret_cast<INT_PTR>(
+					ShellExecuteW(nullptr, L"open", fullPath.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
+			if (result > 32) {
+				return true;
+			}
+		}
+		return false;
+	}
+}
 
 //see document in Engine.h
 int vLanguage = 1;
@@ -23,8 +89,7 @@ int vCodeTable = 0;
 int vCheckSpelling = 1;
 int vUseModernOrthography = 1;
 int vQuickTelex = 0;
-#define DEFAULT_SWITCH_STATUS 0x5A00025A //default option + z
-int vSwitchKeyStatus = DEFAULT_SWITCH_STATUS;
+int vSwitchKeyStatus = SettingsService::DefaultSwitchKeyStatus;
 int vRestoreIfWrongSpelling = 1;
 int vFixRecommendBrowser = 0;
 int vUseMacro = 1;
@@ -73,7 +138,11 @@ void AppDelegate::checkUpdate() {
 			_T("OpenKey Update"),
 			MB_ICONEXCLAMATION | MB_YESNO
 		);
-		if (msgboxID == IDYES) {
+			if (msgboxID == IDYES) {
+				if (!OpenKeyUpdatePolicy::CanUseLegacyUpdater()) {
+					OpenKeyUpdatePolicy::ShowManualUpdateNotice(nullptr);
+					return;
+				}
 			//Call OpenKeyUpdate
 			WCHAR path[MAX_PATH];
 			GetCurrentDirectory(MAX_PATH, path);
@@ -114,7 +183,7 @@ int AppDelegate::run(HINSTANCE hInstance) {
 
 	//create main control
 	if (vShowOnStartUp)
-		createMainDialog();
+		onControlPanel();
 	MessageBeep(MB_OK);
 
 	//check update
@@ -169,34 +238,29 @@ void AppDelegate::onInputMethodChangedFromHotKey() {
 	SystemTrayHelper::updateData();
 }
 
+void AppDelegate::onSettingsChangedFromUI() {
+	const int previousCodeTable = vCodeTable;
+	const int previousSpelling = vCheckSpelling;
+	const int previousRunWithWindows = vRunWithWindows;
+	SettingsService::load();
+
+	if (previousCodeTable != vCodeTable) {
+		onTableCodeChange();
+	}
+	if (previousSpelling != vCheckSpelling) {
+		vSetCheckSpelling();
+	}
+	if (previousRunWithWindows != vRunWithWindows) {
+		OpenKeyHelper::registerRunOnStartup(vRunWithWindows);
+	}
+	if (mainDialog) {
+		mainDialog->fillData();
+	}
+	SystemTrayHelper::updateData();
+}
+
 void AppDelegate::onDefaultConfig() {
-	APP_SET_DATA(vLanguage, 1);
-	APP_SET_DATA(vInputType, 0);
-	vFreeMark = 0;
-	APP_SET_DATA(vCodeTable, 0);
-	APP_SET_DATA(vCheckSpelling, 1);
-	APP_SET_DATA(vUseModernOrthography, 0);
-	APP_SET_DATA(vQuickTelex, 0);
-	APP_SET_DATA(vSwitchKeyStatus, DEFAULT_SWITCH_STATUS);
-	APP_SET_DATA(vRestoreIfWrongSpelling, 1);
-	APP_SET_DATA(vFixRecommendBrowser, 1);
-	APP_SET_DATA(vUseMacro, 0);
-	APP_SET_DATA(vUseMacroInEnglishMode, 0);
-	APP_SET_DATA(vSendKeyStepByStep, 1);
-	APP_SET_DATA(vUseSmartSwitchKey, 1);
-	APP_SET_DATA(vUpperCaseFirstChar, 0);
-	APP_SET_DATA(vAllowConsonantZFWJ, 0);
-	APP_SET_DATA(vTempOffSpelling, 0);
-
-	APP_SET_DATA(vUseGrayIcon, 0);
-	APP_SET_DATA(vShowOnStartUp, 1);
-	APP_SET_DATA(vRunWithWindows, 1);
-
-	APP_SET_DATA(vSupportMetroApp, 1);
-	APP_SET_DATA(vRememberCode, 1);
-	APP_SET_DATA(vOtherLanguage, 1);
-	APP_SET_DATA(vTempOffOpenKey, 0);
-	APP_SET_DATA(vFixChromiumBrowser, 0);
+	SettingsService::restoreDefaults();
 
 	if (mainDialog) {
 		mainDialog->fillData();
@@ -259,11 +323,11 @@ void AppDelegate::onConvertTool() {
 
 void AppDelegate::onQuickConvert() {
 	if (OpenKeyHelper::quickConvert()) {
-		//alert when complete
+		// Keep quick conversion non-modal so the global hotkey never blocks typing.
 		if (!convertToolDontAlertWhenCompleted) {
 			TCHAR msg[256];
 			LoadString(hInstance, IDS_STRING_CONVERT_COMPLETED, msg, 256);
-			MessageBox(NULL, msg, _T("OpenKey"), MB_OK);
+			SystemTrayHelper::showNotification(_T("OpenKey"), msg);
 		}
 	}
 }
@@ -287,7 +351,9 @@ void AppDelegate::onTableCode(const int & code) {
 }
 
 void AppDelegate::onControlPanel() {
-	createMainDialog();
+	if (!launchModernControlPanel()) {
+		createMainDialog();
+	}
 }
 
 void AppDelegate::onOpenKeyAbout() {

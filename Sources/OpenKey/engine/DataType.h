@@ -62,9 +62,9 @@ struct vKeyHookState {
      * 3: Restore
      * 4: replace by macro
      */
-    Byte code;
-    Byte backspaceCount;
-    Byte newCharCount;
+    Byte code = vDoNothing;
+    Byte backspaceCount = 0;
+    Byte newCharCount = 0;
     
     /**
      * 1: Word Break
@@ -72,9 +72,9 @@ struct vKeyHookState {
      * 3: Normal key
      * 4: Should not send empty character
      */
-    Byte extCode;
+    Byte extCode = 0;
     
-    Uint32 charData[MAX_BUFF]; //new character will be put in queue
+    Uint32 charData[MAX_BUFF]{}; //new character will be put in queue
     
     vector<Uint32> macroKey; //used for macro function; it is a key
     vector<Uint32> macroData; //used for macro function; it is keycode data

@@ -14,6 +14,7 @@ redistribute your new version, it MUST be open source.
 #include "stdafx.h"
 #include "AboutDialog.h"
 #include "AppDelegate.h"
+#include "UpdatePolicy.h"
 
 AboutDialog::AboutDialog(const HINSTANCE & hInstance, const int & resourceId)
 	: BaseDialog(hInstance, resourceId) {
@@ -98,7 +99,12 @@ void AboutDialog::onUpdateButton() {
 			_T("OpenKey Update"),
 			MB_ICONEXCLAMATION | MB_YESNO
 		);
-		if (msgboxID == IDYES) {
+			if (msgboxID == IDYES) {
+				if (!OpenKeyUpdatePolicy::CanUseLegacyUpdater()) {
+					OpenKeyUpdatePolicy::ShowManualUpdateNotice(hDlg);
+					EnableWindow(hUpdateButton, true);
+					return;
+				}
 			//Call OpenKeyUpdate
 			WCHAR path[MAX_PATH];
 			GetCurrentDirectory(MAX_PATH, path);

@@ -171,6 +171,7 @@
     <ClInclude Include="MainControlDialog.h" />
     <ClInclude Include="OpenKeyHelper.h" />
     <ClInclude Include="OpenKeyManager.h" />
+    <ClInclude Include="SettingsService.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="SystemTrayHelper.h" />
@@ -192,6 +193,10 @@
     <ClCompile Include="OpenKey.cpp" />
     <ClCompile Include="OpenKeyHelper.cpp" />
     <ClCompile Include="OpenKeyManager.cpp" />
+    <ClCompile Include="SettingsService.cpp" />
+    <ClCompile Include="SettingsServiceStore.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

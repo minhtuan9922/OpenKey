@@ -13,6 +13,7 @@ redistribute your new version, it MUST be open source.
 -----------------------------------------------------------*/
 #include "OpenKeyManager.h"
 #include <shlobj.h>
+#include <wrl/client.h>
 
 static vector<LPCTSTR> _inputType = {
 	_T("Telex"),
@@ -101,28 +102,36 @@ bool OpenKeyManager::checkUpdate(string& newVersion) {
 }
 
 void OpenKeyManager::createDesktopShortcut() {
-	CoInitialize(NULL);
-	IShellLink* pShellLink = NULL;
-	HRESULT hres;
-	hres = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_ALL,
-							IID_IShellLink, (void**)&pShellLink);
-	if (SUCCEEDED(hres)) {
-		wstring path = OpenKeyHelper::getFullPath();
-		pShellLink->SetPath(path.c_str());
-		pShellLink->SetDescription(_T("OpenKey - Bộ gõ Tiếng Việt"));
-		pShellLink->SetIconLocation(path.c_str(), 0);
-
-		IPersistFile* pPersistFile;
-		hres = pShellLink->QueryInterface(IID_IPersistFile, (void**)&pPersistFile);
-
-		if (SUCCEEDED(hres)) {
-			wchar_t desktopPath[MAX_PATH + 1];
-			wchar_t savePath[MAX_PATH + 10];
-			SHGetFolderPath(NULL, CSIDL_DESKTOP, NULL, 0, desktopPath);
-			wsprintf(savePath, _T("%s\\OpenKey.lnk"), desktopPath);
-			hres = pPersistFile->Save(savePath, TRUE);
-			pPersistFile->Release();
-			pShellLink->Release();
-		}
+	const HRESULT initialized = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+	if (FAILED(initialized)) {
+		return;
+	}
+	struct ComUninitializer {
+		~ComUninitializer() { CoUninitialize(); }
+	} uninitializer;
+	// Release interfaces before balancing this function's COM initialization.
+	Microsoft::WRL::ComPtr<IShellLink> shellLink;
+	if (FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER,
+		IID_PPV_ARGS(shellLink.GetAddressOf())))) {
+		return;
+	}
+	const wstring path = OpenKeyHelper::getFullPath();
+	if (FAILED(shellLink->SetPath(path.c_str())) ||
+		FAILED(shellLink->SetDescription(_T("OpenKey - Bộ gõ Tiếng Việt"))) ||
+		FAILED(shellLink->SetIconLocation(path.c_str(), 0))) {
+		return;
+	}
+	Microsoft::WRL::ComPtr<IPersistFile> persistFile;
+	if (FAILED(shellLink.As(&persistFile))) {
+		return;
+	}
+	wchar_t desktopPath[MAX_PATH + 1]{};
+	if (FAILED(SHGetFolderPathW(nullptr, CSIDL_DESKTOP, nullptr, SHGFP_TYPE_CURRENT, desktopPath))) {
+		return;
+	}
+	const wstring savePath = wstring(desktopPath) + L"\\OpenKey.lnk";
+	const HRESULT saved = persistFile->Save(savePath.c_str(), TRUE);
+	if (FAILED(saved)) {
+		OutputDebugStringW(L"OpenKey: failed to save desktop shortcut.\n");
 	}
 }

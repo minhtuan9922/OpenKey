@@ -16,9 +16,11 @@ redistribute your new version, it MUST be open source.
 
 class MacroDialog :	public BaseDialog {
 private:
-	HWND listMacro;
-	HWND hMacroName, hMacroContent;
-	HWND hAddButton, hAutoCaps;
+	HWND listMacro = nullptr;
+	HWND hMacroName = nullptr;
+	HWND hMacroContent = nullptr;
+	HWND hAddButton = nullptr;
+	HWND hAutoCaps = nullptr;
 	vector<vector<Uint32>> keys;
 	vector<string> macroText;
 	vector<string> macroContent;

@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="OpenKeyUI.MacroPage"
+    NavigationCacheMode="Required"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Page.KeyboardAccelerators>
+        <KeyboardAccelerator
+            Key="F"
+            Invoked="OnFocusSearchInvoked"
+            Modifiers="Control" />
+    </Page.KeyboardAccelerators>
+
+    <Grid>
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="WideLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1100" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="ImportColumn.Width" Value="Auto" />
+                        <Setter Target="ExportColumn.Width" Value="Auto" />
+                        <Setter Target="SearchBox.(Grid.ColumnSpan)" Value="1" />
+                        <Setter Target="ImportButton.(Grid.Row)" Value="0" />
+                        <Setter Target="ImportButton.(Grid.Column)" Value="1" />
+                        <Setter Target="ExportButton.(Grid.Row)" Value="0" />
+                        <Setter Target="ExportButton.(Grid.Column)" Value="2" />
+                        <Setter Target="EditorActions.Orientation" Value="Horizontal" />
+                        <Setter Target="MacroPanels.ColumnSpacing" Value="16" />
+                        <Setter Target="MacroPanels.RowSpacing" Value="0" />
+                        <Setter Target="MacroPanelsSecondColumn.Width" Value="*" />
+                        <Setter Target="MacroPanelsSecond.(Grid.Row)" Value="0" />
+                        <Setter Target="MacroPanelsSecond.(Grid.Column)" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+    <ScrollViewer HorizontalContentAlignment="Stretch"
+        HorizontalScrollBarVisibility="Disabled"
+        VerticalScrollBarVisibility="Auto">
+        <Grid
+            Style="{StaticResource PageGridLayoutStyle}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="6">
+            <TextBlock TextWrapping="Wrap" x:Uid="MacroLabel1" Style="{StaticResource OpenKeyPageTitleStyle}" Text="Gõ tắt" />
+            <TextBlock x:Uid="MacroLabel2"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="Tạo, tìm kiếm và sao lưu các từ gõ tắt trong dữ liệu OpenKey."
+                TextWrapping="Wrap" />
+        </StackPanel>
+
+        <Border Style="{StaticResource OpenKeySettingsCardStyle}"
+            Grid.Row="1"
+            Padding="16,10">
+            <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" Spacing="2">
+                    <TextBlock TextWrapping="Wrap" x:Uid="MacroLabel3"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="Tự viết hoa nội dung thay thế" />
+                    <TextBlock x:Uid="MacroLabel4"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="Điều chỉnh chữ hoa theo cách bạn nhập từ khóa."
+                        TextWrapping="Wrap" />
+                </StackPanel>
+                <ToggleSwitch x:Uid="MacroAutoCapsToggle"
+                    x:Name="AutoCapsToggle"
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="Tự viết hoa nội dung gõ tắt"
+                    OffContent="Tắt"
+                    OnContent="Bật"
+                    TabIndex="0"
+                    Toggled="OnAutoCapsToggled" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="2" ColumnSpacing="8" RowSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="ImportColumn" Width="*" />
+                <ColumnDefinition x:Name="ExportColumn" Width="0" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBox x:Uid="MacroSearchBox"
+                x:Name="SearchBox" Grid.ColumnSpan="3"
+                AutomationProperties.Name="Tìm kiếm gõ tắt"
+                AutomationProperties.HelpText="Lọc danh sách theo từ khóa hoặc nội dung thay thế. Nhấn Ctrl F để chuyển focus đến ô này."
+                PlaceholderText="Tìm theo từ khóa hoặc nội dung thay thế"
+                TabIndex="1"
+                TextChanged="OnSearchTextChanged" />
+            <Button ContentTemplate="{StaticResource WrappingTextTemplate}" x:Uid="MacroImportButton"
+                x:Name="ImportButton"
+                Grid.Row="1"
+                AccessKey="I"
+                AutomationProperties.HelpText="Nhập tệp macro (Ctrl+I)"
+                AutomationProperties.Name="Nhập dữ liệu gõ tắt"
+                Click="OnImportClicked"
+                Content="Nhập"
+                TabIndex="2"
+                ToolTipService.ToolTip="Nhập dữ liệu (Ctrl+I)">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="I" Modifiers="Control" />
+                </Button.KeyboardAccelerators>
+            </Button>
+            <Button ContentTemplate="{StaticResource WrappingTextTemplate}" x:Uid="MacroExportButton"
+                x:Name="ExportButton"
+                Grid.Row="1" Grid.Column="1"
+                AccessKey="E"
+                AutomationProperties.HelpText="Xuất tệp sao lưu macro (Ctrl+E)"
+                AutomationProperties.Name="Xuất bản sao lưu gõ tắt"
+                Click="OnExportClicked"
+                Content="Xuất"
+                TabIndex="3"
+                ToolTipService.ToolTip="Xuất bản sao lưu (Ctrl+E)">
+                <Button.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="E" Modifiers="Control" />
+                </Button.KeyboardAccelerators>
+            </Button>
+        </Grid>
+
+        <Grid x:Name="MacroPanels" Grid.Row="3" ColumnSpacing="0" RowSpacing="16">
+            <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition x:Name="MacroPanelsSecondColumn" Width="0" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+        <Border Style="{StaticResource OpenKeySettingsCardStyle}"
+                Padding="0" MinHeight="320">
+                <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Padding="20,16" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock TextWrapping="Wrap" x:Uid="MacroLabel5" Style="{StaticResource SubtitleTextBlockStyle}" Text="Danh sách gõ tắt" />
+                    <TextBlock TextWrapping="Wrap" x:Uid="MacroMacroCount"
+                        x:Name="MacroCount"
+                        AutomationProperties.LiveSetting="Polite"
+                        AutomationProperties.Name="Số mục gõ tắt"
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <Button x:Name="ReloadButton" x:Uid="MacroReloadButton" Grid.Column="2"
+                        Content="Tải lại" AutomationProperties.Name="Tải lại danh sách gõ tắt"
+                        ContentTemplate="{StaticResource WrappingTextTemplate}"
+                        TabIndex="4" Click="OnReloadClicked" />
+                </Grid>
+
+                <ListView x:Uid="MacroMacroList"
+                    x:Name="MacroList"
+                    Grid.Row="1"
+                    AutomationProperties.Name="Danh sách gõ tắt"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="0,1,0,0"
+                    SelectionChanged="OnMacroSelectionChanged"
+                    SelectionMode="Single"
+                    TabIndex="5">
+                    <ListView.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="Delete" Invoked="OnDeleteAcceleratorInvoked" />
+                    </ListView.KeyboardAccelerators>
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock
+                                Padding="8"
+                                Text="{Binding}"
+                                TextWrapping="Wrap" />
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+
+                <StackPanel
+                    x:Name="EmptyState"
+                    Grid.Row="1"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="8">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        FontSize="28"
+                        Glyph="&#xE8A5;" />
+                    <TextBlock TextWrapping="Wrap" x:Uid="MacroLabel6"
+                        HorizontalAlignment="Center"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="Không tìm thấy dữ liệu gõ tắt" />
+                    <TextBlock x:Uid="MacroLabel7"
+                        HorizontalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="Thử một từ khóa khác hoặc thêm mục mới ở khung bên phải."
+                        TextAlignment="Center"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+                </Grid>
+            </Border>
+
+        <Border Style="{StaticResource OpenKeySettingsCardStyle}" x:Name="MacroPanelsSecond" Grid.Row="1">
+                <StackPanel Spacing="14">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock TextWrapping="Wrap" x:Uid="MacroEditorTitle"
+                            x:Name="EditorTitle"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource SubtitleTextBlockStyle}"
+                            Text="Thêm mục gõ tắt" />
+                        <Button ContentTemplate="{StaticResource WrappingTextTemplate}" x:Uid="MacroNewButton"
+                            x:Name="NewButton"
+                            Grid.Column="1"
+                            AccessKey="N"
+                            AutomationProperties.HelpText="Tạo mục gõ tắt mới (Ctrl+N)"
+                            AutomationProperties.Name="Tạo mục mới"
+                            Click="OnNewClicked"
+                            Content="Mới"
+                            TabIndex="6"
+                            ToolTipService.ToolTip="Tạo mục mới (Ctrl+N)">
+                            <Button.KeyboardAccelerators>
+                                <KeyboardAccelerator Key="N" Modifiers="Control" />
+                            </Button.KeyboardAccelerators>
+                        </Button>
+                    </Grid>
+
+                    <TextBox x:Uid="MacroShortcutBox"
+                        x:Name="ShortcutBox"
+                        AutomationProperties.Name="Từ khóa gõ tắt"
+                        Header="Từ khóa"
+                        MaxLength="255"
+                        PlaceholderText="Ví dụ: dc"
+                        TabIndex="7" />
+                    <TextBox x:Uid="MacroReplacementBox"
+                        x:Name="ReplacementBox"
+                        Height="150"
+                        AcceptsReturn="True"
+                        AutomationProperties.Name="Nội dung thay thế"
+                        Header="Nội dung thay thế"
+                        PlaceholderText="Ví dụ: được"
+                        TabIndex="8"
+                        TextWrapping="Wrap" />
+
+                    <StackPanel x:Name="EditorActions" Orientation="Vertical" Spacing="8">
+                        <Button ContentTemplate="{StaticResource WrappingTextTemplate}" x:Uid="MacroSaveButton"
+                            x:Name="SaveButton"
+                            AccessKey="S"
+                            AutomationProperties.HelpText="Lưu mục gõ tắt (Ctrl+S)"
+                            AutomationProperties.Name="Lưu mục gõ tắt"
+                            Click="OnSaveClicked"
+                            Content="Thêm"
+                            Style="{StaticResource AccentButtonStyle}"
+                            TabIndex="9"
+                            ToolTipService.ToolTip="Lưu mục gõ tắt (Ctrl+S)">
+                            <Button.KeyboardAccelerators>
+                                <KeyboardAccelerator Key="S" Modifiers="Control" />
+                            </Button.KeyboardAccelerators>
+                        </Button>
+                        <Button ContentTemplate="{StaticResource WrappingTextTemplate}" x:Uid="MacroDeleteButton"
+                            x:Name="DeleteButton"
+                            AccessKey="D"
+                            AutomationProperties.HelpText="Xóa mục đang chọn (Delete khi danh sách có focus)"
+                            AutomationProperties.Name="Xóa mục gõ tắt đang chọn"
+                            Click="OnDeleteClicked"
+                            Content="Xóa"
+                            IsEnabled="False"
+                            TabIndex="10"
+                            ToolTipService.ToolTip="Xóa mục đang chọn (Delete)" />
+                    </StackPanel>
+
+                    <InfoBar x:Uid="MacroEditorStatus"
+                        x:Name="EditorStatus"
+                        AutomationProperties.LiveSetting="Polite"
+                        AutomationProperties.Name="Trạng thái chỉnh sửa gõ tắt"
+                        IsClosable="False"
+                        IsOpen="False" />
+                </StackPanel>
+            </Border>
+        </Grid>
+        </Grid>
+    </ScrollViewer>
+    </Grid>
+</Page>

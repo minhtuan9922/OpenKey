@@ -13,6 +13,7 @@ redistribute your new version, it MUST be open source.
 -----------------------------------------------------------*/
 #include "MainControlDialog.h"
 #include "AppDelegate.h"
+#include "UpdatePolicy.h"
 #include <Shlobj.h>
 #include <Uxtheme.h>
 
@@ -42,7 +43,7 @@ void MainControlDialog::initDialog() {
     //input type
     comboBoxInputType = GetDlgItem(hDlg, IDC_COMBO_INPUT_TYPE);
     vector<LPCTSTR>& inputType = OpenKeyManager::getInputType();
-    for (int i = 0; i < inputType.size(); i++) {
+    for (int i = 0; static_cast<size_t>(i) < inputType.size(); i++) {
         SendMessage(comboBoxInputType, CB_ADDSTRING, i, reinterpret_cast<LPARAM>(inputType[i]));
     }
     createToolTip(comboBoxInputType, IDS_STRING_INPUT);
@@ -50,7 +51,7 @@ void MainControlDialog::initDialog() {
     //code table
     comboBoxTableCode = GetDlgItem(hDlg, IDC_COMBO_TABLE_CODE);
     vector<LPCTSTR>& tableCode = OpenKeyManager::getTableCode();
-    for (int i = 0; i < tableCode.size(); i++) {
+    for (int i = 0; static_cast<size_t>(i) < tableCode.size(); i++) {
         SendMessage(comboBoxTableCode, CB_ADDSTRING, i, reinterpret_cast<LPARAM>(tableCode[i]));
     }
     createToolTip(comboBoxTableCode, IDS_STRING_CODE);
@@ -616,6 +617,11 @@ void MainControlDialog::onUpdateButton() {
             MB_ICONEXCLAMATION | MB_YESNO
         );
         if (msgboxID == IDYES) {
+            if (!OpenKeyUpdatePolicy::CanUseLegacyUpdater()) {
+                OpenKeyUpdatePolicy::ShowManualUpdateNotice(hDlg);
+                EnableWindow(hUpdateButton, true);
+                return;
+            }
             //Call OpenKeyUpdate
             WCHAR path[MAX_PATH];
             GetCurrentDirectory(MAX_PATH, path);

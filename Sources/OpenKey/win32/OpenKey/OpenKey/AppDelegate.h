@@ -21,7 +21,7 @@ redistribute your new version, it MUST be open source.
 class BaseDialog;
 class AppDelegate {
 private:
-	HINSTANCE hInstance;
+	HINSTANCE hInstance = nullptr;
 	BaseDialog* mainDialog = NULL, *aboutDialog = NULL, *macroDialog = NULL, *convertDialog = NULL;
 private:
 	bool isDialogMsg(MSG &msg) const;
@@ -34,6 +34,7 @@ public:
 	void closeDialog(BaseDialog* dialog);
 public: //event
 	void onInputMethodChangedFromHotKey();
+	void onSettingsChangedFromUI();
 	void onDefaultConfig();
 
 	void onToggleVietnamese();

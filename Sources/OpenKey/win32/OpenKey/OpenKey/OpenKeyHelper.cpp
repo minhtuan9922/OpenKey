@@ -16,6 +16,8 @@ redistribute your new version, it MUST be open source.
 #include <Urlmon.h>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
+#include <memory>
 
 #pragma comment(lib, "version.lib")
 #pragma comment(lib, "Urlmon.lib")
@@ -35,6 +37,83 @@ static LPCTSTR _exeName = _exePath;
 static HANDLE _proc;
 static string _exeNameUtf8 = "TheOpenKeyProject";
 static string _unknownProgram = "UnknownProgram";
+
+namespace {
+	struct ClipboardCloser {
+		~ClipboardCloser() { CloseClipboard(); }
+	};
+
+	struct GlobalMemoryDeleter {
+		void operator()(void* memory) const { GlobalFree(memory); }
+	};
+	using GlobalMemory = std::unique_ptr<void, GlobalMemoryDeleter>;
+
+	GlobalMemory copyClipboardBytes(const void* source, const size_t size) {
+		GlobalMemory memory(GlobalAlloc(GMEM_MOVEABLE, size));
+		if (!memory) {
+			return {};
+		}
+		void* destination = GlobalLock(memory.get());
+		if (!destination) {
+			return {};
+		}
+		memcpy(destination, source, size);
+		GlobalUnlock(memory.get());
+		return memory;
+	}
+
+	template<typename Character>
+	std::basic_string<Character> readClipboardString(const UINT format) {
+		const HANDLE memory = GetClipboardData(format);
+		if (!memory) {
+			return {};
+		}
+		const size_t count = GlobalSize(memory) / sizeof(Character);
+		const Character* text = static_cast<const Character*>(GlobalLock(memory));
+		if (!text) {
+			return {};
+		}
+		struct Unlocker {
+			HANDLE memory;
+			~Unlocker() { GlobalUnlock(memory); }
+		} unlocker{ memory };
+		const Character* end = std::find(text, text + count, Character{});
+		// Reject malformed text instead of reading beyond the clipboard allocation.
+		return end == text + count ? std::basic_string<Character>{} : std::basic_string<Character>(text, end);
+	}
+
+		void removeRegistryStartupEntry() {
+		HKEY runKey = nullptr;
+		if (RegOpenKeyEx(HKEY_CURRENT_USER, _runOnStartupKeyPath, 0, KEY_SET_VALUE, &runKey) == ERROR_SUCCESS) {
+			RegDeleteValue(runKey, _T("OpenKey"));
+			RegCloseKey(runKey);
+		}
+	}
+
+		bool launchScheduledTaskCommand(const std::wstring& arguments) {
+			WCHAR systemDirectory[MAX_PATH]{};
+			const UINT length = GetSystemDirectoryW(systemDirectory, ARRAYSIZE(systemDirectory));
+			if (length == 0 || length >= ARRAYSIZE(systemDirectory)) {
+				return false;
+			}
+			const std::wstring executable = std::wstring(systemDirectory, length) + L"\\schtasks.exe";
+			std::wstring command = L"\"" + executable + L"\" " + arguments;
+			STARTUPINFOW startup{};
+			startup.cb = sizeof(startup);
+			PROCESS_INFORMATION process{};
+			if (!CreateProcessW(executable.c_str(), &command[0], nullptr, nullptr, FALSE,
+				CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process)) {
+				return false;
+			}
+			CloseHandle(process.hThread);
+			CloseHandle(process.hProcess);
+			return true;
+		}
+
+		void removeScheduledStartupTask() {
+			launchScheduledTaskCommand(L"/delete /tn OpenKey /f");
+	}
+}
 
 int CF_RTF = RegisterClipboardFormat(_T("Rich Text Format"));
 int CF_HTML = RegisterClipboardFormat(_T("HTML Format"));
@@ -94,21 +173,27 @@ BYTE * OpenKeyHelper::getRegBinary(LPCTSTR key, DWORD& outSize) {
 void OpenKeyHelper::registerRunOnStartup(const int& val) {
 	if (val) {
 		if (vRunAsAdmin) {
-			string path = wideStringToUtf8(getFullPath());
-			char buff[MAX_PATH];
-			sprintf_s(buff, "schtasks /create /sc onlogon /tn OpenKey /rl highest /tr \"%s\" /f", path.c_str());
-			WinExec(buff, SW_HIDE);
+			removeRegistryStartupEntry();
+				const std::wstring path = getFullPath();
+				// Quote the executable inside the /tr argument so paths with spaces survive task launch.
+				launchScheduledTaskCommand(L"/create /sc onlogon /tn OpenKey /rl highest /tr \"\\\"" +
+					path + L"\\\"\" /f");
 		} else {
-			RegOpenKeyEx(HKEY_CURRENT_USER, _runOnStartupKeyPath, NULL, KEY_ALL_ACCESS, &hKey);
-			wstring path = getFullPath();
-			RegSetValueEx(hKey, _T("OpenKey"), 0, REG_SZ, (byte*)path.c_str(), ((DWORD)path.size() + 1) * sizeof(TCHAR));
-			RegCloseKey(hKey);
+			removeScheduledStartupTask();
+			HKEY runKey = nullptr;
+			DWORD disposition = 0;
+			if (RegCreateKeyEx(HKEY_CURRENT_USER, _runOnStartupKeyPath, 0, nullptr,
+				REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, nullptr, &runKey, &disposition) == ERROR_SUCCESS) {
+				const wstring path = L"\"" + getFullPath() + L"\"";
+				RegSetValueEx(runKey, _T("OpenKey"), 0, REG_SZ,
+					reinterpret_cast<const byte*>(path.c_str()),
+					(static_cast<DWORD>(path.size()) + 1) * sizeof(TCHAR));
+				RegCloseKey(runKey);
+			}
 		}
 	} else {
-		RegOpenKeyEx(HKEY_CURRENT_USER, _runOnStartupKeyPath, NULL, KEY_ALL_ACCESS, &hKey);
-		RegDeleteValue(hKey, _T("OpenKey"));
-		RegCloseKey(hKey);
-		WinExec("schtasks /delete  /tn OpenKey /f", SW_HIDE);
+		removeRegistryStartupEntry();
+		removeScheduledStartupTask();
 	}
 }
 
@@ -164,96 +249,82 @@ wstring OpenKeyHelper::getFullPath() {
 }
 
 wstring OpenKeyHelper::getClipboardText(const int& type) {
-	// Try opening the clipboard
 	if (!OpenClipboard(nullptr)) {
-		return _T("");
+		return {};
 	}
-
-	// Get handle of clipboard object for ANSI text
-	HANDLE hData = GetClipboardData(type);
-	if (hData == nullptr) {
-		return _T("");
-	}
-
-	// Lock the handle to get the actual text pointer
-	wchar_t * pszText = static_cast<wchar_t*>(GlobalLock(hData));
-	if (pszText == nullptr) {
-		return _T("");
-	}
-
-	// Save text in a string class instance
-	wstring text(pszText);
-	
-	// Release the lock
-	GlobalUnlock(hData);
-
-	// Release the clipboard
-	CloseClipboard();
-	
-	return text;
+	const ClipboardCloser closer;
+	return readClipboardString<wchar_t>(type);
 }
 
-void OpenKeyHelper::setClipboardText(LPCTSTR data, const int & len, const int& type) {
-	HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, len * sizeof(WCHAR));
-	memcpy(GlobalLock(hMem), data, len * sizeof(WCHAR));
-	GlobalUnlock(hMem);
-	OpenClipboard(0);
-	EmptyClipboard();
-	SetClipboardData(type, hMem);
-	CloseClipboard();
+void OpenKeyHelper::setClipboardText(LPCTSTR data, const int& len, const int& type) {
+	if (!data || len <= 0) {
+		return;
+	}
+	auto memory = copyClipboardBytes(data, static_cast<size_t>(len) * sizeof(WCHAR));
+	if (!memory) {
+		return;
+	}
+	const HWND owner = FindWindow(APP_CLASS, nullptr);
+	if (!owner || !OpenClipboard(owner)) {
+		return;
+	}
+	const ClipboardCloser closer;
+	if (EmptyClipboard() && SetClipboardData(type, memory.get())) {
+		memory.release(); // Windows owns the allocation only after a successful write.
+	}
 }
 
 bool OpenKeyHelper::quickConvert() {
-	//read data from clipboard
-	//support Unicode raw string, Rich Text Format and HTML
-
-	if (!OpenClipboard(nullptr)) {
+	const HWND owner = FindWindow(APP_CLASS, nullptr);
+	if (!owner || !OpenClipboard(owner)) {
+		return false;
+	}
+	const ClipboardCloser closer;
+	const string sourceHTML = readClipboardString<char>(CF_HTML);
+	const wstring sourceUnicode = readClipboardString<wchar_t>(CF_UNICODETEXT);
+	if (sourceHTML.empty() && sourceUnicode.empty()) {
 		return false;
 	}
 
-	string dataHTML, dataRTF;
-	wstring dataUnicode;
-
-	char* pHTML = 0, pRTF = 0;
-	wchar_t* pUnicode = 0;
-
-	//HTML
-	HANDLE hData = GetClipboardData(CF_HTML);
-	if (hData) {
-		pHTML = static_cast<char*>(GlobalLock(hData));
-		GlobalUnlock(hData);
+	// Keep the existing conversion rules, but copy input while its memory is locked.
+	const string dataHTML = sourceHTML.empty() ? string{} : convertUtil(sourceHTML);
+	const wstring dataUnicode = sourceUnicode.empty() ? wstring{} :
+		utf8ToWideString(convertUtil(wideStringToUtf8(sourceUnicode)));
+	GlobalMemory htmlMemory;
+	GlobalMemory unicodeMemory;
+	if (!sourceHTML.empty()) {
+		htmlMemory = copyClipboardBytes(dataHTML.c_str(), dataHTML.size() + 1);
+		if (!htmlMemory) {
+			return false;
+		}
 	}
-	if (pHTML) {
-		dataHTML = pHTML;
-		dataHTML = convertUtil(dataHTML);
-	}
-
-	//UNICODE
-	hData = GetClipboardData(CF_UNICODETEXT);
-	if (hData) {
-		pUnicode = static_cast<wchar_t*>(GlobalLock(hData));
-		GlobalUnlock(hData);
-	}
-	if (pUnicode) {
-		dataUnicode = pUnicode;
-		dataUnicode = utf8ToWideString(convertUtil(wideStringToUtf8(dataUnicode)));
+	if (!sourceUnicode.empty()) {
+		unicodeMemory = copyClipboardBytes(dataUnicode.c_str(), (dataUnicode.size() + 1) * sizeof(wchar_t));
+		if (!unicodeMemory) {
+			return false;
+		}
 	}
 
-	OpenClipboard(0);
-	EmptyClipboard();
-
-	HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, (int)(dataHTML.size() + 1) * sizeof(char));
-	memcpy(GlobalLock(hMem), dataHTML.c_str(), (int)(dataHTML.size() + 1) * sizeof(char));
-	GlobalUnlock(hMem);
-	SetClipboardData(CF_HTML, hMem);
-
-	hMem = GlobalAlloc(GMEM_MOVEABLE, (int)(dataUnicode.size() + 1) * sizeof(wchar_t));
-	memcpy(GlobalLock(hMem), dataUnicode.c_str(), (int)(dataUnicode.size() + 1) * sizeof(wchar_t));
-	GlobalUnlock(hMem);
-	SetClipboardData(CF_UNICODETEXT, hMem);
-
-	CloseClipboard();
-	return true;
+	// Finish all allocations before discarding the original clipboard contents.
+	if (!EmptyClipboard()) {
+		return false;
+	}
+	bool succeeded = true;
+	if (htmlMemory) {
+		if (SetClipboardData(CF_HTML, htmlMemory.get())) {
+			htmlMemory.release();
+		} else {
+			succeeded = false;
+		}
+	}
+	if (unicodeMemory) {
+		if (SetClipboardData(CF_UNICODETEXT, unicodeMemory.get())) {
+			unicodeMemory.release();
+		} else {
+			succeeded = false;
+		}
+	}
+	return succeeded;
 }
 
 DWORD OpenKeyHelper::getVersionNumber() {

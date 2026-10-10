@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="OpenKeyUI.SpellingSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer HorizontalContentAlignment="Stretch" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel
+            Style="{StaticResource PageStackLayoutStyle}">
+
+            <StackPanel Spacing="6">
+                <TextBlock TextWrapping="Wrap" x:Uid="SpellingTitle" Style="{StaticResource OpenKeyPageTitleStyle}" Text="Chính tả &amp; gõ nhanh" />
+                <TextBlock
+                    x:Uid="SpellingSubtitle"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="Điều chỉnh cách OpenKey kiểm tra từ và mở rộng các quy tắc nhập nhanh."
+                    TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border Style="{StaticResource OpenKeySettingsCardStyle}">
+                <StackPanel Spacing="18">
+                    <TextBlock TextWrapping="Wrap" x:Uid="SpellingSection" Style="{StaticResource SubtitleTextBlockStyle}" Text="Chính tả" />
+                    <ToggleSwitch
+                        x:Uid="CheckSpellingToggle"
+                        x:Name="CheckSpellingToggle"
+                        AutomationProperties.Name="Kiểm tra chính tả"
+                        Header="Kiểm tra chính tả"
+                        TabIndex="0"
+                        Toggled="OnPreferenceToggled" />
+                    <ToggleSwitch
+                        x:Uid="RestoreWrongSpellingToggle"
+                        x:Name="RestoreWrongSpellingToggle"
+                        AutomationProperties.Name="Khôi phục phím với từ sai"
+                        Header="Khôi phục phím với từ sai"
+                        TabIndex="1"
+                        Toggled="OnPreferenceToggled" />
+                    <ToggleSwitch
+                        x:Uid="ModernOrthographyToggle"
+                        x:Name="ModernOrthographyToggle"
+                        AutomationProperties.Name="Dùng quy tắc đặt dấu kiểu mới"
+                        Header="Dùng quy tắc đặt dấu kiểu mới"
+                        TabIndex="2"
+                        Toggled="OnPreferenceToggled" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource OpenKeySettingsCardStyle}">
+                <StackPanel Spacing="18">
+                    <TextBlock TextWrapping="Wrap" x:Uid="QuickTypingSection" Style="{StaticResource SubtitleTextBlockStyle}" Text="Gõ nhanh" />
+                    <ToggleSwitch
+                        x:Uid="QuickTelexToggle"
+                        x:Name="QuickTelexToggle"
+                        AutomationProperties.Name="Gõ nhanh Telex"
+                        Header="Gõ nhanh Telex"
+                        TabIndex="3"
+                        Toggled="OnPreferenceToggled" />
+                    <ToggleSwitch
+                        x:Uid="QuickStartConsonantToggle"
+                        x:Name="QuickStartConsonantToggle"
+                        AutomationProperties.Name="Gõ nhanh phụ âm đầu"
+                        Header="Gõ nhanh phụ âm đầu"
+                        TabIndex="4"
+                        Toggled="OnPreferenceToggled" />
+                    <ToggleSwitch
+                        x:Uid="QuickEndConsonantToggle"
+                        x:Name="QuickEndConsonantToggle"
+                        AutomationProperties.Name="Gõ nhanh phụ âm cuối"
+                        Header="Gõ nhanh phụ âm cuối"
+                        TabIndex="5"
+                        Toggled="OnPreferenceToggled" />
+                </StackPanel>
+            </Border>
+
+            <InfoBar
+                x:Name="SettingsStatus"
+                x:Uid="SettingsStatus"
+                AutomationProperties.LiveSetting="Polite"
+                AutomationProperties.Name="Trạng thái lưu cấu hình"
+                IsClosable="False"
+                IsOpen="False" />
+        </StackPanel>
+    </ScrollViewer>
+</Page>

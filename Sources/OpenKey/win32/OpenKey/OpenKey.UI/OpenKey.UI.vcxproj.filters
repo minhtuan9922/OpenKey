@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml" />
+    <Page Include="MainWindow.xaml" />
+    <Page Include="OverviewPage.xaml" />
+    <Page Include="InputSettingsPage.xaml" />
+    <Page Include="SpellingSettingsPage.xaml" />
+    <Page Include="HotkeySettingsPage.xaml" />
+    <Page Include="CompatibilitySettingsPage.xaml" />
+    <Page Include="AdvancedSettingsPage.xaml" />
+    <Page Include="MacroPage.xaml" />
+    <Page Include="ConvertPage.xaml" />
+    <Page Include="AboutPage.xaml" />
+    <Midl Include="MainWindow.idl" />
+    <Midl Include="OverviewPage.idl" />
+    <Midl Include="InputSettingsPage.idl" />
+    <Midl Include="SpellingSettingsPage.idl" />
+    <Midl Include="HotkeySettingsPage.idl" />
+    <Midl Include="CompatibilitySettingsPage.idl" />
+    <Midl Include="AdvancedSettingsPage.idl" />
+    <Midl Include="MacroPage.idl" />
+    <Midl Include="ConvertPage.idl" />
+    <Midl Include="AboutPage.idl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="App.xaml.cpp" />
+    <ClCompile Include="MainWindow.xaml.cpp" />
+    <ClCompile Include="OverviewPage.xaml.cpp" />
+    <ClCompile Include="InputSettingsPage.xaml.cpp" />
+    <ClCompile Include="SpellingSettingsPage.xaml.cpp" />
+    <ClCompile Include="HotkeySettingsPage.xaml.cpp" />
+    <ClCompile Include="CompatibilitySettingsPage.xaml.cpp" />
+    <ClCompile Include="AdvancedSettingsPage.xaml.cpp" />
+    <ClCompile Include="MacroPage.xaml.cpp" />
+    <ClCompile Include="ConvertPage.xaml.cpp" />
+    <ClCompile Include="AboutPage.xaml.cpp" />
+    <ClCompile Include="..\OpenKey\SettingsServiceStore.cpp" />
+    <ClCompile Include="..\OpenKey\MacroService.cpp" />
+    <ClCompile Include="..\OpenKey\ConvertService.cpp" />
+    <ClCompile Include="..\..\..\engine\Vietnamese.cpp" />
+    <ClCompile Include="Generated Files\module.g.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="Localization.h" />
+    <ClInclude Include="UiWindowSizeSettings.h" />
+    <ClInclude Include="App.xaml.h" />
+    <ClInclude Include="MainWindow.xaml.h" />
+    <ClInclude Include="OverviewPage.xaml.h" />
+    <ClInclude Include="InputSettingsPage.xaml.h" />
+    <ClInclude Include="SpellingSettingsPage.xaml.h" />
+    <ClInclude Include="HotkeySettingsPage.xaml.h" />
+    <ClInclude Include="CompatibilitySettingsPage.xaml.h" />
+    <ClInclude Include="AdvancedSettingsPage.xaml.h" />
+    <ClInclude Include="MacroPage.xaml.h" />
+    <ClInclude Include="ConvertPage.xaml.h" />
+    <ClInclude Include="AboutPage.xaml.h" />
+    <ClInclude Include="..\OpenKey\SettingsService.h" />
+    <ClInclude Include="..\OpenKey\MacroService.h" />
+    <ClInclude Include="..\OpenKey\ConvertService.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <PRIResource Include="Strings\en-US\Resources.resw" />
+    <PRIResource Include="Strings\vi-VN\Resources.resw" />
+  </ItemGroup>
+</Project>

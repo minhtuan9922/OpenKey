@@ -16,9 +16,20 @@ redistribute your new version, it MUST be open source.
 
 class ConvertToolDialog : public BaseDialog {
 private:
-	HWND checkAllCaps, checkNonAllCaps, checkRemoveMark, checkCapsEarchWord, checkCapsFirstLetter, checkAlertWhenCompleted,
-		checkConvertClipboard, checkCtrl, checkAlt, checkWin, checkShift, checkKey;
-	HWND comboboxSource, comboboxDest;
+	HWND checkAllCaps = nullptr;
+	HWND checkNonAllCaps = nullptr;
+	HWND checkRemoveMark = nullptr;
+	HWND checkCapsEarchWord = nullptr;
+	HWND checkCapsFirstLetter = nullptr;
+	HWND checkAlertWhenCompleted = nullptr;
+	HWND checkConvertClipboard = nullptr;
+	HWND checkCtrl = nullptr;
+	HWND checkAlt = nullptr;
+	HWND checkWin = nullptr;
+	HWND checkShift = nullptr;
+	HWND checkKey = nullptr;
+	HWND comboboxSource = nullptr;
+	HWND comboboxDest = nullptr;
 private:
 	void onComboBoxSelected(const HWND& hCombobox, const int& comboboxId);
 	void onCheckboxClicked(const HWND& hWnd);

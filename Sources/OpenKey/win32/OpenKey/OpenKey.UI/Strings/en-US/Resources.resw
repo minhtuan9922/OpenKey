@@ -1,0 +1,421 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="RootNavigation.PaneTitle" xml:space="preserve"><value>OpenKey</value></data>
+  <data name="NavOverview.Content" xml:space="preserve"><value>Overview</value></data>
+  <data name="NavInput.Content" xml:space="preserve"><value>Input method &amp; encoding</value></data>
+  <data name="NavSpelling.Content" xml:space="preserve"><value>Spelling &amp; quick typing</value></data>
+  <data name="NavHotkeys.Content" xml:space="preserve"><value>Keyboard shortcuts</value></data>
+  <data name="NavCompatibility.Content" xml:space="preserve"><value>Apps &amp; compatibility</value></data>
+  <data name="NavAdvanced.Content" xml:space="preserve"><value>Advanced settings</value></data>
+  <data name="NavMacro.Content" xml:space="preserve"><value>Text expansion</value></data>
+  <data name="NavConvert.Content" xml:space="preserve"><value>Encoding converter</value></data>
+  <data name="NavAbout.Content" xml:space="preserve"><value>About</value></data>
+  <data name="OverviewTitle.Text" xml:space="preserve"><value>Vietnamese input</value></data>
+  <data name="OverviewSubtitle.Text" xml:space="preserve"><value>Quickly enable or disable OpenKey Vietnamese input.</value></data>
+  <data name="OverviewStatusTitle.Text" xml:space="preserve"><value>Input status</value></data>
+  <data name="LanguageToggle.OffContent" xml:space="preserve"><value>English</value></data>
+  <data name="LanguageToggle.OnContent" xml:space="preserve"><value>Vietnamese</value></data>
+  <data name="OverviewStatus.Title" xml:space="preserve"><value>Compatible configuration</value></data>
+  <data name="OverviewStatus.Message" xml:space="preserve"><value>These settings are shared with the OpenKey Win32 process.</value></data>
+  <data name="InputTitle.Text" xml:space="preserve"><value>Input method &amp; encoding</value></data>
+  <data name="InputSubtitle.Text" xml:space="preserve"><value>Choose how Vietnamese marks are entered and how characters are encoded.</value></data>
+  <data name="InputMethodTitle.Text" xml:space="preserve"><value>Input method</value></data>
+  <data name="InputMethodDescription.Text" xml:space="preserve"><value>Telex uses letter keys for marks; VNI uses number keys.</value></data>
+  <data name="InputTypeTelex.Content" xml:space="preserve"><value>Telex</value></data>
+  <data name="InputTypeVni.Content" xml:space="preserve"><value>VNI</value></data>
+  <data name="InputTypeSimple1.Content" xml:space="preserve"><value>Simple Telex 1</value></data>
+  <data name="InputTypeSimple2.Content" xml:space="preserve"><value>Simple Telex 2</value></data>
+  <data name="CodeTableTitle.Text" xml:space="preserve"><value>Character encoding</value></data>
+  <data name="CodeTableDescription.Text" xml:space="preserve"><value>Unicode is recommended and works with most applications.</value></data>
+  <data name="CodeUnicode.Content" xml:space="preserve"><value>Unicode</value></data>
+  <data name="CodeTcvn3.Content" xml:space="preserve"><value>TCVN3 (ABC)</value></data>
+  <data name="CodeVniWindows.Content" xml:space="preserve"><value>VNI Windows</value></data>
+  <data name="CodeUnicodeComposite.Content" xml:space="preserve"><value>Unicode combining characters</value></data>
+  <data name="CodeVietnameseLocale.Content" xml:space="preserve"><value>Vietnamese locale CP 1258</value></data>
+  <data name="RememberCodeToggle.Header" xml:space="preserve"><value>Remember encoding for each application</value></data>
+  <data name="RememberCodeToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="RememberCodeToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="SpellingTitle.Text" xml:space="preserve"><value>Spelling &amp; quick typing</value></data>
+  <data name="SpellingSubtitle.Text" xml:space="preserve"><value>Adjust how OpenKey validates words and expands quick typing rules.</value></data>
+  <data name="SpellingSection.Text" xml:space="preserve"><value>Spelling</value></data>
+  <data name="CheckSpellingToggle.Header" xml:space="preserve"><value>Check spelling</value></data>
+  <data name="RestoreWrongSpellingToggle.Header" xml:space="preserve"><value>Restore keystrokes for invalid words</value></data>
+  <data name="ModernOrthographyToggle.Header" xml:space="preserve"><value>Use modern tone mark placement</value></data>
+  <data name="QuickTypingSection.Text" xml:space="preserve"><value>Quick typing</value></data>
+  <data name="QuickTelexToggle.Header" xml:space="preserve"><value>Quick Telex</value></data>
+  <data name="QuickStartConsonantToggle.Header" xml:space="preserve"><value>Quick initial consonants</value></data>
+  <data name="QuickEndConsonantToggle.Header" xml:space="preserve"><value>Quick final consonants</value></data>
+  <data name="HotkeyTitle.Text" xml:space="preserve"><value>Keyboard shortcuts</value></data>
+  <data name="HotkeySubtitle.Text" xml:space="preserve"><value>Configure the shortcut used to switch between Vietnamese and English input.</value></data>
+  <data name="HotkeySection.Text" xml:space="preserve"><value>Input mode shortcut</value></data>
+  <data name="HotkeyDescription.Text" xml:space="preserve"><value>Select at least one modifier key to avoid accidental activation while typing.</value></data>
+  <data name="ModifierTitle.Text" xml:space="preserve"><value>Modifier keys</value></data>
+  <data name="PrimaryKeyTitle.Text" xml:space="preserve"><value>Primary key</value></data>
+  <data name="CurrentShortcutTitle.Text" xml:space="preserve"><value>Current shortcut</value></data>
+  <data name="BeepToggle.Header" xml:space="preserve"><value>Play a sound when switching input mode</value></data>
+  <data name="BeepToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="BeepToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ShortcutWarning.Title" xml:space="preserve"><value>Shortcut may conflict</value></data>
+  <data name="ShortcutWarning.Message" xml:space="preserve"><value>A shortcut without a modifier key may conflict while typing.</value></data>
+  <data name="CompatibilityTitle.Text" xml:space="preserve"><value>Apps &amp; compatibility</value></data>
+  <data name="CompatibilitySubtitle.Text" xml:space="preserve"><value>Adjust how OpenKey behaves when switching apps, keyboard layouts, and browsers.</value></data>
+  <data name="AppSwitchingSection.Text" xml:space="preserve"><value>App switching</value></data>
+  <data name="SmartSwitchToggle.Header" xml:space="preserve"><value>Remember input mode for each app</value></data>
+  <data name="SmartSwitchToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="SmartSwitchToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="OtherLanguagesToggle.Header" xml:space="preserve"><value>Allow Vietnamese input with non-English layouts</value></data>
+  <data name="OtherLanguagesToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="OtherLanguagesToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="TemporaryDisableToggle.Header" xml:space="preserve"><value>Press Alt to pause OpenKey until the next word</value></data>
+  <data name="TemporaryDisableToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="TemporaryDisableToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="BrowserInputSection.Text" xml:space="preserve"><value>Browsers &amp; text input</value></data>
+  <data name="RecommendationFixToggle.Header" xml:space="preserve"><value>Fix duplicated words in address bars, Excel, and suggestion fields</value></data>
+  <data name="RecommendationFixToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="RecommendationFixToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ChromiumFixToggle.Header" xml:space="preserve"><value>Optimize for Chromium browsers</value></data>
+  <data name="ChromiumFixToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="ChromiumFixToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ChromiumRequirement.Text" xml:space="preserve"><value>Enable “Fix duplicated words” to use the Chromium option.</value></data>
+  <data name="ClipboardToggle.Header" xml:space="preserve"><value>Use the Clipboard for apps that do not accept Vietnamese input</value></data>
+  <data name="ClipboardToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="ClipboardToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="MetroSupportToggle.Header" xml:space="preserve"><value>Support Metro/UWP apps</value></data>
+  <data name="MetroSupportToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="MetroSupportToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="AdvancedTitle.Text" xml:space="preserve"><value>Advanced settings</value></data>
+  <data name="AdvancedSubtitle.Text" xml:space="preserve"><value>Fine-tune text input, the system tray interface, and update checks.</value></data>
+  <data name="AdvancedInputSection.Text" xml:space="preserve"><value>Advanced input</value></data>
+  <data name="UpperCaseFirstCharToggle.Header" xml:space="preserve"><value>Capitalize automatically after periods and line breaks</value></data>
+  <data name="UpperCaseFirstCharToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="UpperCaseFirstCharToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="AllowConsonantToggle.Header" xml:space="preserve"><value>Allow z, w, f, and j as consonants</value></data>
+  <data name="AllowConsonantToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="AllowConsonantToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="TemporarySpellingToggle.Header" xml:space="preserve"><value>Press Ctrl to disable spelling checks for one word</value></data>
+  <data name="TemporarySpellingToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="TemporarySpellingToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="SpellingRequirement.Text" xml:space="preserve"><value>Enable spelling checks to use the two advanced spelling options.</value></data>
+  <data name="AppearanceStartupSection.Text" xml:space="preserve"><value>Appearance &amp; startup</value></data>
+  <data name="GrayIconToggle.Header" xml:space="preserve"><value>Use a monochrome system tray icon</value></data>
+  <data name="GrayIconToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="GrayIconToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="RunWithWindowsToggle.Header" xml:space="preserve"><value>Start OpenKey with Windows</value></data>
+  <data name="RunWithWindowsToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="RunWithWindowsToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ShowOnStartupToggle.Header" xml:space="preserve"><value>Show the control window when OpenKey starts</value></data>
+  <data name="ShowOnStartupToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="ShowOnStartupToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="CheckUpdatesToggle.Header" xml:space="preserve"><value>Check for a new version at startup</value></data>
+  <data name="CheckUpdatesToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="CheckUpdatesToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="SaveSuccessTitle" xml:space="preserve"><value>Settings saved</value></data>
+  <data name="SaveFailureTitle" xml:space="preserve"><value>Could not save settings</value></data>
+  <data name="SaveFailureMessage" xml:space="preserve"><value>Windows did not allow OpenKey to save settings for the current account.</value></data>
+  <data name="SpellingSaveSuccessMessage" xml:space="preserve"><value>Changes were saved for OpenKey.</value></data>
+  <data name="HotkeySaveSuccessTitle" xml:space="preserve"><value>Shortcut saved</value></data>
+  <data name="HotkeySaveFailureTitle" xml:space="preserve"><value>Could not save shortcut</value></data>
+  <data name="HotkeySaveSuccessMessage" xml:space="preserve"><value>The input mode shortcut was saved for OpenKey.</value></data>
+  <data name="CompatibilitySaveSuccessMessage" xml:space="preserve"><value>Compatibility changes were saved for OpenKey.</value></data>
+  <data name="AdvancedSaveSuccessMessage" xml:space="preserve"><value>Advanced settings were saved for OpenKey.</value></data>
+  <data name="NoCharacterKey" xml:space="preserve"><value>Do not use a character key</value></data>
+  <data name="CurrentKeyPrefix" xml:space="preserve"><value>Current key (code </value></data>
+  <data name="VietnameseInputDescription" xml:space="preserve"><value>OpenKey is in Vietnamese input mode.</value></data>
+  <data name="EnglishInputDescription" xml:space="preserve"><value>OpenKey is in English input mode.</value></data>
+  <data name="OverviewSaveSuccessMessage" xml:space="preserve"><value>OpenKey Win32 will use these changes the next time it starts.</value></data>
+  <data name="MacroOpenWindowMissing" xml:space="preserve"><value>Could not find the OpenKey window to open the file picker.</value></data>
+  <data name="MacroSaveWindowMissing" xml:space="preserve"><value>Could not find the OpenKey window to open the save dialog.</value></data>
+  <data name="MacroFileFilter" xml:space="preserve"><value>OpenKey macro files (*.txt)</value></data>
+  <data name="MacroEditTitle" xml:space="preserve"><value>Edit text expansion</value></data>
+  <data name="MacroSaveChanges" xml:space="preserve"><value>Save changes</value></data>
+  <data name="MacroEmptyShortcut" xml:space="preserve"><value>Enter a shortcut to trigger the text expansion.</value></data>
+  <data name="MacroEmptyReplacement" xml:space="preserve"><value>Enter the text that will replace the shortcut.</value></data>
+  <data name="MacroInvalidShortcut" xml:space="preserve"><value>The shortcut is too long or contains invalid characters.</value></data>
+  <data name="MacroInvalidReplacement" xml:space="preserve"><value>The replacement text is too long or contains invalid characters.</value></data>
+  <data name="MacroDuplicateShortcut" xml:space="preserve"><value>This shortcut already exists. Select its entry in the list to edit it.</value></data>
+  <data name="MacroStorageError" xml:space="preserve"><value>Text expansion data could not be read or saved for the current account, or the stored data is invalid.</value></data>
+  <data name="MacroSaveFailureTitle" xml:space="preserve"><value>Could not save text expansion</value></data>
+  <data name="MacroSaveSuccessTitle" xml:space="preserve"><value>Text expansion saved</value></data>
+  <data name="MacroSaveSuccessMessage" xml:space="preserve"><value>The data shared with OpenKey Win32 has been updated.</value></data>
+  <data name="MacroDeleteConfirmTitle" xml:space="preserve"><value>Delete text expansion?</value></data>
+  <data name="DeleteButtonText" xml:space="preserve"><value>Delete</value></data>
+  <data name="CancelButtonText" xml:space="preserve"><value>Cancel</value></data>
+  <data name="MacroDeleteSuccessTitle" xml:space="preserve"><value>Text expansion deleted</value></data>
+  <data name="MacroDeleteFailureTitle" xml:space="preserve"><value>Could not delete text expansion</value></data>
+  <data name="MacroDeleteSuccessMessage" xml:space="preserve"><value>Macro data has been updated.</value></data>
+  <data name="MacroDeleteFailureMessage" xml:space="preserve"><value>The selected entry no longer exists or the registry could not be updated.</value></data>
+  <data name="MacroImportTitle" xml:space="preserve"><value>Import text expansions</value></data>
+  <data name="MacroImportPrompt" xml:space="preserve"><value>Keep existing entries and add the imported data, or replace the entire list?</value></data>
+  <data name="MacroImportMerge" xml:space="preserve"><value>Keep and merge</value></data>
+  <data name="MacroImportReplace" xml:space="preserve"><value>Replace all</value></data>
+  <data name="MacroImportSuccessTitle" xml:space="preserve"><value>Import completed</value></data>
+  <data name="MacroImportInvalidFormat" xml:space="preserve"><value>The file does not have an OpenKey/UniKey version 1 macro header.</value></data>
+  <data name="MacroImportEmpty" xml:space="preserve"><value>The file contains no valid text expansions to import.</value></data>
+  <data name="MacroImportStorageError" xml:space="preserve"><value>Could not update macro data in the registry.</value></data>
+  <data name="MacroReadFailure" xml:space="preserve"><value>Could not read the selected file.</value></data>
+  <data name="MacroImportFailureTitle" xml:space="preserve"><value>Could not import data</value></data>
+  <data name="MacroOpenFailureTitle" xml:space="preserve"><value>Could not open file</value></data>
+  <data name="MacroExportSuccessTitle" xml:space="preserve"><value>Backup exported</value></data>
+  <data name="MacroExportSuccessMessage" xml:space="preserve"><value>A file compatible with OpenKey Win32 was created.</value></data>
+  <data name="MacroExportFailureTitle" xml:space="preserve"><value>Could not export data</value></data>
+  <data name="MacroExportMultiline" xml:space="preserve"><value>The legacy macro format does not support multiline text. Edit entries containing line breaks and try again.</value></data>
+  <data name="MacroWriteFailure" xml:space="preserve"><value>Windows could not write to the selected file.</value></data>
+  <data name="MacroSaveFileFailureTitle" xml:space="preserve"><value>Could not save file</value></data>
+  <data name="MacroOptionsSuccessTitle" xml:space="preserve"><value>Text expansion options saved</value></data>
+  <data name="MacroOptionsFailureTitle" xml:space="preserve"><value>Could not save text expansion options</value></data>
+  <data name="MacroAutoCapsMessage" xml:space="preserve"><value>OpenKey will match the replacement text capitalization to the shortcut.</value></data>
+  <data name="MacroAddTitle" xml:space="preserve"><value>Add text expansion</value></data>
+  <data name="AddButtonText" xml:space="preserve"><value>Add</value></data>
+  <data name="QuickShortcutDisabled" xml:space="preserve"><value>Disable shortcut</value></data>
+  <data name="ConvertEmptyTitle" xml:space="preserve"><value>No text provided</value></data>
+  <data name="ConvertEmptyMessage" xml:space="preserve"><value>Enter or paste text to convert.</value></data>
+  <data name="ConvertSuccessTitle" xml:space="preserve"><value>Conversion completed</value></data>
+  <data name="ConvertSuccessMessage" xml:space="preserve"><value>The converted text is ready to copy.</value></data>
+  <data name="CopySuccessTitle" xml:space="preserve"><value>Copied</value></data>
+  <data name="CopySuccessMessage" xml:space="preserve"><value>The converted text was copied to the Clipboard.</value></data>
+  <data name="ClipboardConvertSuccessTitle" xml:space="preserve"><value>Clipboard conversion completed</value></data>
+  <data name="ClipboardConvertSuccessMessage" xml:space="preserve"><value>The Clipboard text has been replaced with the converted text.</value></data>
+  <data name="ClipboardEmptyTitle" xml:space="preserve"><value>No text in Clipboard</value></data>
+  <data name="ClipboardEmptyMessage" xml:space="preserve"><value>Copy some text and try again.</value></data>
+  <data name="ClipboardBusyTitle" xml:space="preserve"><value>Clipboard is in use</value></data>
+  <data name="ClipboardBusyMessage" xml:space="preserve"><value>Close the app holding the Clipboard and try again.</value></data>
+  <data name="ClipboardWriteFailureTitle" xml:space="preserve"><value>Could not update Clipboard</value></data>
+  <data name="ClipboardWriteFailureMessage" xml:space="preserve"><value>Windows could not write the converted text to the Clipboard.</value></data>
+  <data name="SaveOptionsFailureTitle" xml:space="preserve"><value>Could not save options</value></data>
+  <data name="UnknownBuildDate" xml:space="preserve"><value>Unknown</value></data>
+  <data name="LinkFailureTitle" xml:space="preserve"><value>Could not open link</value></data>
+  <data name="LinkFailureMessage" xml:space="preserve"><value>Check your default browser and try again.</value></data>
+  <data name="UpdateCheckFailureTitle" xml:space="preserve"><value>Could not check for updates</value></data>
+  <data name="UpdateCheckFailureMessage" xml:space="preserve"><value>Check your Internet connection and try again.</value></data>
+  <data name="UpdateCurrentTitle" xml:space="preserve"><value>OpenKey is up to date</value></data>
+  <data name="UpdateCurrentMessage" xml:space="preserve"><value>You are using the latest version.</value></data>
+  <data name="UpdateConfirmMessage" xml:space="preserve"><value>Fluent beta does not yet support updating the engine, UI, and runtime together. View the releases page and beta guide for manual updates; the app will not replace files or exit.</value></data>
+  <data name="UpdateButtonText" xml:space="preserve"><value>View releases</value></data>
+  <data name="UpdateLaterButtonText" xml:space="preserve"><value>Later</value></data>
+  <data name="UpdaterMissingTitle" xml:space="preserve"><value>Updater not found</value></data>
+  <data name="UpdaterMissingMessage" xml:space="preserve"><value>Place OpenKeyUpdate.exe beside the application or download the latest version from the releases page.</value></data>
+  <data name="MacroCountFormat" xml:space="preserve"><value>{0} entries</value></data>
+  <data name="MacroCountOne" xml:space="preserve"><value>1 entry</value></data>
+  <data name="MacroDeleteConfirmFormat" xml:space="preserve"><value>This will delete “{0}” from OpenKey data.</value></data>
+  <data name="MacroImportedFormat" xml:space="preserve"><value>Imported {0} entries.</value></data>
+  <data name="MacroSkippedFormat" xml:space="preserve"><value> Skipped {0} duplicate or invalid entries.</value></data>
+  <data name="AboutVersionFormat" xml:space="preserve"><value>Version {0} for Windows</value></data>
+  <data name="AboutBuildDateFormat" xml:space="preserve"><value>Build date: {0}</value></data>
+  <data name="UpdateAvailableFormat" xml:space="preserve"><value>OpenKey {0} is available</value></data>
+  <data name="MacroLabel1.Text" xml:space="preserve"><value>Text expansion</value></data>
+  <data name="MacroLabel2.Text" xml:space="preserve"><value>Create, search, and back up OpenKey text expansions.</value></data>
+  <data name="MacroLabel3.Text" xml:space="preserve"><value>Automatically capitalize replacement text</value></data>
+  <data name="MacroLabel4.Text" xml:space="preserve"><value>Match capitalization to how you type the shortcut.</value></data>
+  <data name="MacroAutoCapsToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Automatically capitalize text expansions</value></data>
+  <data name="MacroAutoCapsToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="MacroAutoCapsToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="MacroSearchBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Search text expansions</value></data>
+  <data name="MacroSearchBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Filter by shortcut or replacement text. Press Ctrl+F to focus this field.</value></data>
+  <data name="MacroSearchBox.PlaceholderText" xml:space="preserve"><value>Search shortcuts or replacement text</value></data>
+  <data name="MacroImportButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Import a macro file (Ctrl+I)</value></data>
+  <data name="MacroImportButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Import text expansions</value></data>
+  <data name="MacroImportButton.Content" xml:space="preserve"><value>Import</value></data>
+  <data name="MacroImportButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Import data (Ctrl+I)</value></data>
+  <data name="MacroExportButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Export a macro backup file (Ctrl+E)</value></data>
+  <data name="MacroExportButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Export text expansion backup</value></data>
+  <data name="MacroExportButton.Content" xml:space="preserve"><value>Export</value></data>
+  <data name="MacroExportButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Export backup (Ctrl+E)</value></data>
+  <data name="MacroLabel5.Text" xml:space="preserve"><value>Text expansions</value></data>
+  <data name="MacroMacroCount.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Number of text expansions</value></data>
+  <data name="MacroMacroList.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Text expansions</value></data>
+  <data name="MacroLabel6.Text" xml:space="preserve"><value>No text expansions found</value></data>
+  <data name="MacroLabel7.Text" xml:space="preserve"><value>Try another search or add an entry in the panel on the right.</value></data>
+  <data name="MacroEditorTitle.Text" xml:space="preserve"><value>Add text expansion</value></data>
+  <data name="MacroNewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Create a text expansion (Ctrl+N)</value></data>
+  <data name="MacroNewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Create an entry</value></data>
+  <data name="MacroNewButton.Content" xml:space="preserve"><value>New</value></data>
+  <data name="MacroNewButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Create an entry (Ctrl+N)</value></data>
+  <data name="MacroShortcutBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Expansion shortcut</value></data>
+  <data name="MacroShortcutBox.Header" xml:space="preserve"><value>Shortcut</value></data>
+  <data name="MacroShortcutBox.PlaceholderText" xml:space="preserve"><value>Example: dc</value></data>
+  <data name="MacroReplacementBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Replacement text</value></data>
+  <data name="MacroReplacementBox.Header" xml:space="preserve"><value>Replacement text</value></data>
+  <data name="MacroReplacementBox.PlaceholderText" xml:space="preserve"><value>Example: được</value></data>
+  <data name="MacroSaveButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Save text expansion (Ctrl+S)</value></data>
+  <data name="MacroSaveButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Save text expansion</value></data>
+  <data name="MacroSaveButton.Content" xml:space="preserve"><value>Add</value></data>
+  <data name="MacroSaveButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Save text expansion (Ctrl+S)</value></data>
+  <data name="MacroDeleteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Delete the selected entry (Delete when the list has focus)</value></data>
+  <data name="MacroDeleteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Delete selected text expansion</value></data>
+  <data name="MacroDeleteButton.Content" xml:space="preserve"><value>Delete</value></data>
+  <data name="MacroDeleteButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Delete selected entry (Delete)</value></data>
+  <data name="MacroEditorStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Text expansion edit status</value></data>
+  <data name="ConvertLabel1.Text" xml:space="preserve"><value>Encoding converter</value></data>
+  <data name="ConvertLabel2.Text" xml:space="preserve"><value>Convert text between Vietnamese character encodings supported by OpenKey.</value></data>
+  <data name="ConvertLabel3.Text" xml:space="preserve"><value>Character encoding</value></data>
+  <data name="ConvertSourceCodeCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Source encoding</value></data>
+  <data name="ConvertSourceCodeCombo.Header" xml:space="preserve"><value>Source</value></data>
+  <data name="ConvertLabel4.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Swap source and target encodings</value></data>
+  <data name="ConvertLabel4.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Swap source and target encodings</value></data>
+  <data name="ConvertTargetCodeCombo.Header" xml:space="preserve"><value>Target</value></data>
+  <data name="ConvertTargetCodeCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Target encoding</value></data>
+  <data name="ConvertLabel5.Text" xml:space="preserve"><value>Text transformations</value></data>
+  <data name="ConvertAllCapsCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Uppercase all text</value></data>
+  <data name="ConvertAllCapsCheck.Content" xml:space="preserve"><value>UPPERCASE all text</value></data>
+  <data name="ConvertAllLowerCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Lowercase all text</value></data>
+  <data name="ConvertAllLowerCheck.Content" xml:space="preserve"><value>lowercase all text</value></data>
+  <data name="ConvertSentenceCapsCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Sentence case</value></data>
+  <data name="ConvertSentenceCapsCheck.Content" xml:space="preserve"><value>Sentence case</value></data>
+  <data name="ConvertWordCapsCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Capitalize each word</value></data>
+  <data name="ConvertWordCapsCheck.Content" xml:space="preserve"><value>Capitalize Each Word</value></data>
+  <data name="ConvertRemoveMarkCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Remove Vietnamese marks</value></data>
+  <data name="ConvertRemoveMarkCheck.Content" xml:space="preserve"><value>Remove Vietnamese marks</value></data>
+  <data name="ConvertInputBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Source text</value></data>
+  <data name="ConvertInputBox.Header" xml:space="preserve"><value>Source text</value></data>
+  <data name="ConvertInputBox.PlaceholderText" xml:space="preserve"><value>Enter or paste text to convert</value></data>
+  <data name="ConvertResultBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Read-only field containing the converted text.</value></data>
+  <data name="ConvertResultBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Converted text</value></data>
+  <data name="ConvertResultBox.Header" xml:space="preserve"><value>Result</value></data>
+  <data name="ConvertResultBox.PlaceholderText" xml:space="preserve"><value>Converted text appears here</value></data>
+  <data name="ConvertConvertButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Convert text</value></data>
+  <data name="ConvertConvertButton.Content" xml:space="preserve"><value>Convert</value></data>
+  <data name="ConvertCopyButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Copy converted text</value></data>
+  <data name="ConvertCopyButton.Content" xml:space="preserve"><value>Copy</value></data>
+  <data name="ConvertClearButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Clear converter text</value></data>
+  <data name="ConvertClearButton.Content" xml:space="preserve"><value>Clear</value></data>
+  <data name="ConvertLabel6.Text" xml:space="preserve"><value>Quick Clipboard conversion</value></data>
+  <data name="ConvertLabel7.Text" xml:space="preserve"><value>Convert copied text using the options above.</value></data>
+  <data name="ConvertLabel8.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Convert Clipboard text</value></data>
+  <data name="ConvertLabel8.Content" xml:space="preserve"><value>Convert Clipboard</value></data>
+  <data name="ConvertNotifyToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Notify when quick conversion finishes</value></data>
+  <data name="ConvertNotifyToggle.Header" xml:space="preserve"><value>Notify when quick conversion finishes</value></data>
+  <data name="ConvertNotifyToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="ConvertNotifyToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ConvertLabel9.Text" xml:space="preserve"><value>Quick conversion shortcut</value></data>
+  <data name="ConvertQuickCtrlCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Use Ctrl for the quick conversion shortcut</value></data>
+  <data name="ConvertQuickAltCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Use Alt for the quick conversion shortcut</value></data>
+  <data name="ConvertQuickWinCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Use Windows for the quick conversion shortcut</value></data>
+  <data name="ConvertQuickShiftCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Use Shift for the quick conversion shortcut</value></data>
+  <data name="ConvertQuickKeyCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Choose the primary key for quick Clipboard conversion.</value></data>
+  <data name="ConvertQuickKeyCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Quick conversion primary key</value></data>
+  <data name="ConvertQuickHotkeyPreview.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Current quick conversion shortcut</value></data>
+  <data name="ConvertQuickHotkeyWarning.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Quick conversion shortcut warning</value></data>
+  <data name="ConvertQuickHotkeyWarning.Message" xml:space="preserve"><value>Choose at least one modifier (Ctrl, Alt, Win, or Shift) to avoid accidental activation. The shortcut takes effect immediately while OpenKey is running.</value></data>
+  <data name="ConvertQuickHotkeyWarning.Title" xml:space="preserve"><value>Shortcut has no modifier key</value></data>
+  <data name="ConvertStatusBar.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Conversion status</value></data>
+  <data name="AboutLabel1.Text" xml:space="preserve"><value>About OpenKey</value></data>
+  <data name="AboutLabel2.Text" xml:space="preserve"><value>Lightweight, open-source Vietnamese input designed for Windows.</value></data>
+  <data name="AboutCheckUpdateButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Check for a new OpenKey version over the Internet.</value></data>
+  <data name="AboutCheckUpdateButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Check for updates</value></data>
+  <data name="AboutCheckUpdateButton.Content" xml:space="preserve"><value>Check for updates</value></data>
+  <data name="AboutUpdateProgress.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Checking for updates</value></data>
+  <data name="AboutLabel3.Text" xml:space="preserve"><value>Project</value></data>
+  <data name="AboutLabel4.Text" xml:space="preserve"><value>Browse the source code, releases, and OpenKey community.</value></data>
+  <data name="AboutLabel5.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open OpenKey source code on GitHub</value></data>
+  <data name="AboutLabel5.Content" xml:space="preserve"><value>Source code on GitHub</value></data>
+  <data name="AboutLabel6.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open OpenKey releases</value></data>
+  <data name="AboutLabel6.Content" xml:space="preserve"><value>Releases</value></data>
+  <data name="AboutLabel7.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open the OpenKey community</value></data>
+  <data name="AboutLabel7.Content" xml:space="preserve"><value>OpenKey community</value></data>
+  <data name="AboutLabel8.Text" xml:space="preserve"><value>License</value></data>
+  <data name="AboutLabel9.Text" xml:space="preserve"><value>You may use, study, modify, and distribute OpenKey under the terms of GPLv3.</value></data>
+  <data name="AboutLabel10.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Read the GNU General Public License version 3</value></data>
+  <data name="AboutLabel10.Content" xml:space="preserve"><value>Read the GPLv3 license</value></data>
+  <data name="AboutLabel11.Text" xml:space="preserve"><value>Copyright © 2019–2026 Mai Vũ Tuyền and contributors.</value></data>
+  <data name="AboutLinkStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Link and update status</value></data>
+  <data name="RootNavigation.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Use the arrow keys to select a settings page.</value></data>
+  <data name="RootNavigation.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>OpenKey navigation</value></data>
+  <data name="NavOverview.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Overview</value></data>
+  <data name="NavInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Input method and encoding</value></data>
+  <data name="NavSpelling.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Spelling and quick typing</value></data>
+  <data name="NavHotkeys.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Keyboard shortcuts</value></data>
+  <data name="NavCompatibility.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Apps and compatibility</value></data>
+  <data name="NavAdvanced.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Advanced settings</value></data>
+  <data name="NavMacro.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Text expansion</value></data>
+  <data name="NavConvert.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Encoding converter</value></data>
+  <data name="NavAbout.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>About OpenKey</value></data>
+  <data name="LanguageToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Enable Vietnamese input</value></data>
+  <data name="LanguageToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Switch between Vietnamese and English input.</value></data>
+  <data name="OverviewStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Configuration status</value></data>
+  <data name="InputTypeCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Choose how to enter Vietnamese marks.</value></data>
+  <data name="InputTypeCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Input method</value></data>
+  <data name="CodeTableCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Choose the character encoding for Vietnamese output.</value></data>
+  <data name="CodeTableCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Character encoding</value></data>
+  <data name="RememberCodeToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Remember a separate encoding for each app.</value></data>
+  <data name="RememberCodeToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Remember encoding for each application</value></data>
+  <data name="InputSettingsStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Settings save status</value></data>
+  <data name="CheckSpellingToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Check spelling</value></data>
+  <data name="RestoreWrongSpellingToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Restore keystrokes for invalid words</value></data>
+  <data name="ModernOrthographyToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Use modern tone mark placement</value></data>
+  <data name="QuickTelexToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Quick Telex</value></data>
+  <data name="QuickStartConsonantToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Quick initial consonants</value></data>
+  <data name="QuickEndConsonantToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Quick final consonants</value></data>
+  <data name="SettingsStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Settings save status</value></data>
+  <data name="HotkeySettingsPageCtrlCheckBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Use Ctrl</value></data>
+  <data name="HotkeySettingsPageAltCheckBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Use Alt</value></data>
+  <data name="HotkeySettingsPageWinCheckBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Use Windows</value></data>
+  <data name="HotkeySettingsPageShiftCheckBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Use Shift</value></data>
+  <data name="KeyCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Choose the primary key for the input mode shortcut.</value></data>
+  <data name="KeyCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Primary key</value></data>
+  <data name="HotkeySettingsPageHotkeyPreview.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Current keyboard shortcut</value></data>
+  <data name="BeepToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Play a sound when switching input mode</value></data>
+  <data name="ShortcutWarning.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Keyboard shortcut warning</value></data>
+  <data name="HotkeySettingsStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Shortcut save status</value></data>
+  <data name="SmartSwitchToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Remember input mode for each app</value></data>
+  <data name="OtherLanguagesToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Allow Vietnamese input with non-English layouts</value></data>
+  <data name="TemporaryDisableToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Alt pauses OpenKey until the next word</value></data>
+  <data name="RecommendationFixToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Fix duplicated words in suggestion fields</value></data>
+  <data name="ChromiumFixToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Requires the duplicated word fix to be enabled.</value></data>
+  <data name="ChromiumFixToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Optimize for Chromium browsers</value></data>
+  <data name="ClipboardToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Use the Clipboard for apps that do not accept Vietnamese</value></data>
+  <data name="MetroSupportToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Support Metro and UWP apps</value></data>
+  <data name="UpperCaseFirstCharToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Capitalize automatically after periods and line breaks</value></data>
+  <data name="AllowConsonantToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Allow z, w, f, and j as consonants</value></data>
+  <data name="TemporarySpellingToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Press Ctrl to disable spelling checks for one word</value></data>
+  <data name="GrayIconToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Use a monochrome system tray icon</value></data>
+  <data name="RunWithWindowsToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Start OpenKey with Windows</value></data>
+  <data name="ShowOnStartupToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Show the control window when OpenKey starts</value></data>
+  <data name="CheckUpdatesToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Check for a new version at startup</value></data>
+  <data name="CheckSpellingToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="CheckSpellingToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="RestoreWrongSpellingToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="RestoreWrongSpellingToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="ModernOrthographyToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="ModernOrthographyToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="QuickTelexToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="QuickTelexToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="QuickStartConsonantToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="QuickStartConsonantToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="QuickEndConsonantToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="QuickEndConsonantToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="UiLanguageSection.Text" xml:space="preserve"><value>Interface language</value></data>
+  <data name="UiLanguageCombo.Header" xml:space="preserve"><value>Display language</value></data>
+  <data name="UiLanguageCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Display language</value></data>
+  <data name="UiLanguageHelp.Text" xml:space="preserve"><value>Close and reopen the interface window to apply. This does not change Vietnamese/English input mode.</value></data>
+  <data name="UiLanguageSavedTitle" xml:space="preserve"><value>Interface language saved</value></data>
+  <data name="UiLanguageRestartMessage" xml:space="preserve"><value>Close and reopen the interface window to apply your selected language. The input engine in the system tray continues running.</value></data>
+  <data name="MacroReloadButton.Content" xml:space="preserve"><value>Reload</value></data>
+  <data name="MacroReloadButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Reload text expansions</value></data>
+  <data name="MacroReloadTitle" xml:space="preserve"><value>Reload list</value></data>
+  <data name="MacroReloadPrompt" xml:space="preserve"><value>Your edits have not been saved. Reloading discards the current draft and reads the saved list again. Saved text expansions will not be deleted. Continue?</value></data>
+  <data name="MacroReloadFailure" xml:space="preserve"><value>The saved list could not be read or its data is invalid. Your current list and draft have been preserved.</value></data>
+  <data name="MacroRefreshAfterWriteTitle" xml:space="preserve"><value>Data saved, list refresh unavailable</value></data>
+  <data name="MacroRefreshAfterWriteFailure" xml:space="preserve"><value>The operation completed, but the saved data could not be read back. Your list and draft have been preserved and may be out of date. Use Reload before making further changes; do not repeat the completed operation.</value></data>
+  <data name="UiThemeSection.Text" xml:space="preserve"><value>Light and dark appearance</value></data>
+  <data name="UiThemeCombo.Header" xml:space="preserve"><value>Interface theme</value></data>
+  <data name="UiThemeCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Interface theme</value></data>
+  <data name="UiThemeSystem.Content" xml:space="preserve"><value>Use system setting</value></data>
+  <data name="UiThemeLight.Content" xml:space="preserve"><value>Light</value></data>
+  <data name="UiThemeDark.Content" xml:space="preserve"><value>Dark</value></data>
+  <data name="UiThemeHelp.Text" xml:space="preserve"><value>Applies immediately without changing input settings. Defaults to Windows appearance; high contrast still takes precedence.</value></data>
+  <data name="UiThemeSavedTitle" xml:space="preserve"><value>Interface theme saved</value></data>
+  <data name="UiThemeAppliedMessage" xml:space="preserve"><value>The theme has been applied and will be restored when reopening the interface. Draft text and input settings are unchanged.</value></data>
+  <data name="MacroDiscardTitle" xml:space="preserve"><value>Unsaved changes</value></data>
+  <data name="MacroDiscardPrompt" xml:space="preserve"><value>The text expansion being edited has not been saved. Continuing may discard this draft; this confirmation does not delete saved entries.</value></data>
+  <data name="MacroDiscardButton" xml:space="preserve"><value>Continue, discard changes</value></data>
+  <data name="ChromiumDependencyWarning.Title" xml:space="preserve"><value>Chromium option is locked</value></data>
+  <data name="ChromiumDependencyWarning.Message" xml:space="preserve"><value>Your Chromium selection is retained, but enable Fix duplicated words to edit it. OpenKey does not automatically turn off the saved selection.</value></data>
+  <data name="ChromiumDependencyWarning.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Chromium option warning</value></data>
+  <data name="SpellingDependencyWarning.Title" xml:space="preserve"><value>Advanced spelling options are locked</value></data>
+  <data name="SpellingDependencyWarning.Message" xml:space="preserve"><value>Some advanced spelling selections are retained, but enable Check spelling to edit them. OpenKey does not automatically turn off the saved selections.</value></data>
+  <data name="SpellingDependencyWarning.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Spelling option warning</value></data>
+</root>

@@ -1,0 +1,4 @@
+#include "AppResources.h"
+
+// Reuse the original OpenKey asset without another deployment-time file.
+IDI_OPENKEY_UI ICON "..\\OpenKey\\icon.ico"

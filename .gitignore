@@ -9,3 +9,17 @@
 /Sources/OpenKey/win32/OpenKey/OpenKey/x64/Release
 /Sources/OpenKey/win32/OpenKey/OpenKeyUpdate/x64/Release
 .vs/slnx.sqlite
+Sources/OpenKey/win32/OpenKey/x64/OpenKey/*
+
+################################################################################
+# Visual Studio / MSBuild generated files
+################################################################################
+
+.vs/
+/dist/
+/Sources/OpenKey/win32/OpenKey/**/Debug/
+/Sources/OpenKey/win32/OpenKey/**/Release/
+/Sources/OpenKey/win32/OpenKey/**/x64/
+/Sources/OpenKey/win32/OpenKey/OpenKeyUpdate/Win32/analysis-*.log
+/Sources/OpenKey/win32/OpenKey/OpenKey.UI/Generated Files/
+/Sources/OpenKey/win32/OpenKey/OpenKey.UI/obj/

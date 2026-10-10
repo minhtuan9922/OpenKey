@@ -13,8 +13,11 @@ redistribute your new version, it MUST be open source.
 -----------------------------------------------------------*/
 #include "SystemTrayHelper.h"
 #include "AppDelegate.h"
+#include <strsafe.h>
 
 #define WM_TRAYMESSAGE (WM_USER + 1)
+#define WM_PREFERENCES_CHANGED (WM_USER + 2020)
+#define WM_OPENKEY_EXIT (WM_USER + 2021)
 #define TRAY_ICONUID 100
 
 #define POPUP_VIET_ON_OFF 900
@@ -52,6 +55,8 @@ static HMENU otherCode;
 
 static NOTIFYICONDATA nid;
 
+static void loadTrayIcon();
+
 map<UINT, LPCTSTR> menuData = {
 	{POPUP_VIET_ON_OFF, _T("Bật Tiếng Việt")},
 	{POPUP_SPELLING, _T("Bật kiểm tra chính tả")},
@@ -82,6 +87,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 		break;
 	case WM_USER+2019:
 		AppDelegate::getInstance()->onControlPanel();
+		break;
+	case WM_PREFERENCES_CHANGED:
+		AppDelegate::getInstance()->onSettingsChangedFromUI();
+		break;
+	case WM_OPENKEY_EXIT:
+		AppDelegate::getInstance()->onOpenKeyExit();
 		break;
 	case WM_TRAYMESSAGE: {
 		if (lParam == WM_LBUTTONDBLCLK) {
@@ -166,7 +177,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 	default:
 		// if the taskbar is restarted, add the system tray icon again
 		if (message == taskbarCreated) {
-			Shell_NotifyIcon(NIM_ADD, &nid);
+			loadTrayIcon();
+			if (Shell_NotifyIcon(NIM_ADD, &nid)) {
+				Shell_NotifyIcon(NIM_SETVERSION, &nid);
+				SystemTrayHelper::updateData();
+			}
 		}
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
@@ -343,10 +358,11 @@ void SystemTrayHelper::_createSystemTrayIcon(const HINSTANCE& hIns) {
 
 	// Shell_NotifyIcon may fail if the system tray icon is not fully initialized
 	const int maxRetries = 5;
-	for (int attempt = 0; attempt < maxRetries; ++attempt) {
-		if (Shell_NotifyIcon(NIM_ADD, &nid)) {
-			break;
-		}
+		for (int attempt = 0; attempt < maxRetries; ++attempt) {
+			if (Shell_NotifyIcon(NIM_ADD, &nid)) {
+				Shell_NotifyIcon(NIM_SETVERSION, &nid);
+				break;
+			}
 		Sleep(1000);
 	}
 }
@@ -359,6 +375,34 @@ void CALLBACK SystemTrayHelper::WaitToCreateFakeWindow(HWND hwnd, UINT uMsg, UIN
 
 void SystemTrayHelper::createSystemTrayIcon(const HINSTANCE& hIns) {
 	_createSystemTrayIcon(hIns);
+}
+
+bool SystemTrayHelper::showNotification(LPCTSTR title, LPCTSTR message) {
+	if (nid.hWnd == NULL || message == NULL || message[0] == L'\0') {
+		return false;
+	}
+
+	const UINT previousFlags = nid.uFlags;
+	nid.uFlags = NIF_INFO;
+	nid.dwInfoFlags = NIIF_INFO | NIIF_NOSOUND;
+	nid.uTimeout = 5000;
+	const HRESULT titleResult = StringCchCopy(nid.szInfoTitle, ARRAYSIZE(nid.szInfoTitle),
+		title != NULL ? title : _T("OpenKey"));
+	const HRESULT messageResult = StringCchCopy(nid.szInfo, ARRAYSIZE(nid.szInfo), message);
+	// Truncation is expected for long text; StringCchCopy still terminates the buffer.
+	if ((FAILED(titleResult) && titleResult != STRSAFE_E_INSUFFICIENT_BUFFER) ||
+		(FAILED(messageResult) && messageResult != STRSAFE_E_INSUFFICIENT_BUFFER)) {
+		nid.szInfoTitle[0] = L'\0';
+		nid.szInfo[0] = L'\0';
+		nid.uFlags = previousFlags;
+		return false;
+	}
+
+	const bool shown = Shell_NotifyIcon(NIM_MODIFY, &nid) != FALSE;
+	nid.szInfoTitle[0] = L'\0';
+	nid.szInfo[0] = L'\0';
+	nid.uFlags = previousFlags;
+	return shown;
 }
 
 void SystemTrayHelper::removeSystemTray() {
