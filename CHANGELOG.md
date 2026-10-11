@@ -1,5 +1,15 @@
 # OpenKey Change Log
 
+## Windows Fluent 3.0.5 — mã nguồn local, 2026-10-11
+
+- Nâng đồng bộ version engine, updater, UI và bộ cài lên 3.0.5; metadata Windows
+  `v3.0.5` / `327683`. Không thay phiên bản macOS.
+- Bổ sung báo cáo chẩn đoán metadata cục bộ và mẫu báo lỗi/nghiệm thu beta.
+- Kiểm tra notices trước đóng gói, guard bảo toàn dữ liệu bộ cài và cổng hồi quy
+  PowerShell 7/5.1 trước tạo thư mục upload.
+
+Đây là cập nhật mã nguồn, chưa build bộ cài 3.0.5 hoặc phát hành GitHub trong lượt này.
+
 ## Windows Fluent 3.0.3 — mã nguồn/bộ cài local, 2026-10-11
 
 - Giao diện Fluent tiếng Việt mặc định, đổi Anh/Việt, theme Sáng/Tối/Theo hệ thống;

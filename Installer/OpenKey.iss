@@ -6,7 +6,7 @@
 [Setup]
 AppId={{88759ADC-2201-4DF1-A68A-687EB37B1A02}
 AppName=OpenKey Fluent Beta
-AppVersion=3.0.3
+AppVersion=3.0.5
 AppPublisher=OpenKey contributors
 DefaultDirName={localappdata}\Programs\OpenKey-Fluent
 DefaultGroupName=OpenKey Fluent

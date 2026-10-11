@@ -1,5 +1,10 @@
 # TODO: Chuyển giao diện OpenKey Windows sang Fluent Design
 
+## Phiên bản mã nguồn 3.0.5 (2026-10-11)
+
+- [x] Nâng đồng bộ version Windows: engine/updater/UI 3.0.5.0, trang Giới thiệu 3.0.5, setup 3.0.5 và metadata `v3.0.5` / `327683` (`0x00050003`). Không thay phiên bản macOS.
+- Bộ cài/binary đã build trước đó vẫn là 3.0.3; chưa build, tag hoặc phát hành 3.0.5 trong lượt tăng phiên bản.
+
 ## Trạng thái chốt hiện tại (2026-10-11)
 
 - [x] Hoàn tất kiểm tra kỹ thuật notices: 11 fixture PS7/5.1, đối chiếu 24 file/9 package mỗi kiến trúc và hồi quy 19/19 suite đạt.
