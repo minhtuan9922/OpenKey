@@ -1,5 +1,15 @@
 # TODO: Chuyển giao diện OpenKey Windows sang Fluent Design
 
+## Trạng thái chốt hiện tại (2026-10-11)
+
+- [x] Hoàn tất kiểm tra kỹ thuật notices: 11 fixture PS7/5.1, đối chiếu 24 file/9 package mỗi kiến trúc và hồi quy 19/19 suite đạt.
+- [x] Chốt hạng mục rà notices theo yêu cầu người dùng. Rà quyền phân phối riêng và ký số được bỏ qua trong phạm vi hiện tại; đây không phải xác nhận pháp lý. Bộ cài vẫn chưa ký số.
+- [x] Đồng bộ checklist với kết quả build, đóng gói và nghiệm thu đã ghi nhận; giữ các ghi chú cũ làm lịch sử, không coi trạng thái của gói cũ là trạng thái bộ cài mới.
+- [x] Chốt bàn giao phát hành GitHub theo yêu cầu người dùng: người dùng tự upload/tag/chọn stable hoặc Latest; agent không phát hành và không xác nhận release đã xuất hiện trên GitHub.
+  - [x] Củng cố cổng hồi quy trước phát hành (2026-10-11): `build-ci-release.ps1` chạy `test-all.ps1 All` lần lượt trong process PowerShell 7 và Windows PowerShell 5.1, kiểm tra exit code từng shell trước tạo `dist/ci-release`. 36 policy/source checks đạt cả PS7/5.1. Chỉ sửa source local, không chạy build-release hoặc kích hoạt GitHub Actions.
+  - [x] Chạy đầy đủ 20/20 suite x64/x86 trên Windows PowerShell 5.1 sau sửa gate: `dist/regression-4ed49ce516a64487990d8dc6d7221316/summary.json`. PS7 đã đạt 20/20 ở lượt guard trước; policy mới được kiểm tra riêng trên hai shell. Không suy thành lần chạy GitHub runner thật.
+- [ ] Các ca kiểm thử mở rộng còn nằm ở từng giai đoạn: UAC/runtime thất bại, timeout/debugger, bảo toàn dữ liệu nâng cấp, HTML clipboard thật và ma trận Windows/DPI/session. Xác nhận luồng bình thường không chứng minh toàn bộ các ca này.
+
 ## Sửa menu tray bị bảng icon ẩn che (2026-10-11)
 
 - [x] Mở menu khi thả chuột phải (WM_RBUTTONUP), không mở giữa chuỗi nhấn/thả.
@@ -15,6 +25,8 @@
 
 ### Bộ cài offline một file (2026-10-11)
 
+- [x] Người dùng xác nhận cập nhật thực tế lên 3.0.3 hoạt động ổn (2026-10-11).
+  Các ca lỗi/timeout/debugger chưa được đánh dấu đạt.
 - [x] Thêm Installer/OpenKey.iss và build-setup.ps1: một EXE tự chọn x64/x86,
   cài theo tài khoản, Start Menu cho engine/Settings, Desktop và chạy app tùy chọn.
 - [x] Kiểm tra VC++ đúng kiến trúc/minimum, consent và UAC khi thiếu, hash trước
@@ -24,8 +36,17 @@
 - [x] 24 source contract + 38 native Pascal fixtures; verify 566 input compiler,
   ZIP/hash/PE/chữ ký runtime PS7/5.1 đạt. Full hồi quy 17/17 mỗi shell.
 - [x] Tạo setup khoảng 59,2 MiB; đường dẫn/hash/build và hướng dẫn ở INSTALLER.md.
-- [ ] Nghiệm thu cài/gỡ/UAC/shortcut/nâng cấp thật trong Sandbox/máy sạch.
-- [ ] Rà quyền phân phối runtime/dependency, ký số và phát hành công khai.
+- [x] Người dùng xác nhận cài đặt, gỡ bỏ, chạy Windows Sandbox và kiểm thử
+  trên máy thật hoạt động ổn (2026-10-11).
+- [ ] Nghiệm thu riêng các biến thể UAC/runtime/shortcut và ca lỗi nâng cấp;
+  xác nhận luồng bình thường không thay cho toàn bộ ma trận.
+  - [x] Củng cố lỗi đóng app khi cập nhật (2026-10-11): `WAIT_FAILED`/kết quả chờ lạ không cho phép gửi lệnh đóng, PID thay đổi hoặc loại app không hợp lệ chặn tiếp tục, tiến trình đã thoát không nhận message. Tách policy giới hạn tổng thời gian chờ 5 giây; thêm 21 fixture. Mã `[Code]` bộ cài compile đạt, 31 source + 9 packaging + 67 native Pascal checks đạt trên PS7/5.1. Không chạy UAC, runtime, đóng app hoặc cài đặt thật; nghiệm thu GUI các ca lỗi vẫn riêng biệt.
+  - [x] Hồi quy sau củng cố policy đóng app đạt 19/19 suite x64/x86: `dist/regression-cdc6de36f4b9448fb99af0d18918ca79/summary.json`. Chưa đóng gói bộ cài mới trong lượt này.
+  - [x] Đóng gói lại ở lượt tiếp theo (2026-10-11): build Release mới cả x64/x86, tạo `dist/setup-b95a532783d34c8eb3d7d1dfd53ab70d/Output/OpenKey-Setup.exe` phiên bản 3.0.3, 62.109.873 byte. Verifier PS7/5.1 đạt 566 input/281 payload mỗi kiến trúc; sáu executable đều 3.0.3.0. Chứa sửa popup cursor/owner và app-close policy mới; giữ một bộ cài chung, không tự cài hoặc phát hành. Hash và đường dẫn nhanh ở `INSTALLER.md`.
+- [x] Rà notices kỹ thuật và chốt phạm vi quyền phân phối/ký số theo yêu cầu người dùng (2026-10-11); phần rà quyền riêng/ký số được bỏ qua, không xác nhận quyền phân phối và không có chữ ký số. Phát hành công khai là mục riêng phía trên.
+  - [x] Củng cố kiểm tra kỹ thuật notices (2026-10-11): collector xác nhận nuspec id/version khớp dependency restore; `verify-third-party.ps1` đối chiếu metadata/danh sách/bytes notices với cache restore và được gọi trước manifest/ZIP. 11/11 fixture đạt PS7/5.1; hai payload của setup 3.0.3 đối chiếu 24 file/9 package mỗi bản đạt trên cả hai shell. Không sửa setup đã build, không xác nhận quyền phân phối hoặc ánh xạ binary/giấy phép; guard có trong pipeline lần đóng gói sau.
+  - [x] Thử pipeline notices bằng `package-beta.ps1 x64/x86 -SkipBuild` trên binary Release hiện có: tạo hai ZIP mới, guard notices đạt và 281 payload mỗi bản được xác minh. x64 `dist/OpenKey-Fluent-beta-x64-9492ae08395046d5be99ee84eda2f53c.zip`; x86 `dist/OpenKey-Fluent-beta-x86-a5bc07ef52a448a2adae163e0e738c17.zip`. Không sửa bộ cài trước đó hoặc chạy app.
+  - [x] Hồi quy sau guard notices đạt 19/19 suite: `dist/regression-22ce1676e7ff4291b80723f89e6d2326/summary.json`.
 
 ### Giảm giật khi chuyển menu tray (2026-10-11)
 
@@ -54,7 +75,7 @@
   giữ 303 tests fallback renderer; ghi nhận hồi quy/build ở FLUENT_UI_QA.md.
 - [ ] Người dùng kiểm thử popup thực tế: submenu/chuột/bàn phím/ngoài menu,
   Narrator, DPI hỗn hợp, Win10/11, High Contrast và resize/taskbar nhiều màn hình.
-- [ ] Làm mới ZIP/Sandbox sau nghiệm thu; gói cũ chưa chứa popup tùy biến.
+- [x] ZIP/bộ cài 3.0.3 mới đã chứa popup tùy biến; xem bộ cài hiện tại trong INSTALLER.md. Không tự thay đầu vào Sandbox cũ.
 
 ### Màu Sáng/Tối thực sự cho nội dung menu tray (2026-10-11)
 
@@ -68,7 +89,7 @@
   engine Debug/Release x64/x86 sạch 0 cảnh báo/0 lỗi. Báo cáo ở FLUENT_UI_QA.md.
 - [ ] QA trực tiếp light/dark/system, màu arrow/viền native, phím mũi tên/
   Enter/Escape, submenu, click ngoài, Narrator, màn hình DPI hỗn hợp và HC.
-- [ ] Làm mới ZIP/Sandbox sau nghiệm thu; gói beta cũ chưa chứa thay đổi tray.
+- [x] ZIP/bộ cài 3.0.3 mới đã chứa thay đổi tray; xem bộ cài hiện tại trong INSTALLER.md. Không tự thay đầu vào Sandbox cũ.
 
 ### Gõ tắt, theme và mở trang Fluent từ tray (2026-10-11)
 
@@ -99,7 +120,8 @@
 - [x] Tạo `.wsb` với đầu vào chỉ đọc, log riêng, mạng/clipboard host tắt.
 - [x] Xác minh ZIP trước staging và trước giải nén guest; báo thiếu runtime, không tự cài.
 - [x] 27 ca harness Sandbox đạt PS7/PS5.1; 13 regression suites đạt mỗi shell.
-- [ ] Mở máy ảo thật và kiểm tra prerequisite/UI/engine; chưa nghiệm thu máy sạch.
+- [x] Người dùng đã chạy và xác nhận Sandbox hoạt động ổn (2026-10-11).
+  Các ca prerequisite lỗi và ma trận Windows/kiến trúc vẫn cần kiểm thử riêng.
 
 ### Mục tiêu tổng thể
 
@@ -344,8 +366,8 @@ Tiêu chí hoàn thành:
 
 - [x] Gán accessible name/description cho mọi control.
 - [x] Thiết lập thứ tự tab và keyboard accelerator hợp lý.
-- [ ] Kiểm thử với Narrator.
-- [ ] Kiểm thử High Contrast mode.
+- [x] Kiểm thử với Narrator — đóng hạng mục theo yêu cầu người dùng ngày 2026-10-11; không có kết quả nghiệm thu Narrator riêng, không ghi nhận là đã chạy test.
+- [x] Kiểm thử High Contrast mode — đóng hạng mục theo yêu cầu người dùng ngày 2026-10-11; không có kết quả nghiệm thu trực quan riêng.
 - [x] Kiểm tra contrast theo hướng dẫn Fluent.
 - [ ] Kiểm thử font scaling và DPI scaling.
   - [x] Bỏ chiều rộng cố định của các trang cài đặt; cho phép nội dung co giãn và xuống dòng.
@@ -364,11 +386,16 @@ Tiêu chí hoàn thành:
   - [x] Dịch tên/mô tả trợ năng và tooltip trên toàn bộ các trang.
 - [x] Hoàn thiện tiếng Việt và bản tiếng Anh tối thiểu (408 khóa khớp nhau, không trùng; cần kiểm thử trực quan cả hai ngôn ngữ).
   - [x] Mặc định vi-VN độc lập ngôn ngữ Windows; thêm lựa chọn Tiếng Việt/English tại Nâng cao. Lưu uiDisplayLanguage riêng chế độ gõ, áp dụng khi mở lại UI. 12 ca mới bằng registry giả đạt x64/x86 trên PowerShell 7/5.1; cần QA mở lại cửa sổ để xác minh XAML/thông báo/điều hướng cùng ngôn ngữ.
-- [ ] Đo thời gian khởi động nguội và bộ nhớ nền khi chỉ chạy ở tray.
-- [ ] Đảm bảo UI không chặn keyboard hook hoặc làm tăng độ trễ khi gõ.
+- [x] Đo thời gian khởi động nguội và bộ nhớ nền khi chỉ chạy ở tray — chốt hạng mục theo yêu cầu người dùng ngày 2026-10-11; chưa có số đo khởi động nguội/baseline Release riêng, không ghi nhận là phép đo đã đạt.
+  - [x] Thêm `measure-runtime.ps1 -ProcessId <PID> -Seconds 15` và `PERFORMANCE.md`: lấy mẫu CPU/working set/private bytes thụ động, ghi executable/hash/phiên bản/mẫu thô vào JSON; không mở/đóng app, gửi phím hoặc ghi registry. 31 kiểm tra phép tính/validation đạt trên PowerShell 7 và 5.1; tích hợp vào `test-all.ps1`. Đã xác minh lấy mẫu thật trên cả hai shell.
+  - [x] Ghi mẫu quan sát engine Debug x64 3.0.3 (2026-10-11): 16 mẫu trong khoảng 15,29 giây, working set 28,766 MiB, private bytes 4,340 MiB, CPU delta 0 giây theo độ phân giải bộ đếm. Báo cáo: `dist/performance-ec444ebad1ab43c0a6510bf4582e08c6/runtime.json`. Nhãn `unspecified`, không suy thành nghiệm thu tray-idle/Release, khởi động nguội hoặc độ trễ gõ.
+  - [x] Bộ hồi quy sau bổ sung công cụ đo đạt 19/19 suite trên x64/x86: `dist/regression-e9fe542d1cb34f9f993afb78a628d710/summary.json`. Đây là fixture/test tự động, không thay thế nghiệm thu hiệu năng thực tế.
+- [x] Đảm bảo UI không chặn keyboard hook hoặc làm tăng độ trễ khi gõ — chốt hạng mục theo yêu cầu người dùng ngày 2026-10-11, dựa trên chấp nhận sử dụng thực tế; chưa có phép đo end-to-end so sánh baseline.
   - [x] Thêm `benchmark-engine.ps1 x64`/`x86` với harness /O2 độc lập: chạy 20 ca correctness trước đo, warm-up và 100 batch cho 4 kịch bản Telex/VNI/đặt dấu cũ-hiện đại; 4/4 chạy được trên mỗi kiến trúc. Report JSON ghi phạm vi và mean/percentile của batch average, chưa có baseline so sánh hoặc đo hook/UI/SendInput thực tế.
-  - [ ] Đo khởi động nguội/tray và độ trễ end-to-end, so sánh với baseline trên cùng máy/cấu hình trước khi đánh dấu tiêu chí hiệu năng đạt.
-- [ ] Chạy static analysis và sửa warning mới.
+  - [x] Chạy lại benchmark engine x64/x86 (2026-10-11), mỗi bản đạt correctness 20/20 và 4/4 kịch bản; mean batch khoảng 0,083–0,094 µs/event trên x64, 0,086–0,097 µs/event trên x86. Đây chỉ là engine độc lập /O2, không phải độ trễ phím end-to-end hay bằng chứng không regression so với bản trước.
+  - [x] Người dùng yêu cầu bỏ qua phép đo nghiệm thu riêng và đóng hai mục hiệu năng; không khẳng định đã đo khởi động nguội/tray hoặc độ trễ end-to-end so với baseline. Công cụ đo vẫn được giữ để dùng khi cần.
+- [x] Chạy static analysis và sửa warning mới; các lượt Debug/Release x64/x86 được ghi bên dưới. Lượt mới nhất kiểm tra lại engine Release x64/x86 sạch, không khẳng định đã rebuild lại Debug đang chạy.
+  - [x] Rà lại engine/tray trên mã popup hiện tại (2026-10-11): sửa C26495 bằng khởi tạo `Panel::owner = nullptr`, sửa C26820 bằng tham chiếu hằng khi đọc hàng được chọn. MSVC `/analyze` + Rebuild Release x64/x86 đạt 0 cảnh báo/0 lỗi; popup offscreen/MSAA đạt 304 kiểm tra mỗi kiến trúc, bộ hồi quy 18 suite đạt. Log: `dist/engine-analysis-fixed-x64.log`, `dist/engine-analysis-fixed-x86.log`; báo cáo hồi quy: `dist/regression-ff966d75231d49c599024fa8a6d19b97/summary.json`. Đã chạy lại settings/popup x64 sau sửa; Debug x64 đang mở nên không rebuild trong lượt này. Không coi kết quả phân tích tĩnh là nghiệm thu hiệu năng hoặc UI thực tế.
   - [x] Chạy MSVC static analysis cho UI và service dùng chung trên Debug x64; sửa C6387 (đường dẫn null) và C6262 (bộ đệm stack lớn), lượt kiểm tra lại không còn cảnh báo.
   - [x] Thêm `./build.ps1 Debug x64 UI -Analyze` để chạy lại toàn bộ phân tích.
   - [x] Chạy static analysis engine/tray Debug x64; sửa 7 cảnh báo ở clipboard, mở UI và thông báo tray (84 → 77 cảnh báo).
@@ -415,14 +442,14 @@ Tiêu chí hoàn thành:
 
 Tiêu chí hoàn thành:
 
-- [ ] Giao diện dùng được hoàn toàn bằng bàn phím và screen reader.
-- [ ] Không có độ trễ gõ nhận thấy so với baseline.
+- [x] Giao diện dùng được hoàn toàn bằng bàn phím và screen reader — chốt hạng mục trợ năng theo yêu cầu người dùng ngày 2026-10-11; giữ các kiểm thử tự động hiện có, chưa chứng minh ma trận bàn phím/Narrator thực tế đầy đủ.
+- [x] Chốt tiêu chí độ trễ theo yêu cầu người dùng ngày 2026-10-11, nhất quán với hai mục hiệu năng phía trên; chưa có phép đo end-to-end đối chiếu baseline.
 
 ## Giai đoạn 9 — Đóng gói và phát hành
 
-- [ ] Hoàn thiện output folder gồm UI, engine, updater và runtime cần thiết.
+- [x] Hoàn thiện output folder gồm UI, engine, updater và runtime cần thiết: bộ cài chung 3.0.3 đã build mới Release x64/x86 và xác minh trên PS7/5.1, xem INSTALLER.md.
   - [x] Thêm `package-beta.ps1` gom engine/updater và layout UI self-contained vào dist riêng, bỏ build artifact; xác minh PE của ba executable và SHA-256 từng payload ZIP trên x64/x86 (251 tệp mỗi gói).
-  - [ ] Hoàn thiện VC++ runtime/prerequisite, thông báo giấy phép runtime và kiểm thử máy sạch trước khi phân phối.
+  - [x] Hoàn thiện kỹ thuật VC++ runtime/prerequisite offline và đưa notices vào gói; người dùng đã xác nhận cài/gỡ/Sandbox/máy thật hoạt động. Các biến thể lỗi và quyền phân phối riêng không được suy ra từ nghiệm thu này; xem trạng thái chốt phía trên.
     - [x] Thêm `collect-third-party.ps1` vào đóng gói: inventory 9 NuGet dependency, sao chép nuspec/license/notice nguyên tệp; ZIP x64/x86 có 278 payload đã xác minh. 5 ca collector đạt trên PowerShell 7/5.1. Inventory gồm cả build tools, chưa ánh xạ binary/license; Microsoft.Windows.SDK.BuildTools không khai báo license file nên cần rà soát riêng, chưa xác nhận quyền phân phối.
     - [x] Thêm checker runtime chỉ đọc registry, đọc architecture/minimumVersion từ manifest gói; 6 ca so sánh version đạt. Gói x64/x86 có 252 payload đã xác minh; checker trong từng gói nhận đúng kiến trúc. Máy phát triển đang có 14.51.36247.0 cả hai kiến trúc, đạt minimum 14.51.36231.0; chưa chứng minh máy sạch.
 - [x] Luồng `package-beta.ps1` gọi `build.ps1 Release <platform> All` trước khi gom ZIP; đã chạy end-to-end cả x64 và x86, 0 cảnh báo/0 lỗi. Sau thêm checker đã xác minh lại ZIP từ output Release cả hai kiến trúc.
@@ -434,22 +461,30 @@ Tiêu chí hoàn thành:
   - [x] Thêm test-all.ps1 All/x64/x86: từng bộ ở process shell riêng, log/JSON riêng và fail-fast. 12 bộ / 1120 lượt kiểm tra mỗi PS7/PS5.1 đạt ngày 2026-10-10; sửa BOM fixture updater Unicode cho PS5.1. Không thay nghiệm thu UI/hook/máy sạch.
   - [x] Làm mới beta x64/x86 ngày 2026-10-09 sau layout/kích thước/ngôn ngữ/đồng bộ UI và bảo vệ reload Gõ tắt. Release All build sạch, 278 payload/gói, verifier PS7/5.1 đạt và hash 3 executable khớp output Release. Tên ZIP/hash và giới hạn QA ghi trong FLUENT_UI_QA.md; chưa chạy beta trên máy sạch hoặc phát hành.
   - [x] Thêm `verify-beta.ps1` kiểm tra ZIP độc lập (manifest/tệp bắt buộc/hash/path/entry trùng/PE), hỗ trợ hash ZIP từ kênh ngoài; tích hợp vào đóng gói. 17 ca ZIP tổng hợp đạt; ZIP Release x64/x86 có 253 payload đã kiểm tra lại. Hash nội bộ không chứng minh nhà phát hành.
-- [ ] Xác minh chạy được trên máy sạch không có Visual Studio.
-- [ ] Kiểm thử nâng cấp từ phiên bản OpenKey hiện tại.
-- [ ] Kiểm thử giữ nguyên registry settings và macro khi nâng cấp.
-- [ ] Ký số executable nếu có certificate.
+- [x] Người dùng xác nhận chạy được trong Windows Sandbox (2026-10-11).
+  Chưa suy ra mọi phiên bản Windows/kiến trúc đều đã được kiểm thử.
+- [x] Người dùng xác nhận cập nhật thực tế lên 3.0.3 hoạt động ổn (2026-10-11); chỉ chốt luồng bình thường, không bao gồm mọi ca lỗi nâng cấp.
+- [x] Chốt mục bảo toàn registry settings và macro khi nâng cấp theo yêu cầu người dùng (2026-10-11), dựa trên guard/fixture và nghiệm thu luồng cập nhật bình thường đã ghi nhận. Chưa có đối chiếu byte registry/macro trước–sau nâng cấp thật; không ghi rằng phép đối chiếu đó đã được thực hiện.
+  - [x] Thêm guard bảo toàn dữ liệu vào `build-setup.ps1` trước xử lý compiler/runtime/build/staging (2026-10-11): giữ AppId/thư mục cài, giới hạn Files/Run/include và chặn section registry/delete cùng API ghi/xóa đã liệt kê. 17 fixture đạt PS7/5.1; mã bộ cài compile, 31 source + 9 packaging + 67 Pascal checks đạt cả hai shell. Không đọc/ghi registry người dùng, không cài/gỡ/chạy engine; đối chiếu dữ liệu nâng cấp thực tế vẫn là mục riêng. Guard không phải parser hay sandbox bảo mật và không sửa artifact cũ.
+  - [x] Hồi quy sau guard đạt 20/20 suite x64/x86 trên PS7: `dist/regression-db0c62265b264230b6900f835183af5e/summary.json`; kiểm tra định dạng thay đổi đạt.
+- [x] Chốt bỏ qua ký số trong phạm vi hiện tại theo yêu cầu người dùng (2026-10-11); executable/bộ cài vẫn chưa ký, cần certificate và lượt thực hiện riêng nếu đổi quyết định.
 - [ ] Cập nhật README với yêu cầu hệ thống và ảnh giao diện mới.
+  - [x] Rà tài liệu phát hành ngày 2026-10-11: README phân biệt Windows Fluent của fork và macOS/legacy gốc; cập nhật thông tin 3.0.3, nghiệm thu người dùng, bộ cài chung, theme/ngôn ngữ, lệnh build/đo hiệu năng và ghi nguồn. Thêm ghi chú sửa lỗi vào CHANGELOG; sửa UPDATE_RELEASES/CI_RELEASES từ ví dụ cũ sang version/tag/code hiện tại và 19 suite. Không kiểm tra hoặc thay trạng thái GitHub; ảnh Fluent mới vẫn là mục riêng. Release policy 32/32 và UI resources 22/22 đạt.
   - [x] Cập nhật README root/Windows với trạng thái beta, môi trường build đã dùng, prerequisite, lệnh build/chạy/test/package và phân biệt yêu cầu/ảnh legacy.
   - [ ] Thêm ảnh Fluent đã xác minh và chốt hỗ trợ hệ điều hành sau kiểm thử máy sạch.
 - [x] Viết `MIGRATION_FLUENT_BETA.md`: settings/macro dùng chung HKCU, sao lưu trước thử, thử side-by-side không cô lập dữ liệu, rollback executable và giới hạn import registry/startup. Đây là hướng dẫn, chưa đánh dấu kiểm thử nâng cấp đạt.
-- [ ] Phát hành bản beta riêng trước khi thay bản stable.
+- [x] Bàn giao việc phát hành beta/stable cho người dùng tự thực hiện (2026-10-11); không ghi nhận là agent đã publish hoặc kiểm tra trạng thái GitHub.
 - [ ] Thu thập crash/log và phản hồi beta.
+  - [x] Chuẩn bị hai mẫu GitHub Issues báo lỗi và nghiệm thu beta (2026-10-11): môi trường/phiên bản, thao tác tái hiện, trạng thái từng ca, cảnh báo quyền riêng tư và báo cáo diagnostics tùy chọn. Không thu crash tự động hoặc đăng issue; việc nhận phản hồi thực tế vẫn phụ thuộc người dùng/tester. Hướng dẫn ở DIAGNOSTICS.md.
+    - [x] Kiểm tra local cả hai front matter, tên mẫu duy nhất, trường môi trường/quyền riêng tư và không có checkbox đánh dấu đạt sẵn; `git diff --check` đạt. Chỉ thêm tài liệu/template, không đổi binary; chưa kiểm tra màn hình GitHub sau upload.
+  - [x] Thêm `collect-diagnostics.ps1 -AppDirectory <thư mục app>` xuất báo cáo metadata executable vào dist riêng; không thu nội dung gõ/clipboard/registry/macro, không upload hoặc chạy/đóng app. 14 fixture đạt PS7/5.1, gồm allowlist, hash/size/version, JSON không có đường dẫn app tuyệt đối và bỏ qua junction. Xuất thử từ engine Release đạt. Hướng dẫn ở DIAGNOSTICS.md; không thay thế crash dump/stack trace, chưa bật thu crash tự động.
+  - [x] Hồi quy sau thêm diagnostics đạt 20/20 suite x64/x86 trên PS7: `dist/regression-1995716742de45ab95378866abc888c7/summary.json`. Xuất báo cáo từ binary Release đạt cả PS7/5.1; 32 release policy checks đạt, không publish GitHub hoặc thay bộ cài hiện có.
 - [ ] Chỉ xóa UI Win32 cũ sau ít nhất một chu kỳ beta ổn định.
 
 Tiêu chí hoàn thành:
 
 - [ ] Bản phát hành chạy được trên máy sạch và nâng cấp không mất dữ liệu.
-- [ ] Có phương án rollback về bản legacy.
+- [x] Có phương án rollback về bản legacy trong MIGRATION_FLUENT_BETA.md; đây là hướng dẫn, chưa chứng minh restore dữ liệu thực tế.
 
 ## Ma trận kiểm thử bắt buộc
 
@@ -465,6 +500,8 @@ Tiêu chí hoàn thành:
 - [ ] Cài mới, nâng cấp và chạy portable từ ZIP.
 
 ## Thứ tự PR/commit đề xuất
+
+Danh sách dưới đây là đề xuất chia việc lịch sử, không phải các PR đã tạo hoặc các commit bắt buộc còn thiếu. Chưa tự tạo commit/PR trong lượt này.
 
 - [ ] PR 1: inventory, baseline và test plan.
 - [ ] PR 2: project WinUI 3 tối thiểu cùng build scripts.

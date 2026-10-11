@@ -34,4 +34,13 @@ $contracts = @(
     ($workflow -match 'gh release create.*--draft --prerelease')
 )
 foreach ($contract in $contracts) { if (-not $contract) { throw 'CI source contract failed.' }; $checks++ }
+$buildSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'build-ci-release.ps1') -Raw
+$hostContracts = @(
+    ($buildSource -match 'Get-Command pwsh.exe -ErrorAction Stop'),
+    ($buildSource.Contains('System32\WindowsPowerShell\v1.0\powershell.exe')),
+    ($buildSource -match '(?s)foreach \(\$regressionHost in \$regressionHosts\).*?-NoProfile -ExecutionPolicy Bypass -File.*?test-all.ps1.*?if \(\$LASTEXITCODE -ne 0\).*?throw'),
+    ($buildSource.IndexOf('foreach ($regressionHost in $regressionHosts)') -ge 0 -and
+        $buildSource.IndexOf('foreach ($regressionHost in $regressionHosts)') -lt $buildSource.IndexOf("New-Item -ItemType Directory -Path `$output"))
+)
+foreach ($contract in $hostContracts) { if (-not $contract) { throw 'Dual-shell release gate contract failed.' }; $checks++ }
 Write-Output "$checks release policy/workflow contract checks passed; no network, Git writes or publication."

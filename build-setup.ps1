@@ -11,6 +11,8 @@ param(
     [switch]$PassThru
 )
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'Installer\DataPreservation.ps1')
+Assert-OpenKeyDataPreservation -Source (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Installer\OpenKey.iss') -Raw) -RuntimePolicy (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Installer\RuntimePolicy.iss') -Raw)
 . (Join-Path $PSScriptRoot 'Installer\Compiler.ps1')
 $IsccPath = Resolve-OpenKeySetupCompiler $IsccPath
 . (Join-Path $PSScriptRoot 'Sandbox\OfflineRuntime.ps1')

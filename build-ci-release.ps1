@@ -11,9 +11,17 @@ $setupResult = $null
     else { $_ | Out-Host }
 }
 if (-not $setupResult) { throw 'No verified setup returned.' }
-# Full fixture regression must pass before producing an upload directory.
-& (Join-Path $PSScriptRoot 'test-all.ps1') All | Out-Host
-if ($LASTEXITCODE -ne 0) { throw 'Release regression failed.' }
+# Both supported script hosts must pass before producing an upload directory.
+# Separate processes also isolate exit codes and suite fixture definitions.
+$regressionHosts = @(
+    (Get-Command pwsh.exe -ErrorAction Stop).Source,
+    (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe')
+)
+foreach ($regressionHost in $regressionHosts) {
+    if (-not (Test-Path -LiteralPath $regressionHost -PathType Leaf)) { throw 'Required regression shell is missing.' }
+    & $regressionHost -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'test-all.ps1') All | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "Release regression failed in $regressionHost. No upload directory produced." }
+}
 $report = Get-Content -LiteralPath $setupResult.BuildReport -Raw | ConvertFrom-Json
 $stage = Split-Path -Parent $setupResult.BuildReport
 foreach ($arch in @('x64','x86')) {

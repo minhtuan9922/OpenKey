@@ -55,6 +55,14 @@ Test-Tray 'popup above notification overflow, including submenus' {
     Assert-SourcePattern $popup 'panel->bounds = Fit\(point, width, y \+ Px\(20\), work\)' 'Popup work-area clipping changed'
     Assert-SourcePattern $popup 'while \(!m_panels.empty\(\)\) m_panels.pop_back\(\);' 'Popup windows must be destroyed after dismissal'
 }
+Test-Tray 'arrow cursor on cold initialization and captured mouse movement' {
+    $popup = Get-Content -LiteralPath (Join-Path $engineRoot 'TrayPopup.h') -Raw -Encoding UTF8
+    Assert-SourcePattern $tray 'wcex.hCursor = LoadCursorW\(nullptr, IDC_ARROW\);' 'Hidden tray owner must not inherit a busy cursor'
+    Assert-SourcePattern $popup 'inline Result Show\([^\{]+\{\s*SetCursor\(LoadCursorW\(nullptr, IDC_ARROW\)\);' 'Cold popup initialization must start with an arrow cursor'
+    Assert-SourcePattern $popup 'GetForegroundWindow\(\) != root\) return \{\};\s*SetCursor\(LoadCursorW\(nullptr, IDC_ARROW\)\);' 'Capture must explicitly reset the cursor after initialization'
+    Assert-SourcePattern $popup 'case WM_SETCURSOR:\s*SetCursor\(LoadCursorW\(nullptr, IDC_ARROW\)\); return TRUE;' 'Popup cursor message must be handled'
+    Assert-SourcePattern $popup 'case WM_MOUSEMOVE:\s*SetCursor\(LoadCursorW\(nullptr, IDC_ARROW\)\); self->Mouse\(false\);' 'Captured mouse movement must reset the cursor'
+}
 Test-Tray 'theme submenu and persistence' {
     Assert-SourcePattern $tray ('AppendMenu\(popupMenu,\s*MF_POPUP,\s*\(UINT_PTR\)themeMenu,\s*_T\("' + [regex]::Escape($contract.themeLabel) + '"\)\)') 'Theme submenu changed'
     Assert-SourcePattern $delegate 'void AppDelegate::onUiTheme\(int theme\).*?theme < 0 \|\| theme > 2.*?OpenKeyUITheme::Save' 'Theme persistence gate changed'

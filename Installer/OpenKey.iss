@@ -151,8 +151,8 @@ end;
 
 function CloseInstalledApps: Boolean;
 var
-  Index: Integer;
-  Started, Remaining: Int64;
+  Index, WaitResult, Action, Remaining: Integer;
+  Started: Int64;
   CurrentProcessID: Cardinal;
 begin
   Result := False;
@@ -167,18 +167,20 @@ begin
     for Index := 0 to GetArrayLength(CloseWindows) - 1 do begin
       { The user may have closed a window while the confirmation was open.
         Never send to a recycled HWND owned by another process. }
-      if AppWait(CloseHandles[Index], 0) <> 0 then begin
-        CurrentProcessID := 0;
+      WaitResult := AppWait(CloseHandles[Index], 0);
+      CurrentProcessID := 0;
+      if WaitResult = 258 then
         AppWindowProcess(CloseWindows[Index], CurrentProcessID);
-        if CurrentProcessID <> CloseProcessIDs[Index] then Result := False
-        else if CloseKinds[Index] = 1 then begin
+      Action := AppCloseAction(WaitResult, CloseKinds[Index], CurrentProcessID, CloseProcessIDs[Index]);
+      if Action = -1 then Result := False
+      else if Action <> 0 then begin
+        if Action = 1 then begin
           if not PostMessage(CloseWindows[Index], $0400 + 2021, 0, 0) then Result := False;
         end else if not PostMessage(CloseWindows[Index], $0010, 0, 0) then Result := False;
       end;
     end;
     for Index := 0 to GetArrayLength(CloseHandles) - 1 do begin
-      Remaining := 5000 - (AppTicks - Started);
-      if Remaining < 0 then Remaining := 0;
+      Remaining := AppCloseWaitMilliseconds(AppTicks - Started);
       if AppWait(CloseHandles[Index], Remaining) <> 0 then Result := False;
     end;
   finally

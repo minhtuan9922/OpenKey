@@ -74,6 +74,7 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'check-prerequisites.ps1') -Dest
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'verify-beta.ps1') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'MIGRATION_FLUENT_BETA.md') -Destination $stage
 & (Join-Path $PSScriptRoot 'collect-third-party.ps1') -OutputDirectory (Join-Path $stage 'ThirdPartyNotices')
+& (Join-Path $PSScriptRoot 'verify-third-party.ps1') -NoticesDirectory (Join-Path $stage 'ThirdPartyNotices')
 $records = @(Get-ChildItem -LiteralPath $stage -File -Recurse | Sort-Object FullName | ForEach-Object {
     [ordered]@{
         path = $_.FullName.Substring($stage.Length + 1).Replace('\', '/')

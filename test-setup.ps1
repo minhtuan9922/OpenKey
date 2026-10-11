@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param([string]$IsccPath = '')
 $ErrorActionPreference = 'Stop'
+& (Join-Path $PSScriptRoot 'test-setup-preservation.ps1')
 . (Join-Path $PSScriptRoot 'Installer\Compiler.ps1')
 $IsccPath = Resolve-OpenKeySetupCompiler $IsccPath
 $taskSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Installer\OpenKey.iss') -Raw
@@ -24,9 +25,10 @@ Assert-Setup ($taskSource -match 'postinstall nowait skipifsilent unchecked runa
 Assert-Setup ($taskSource -match 'CloseApplications=no' -and $taskSource -match 'RestartApplications=no') 'no forced process shutdown'
 Assert-Setup ($taskSource -match 'if WizardSilent then Exit;.*' -and $taskSource -match 'MB_YESNO or MB_DEFBUTTON2') 'interactive app close consent defaults to No'
 Assert-Setup ($taskSource -match 'PostMessage\(CloseWindows\[Index\], \$0400 \+ 2021' -and $taskSource -match 'PostMessage\(CloseWindows\[Index\], \$0010') 'graceful engine IPC and UI close'
-Assert-Setup ($taskSource -match 'Remaining := 5000 - \(AppTicks - Started\)' -and $taskSource -match 'AppWait\(CloseHandles\[Index\], Remaining\)' -and $taskSource -match 'AppCloseHandle\(CloseHandles\[Index\]\)') 'bounded process exit wait and handle cleanup'
+Assert-Setup ($taskSource -match 'Remaining := AppCloseWaitMilliseconds\(AppTicks - Started\)' -and $taskSource -match 'AppWait\(CloseHandles\[Index\], Remaining\)' -and $taskSource -match 'AppCloseHandle\(CloseHandles\[Index\]\)') 'bounded process exit wait and handle cleanup'
 Assert-Setup ($taskSource -notmatch 'TerminateProcess|taskkill|Stop-Process') 'never force terminate'
-Assert-Setup ($taskSource -match 'CurrentProcessID <> CloseProcessIDs\[Index\]') 'revalidate HWND process after user confirmation'
+Assert-Setup ($taskSource -match 'AppCloseAction\(WaitResult, CloseKinds\[Index\], CurrentProcessID, CloseProcessIDs\[Index\]\)' -and $taskSource -match 'if Action = -1 then Result := False') 'revalidate HWND process and stop on wait failure'
+Assert-Setup ($taskSource -match 'if WaitResult = 258 then\s+AppWindowProcess' -and $taskSource -match 'else if Action <> 0 then begin') 'only running process can receive a close message'
 Assert-Setup ($taskSource.IndexOf('if not CloseInstalledApps then') -lt $taskSource.IndexOf('if RuntimeSatisfied then Exit;')) 'close before runtime/file installation'
 Assert-Setup ($taskSource -match 'RuntimePage.Values\[0\] := False') 'explicit runtime consent'
 Assert-Setup ($taskSource -match 'if WizardSilent or not RuntimePage.Values\[0\]') 'silent missing-runtime fails closed'

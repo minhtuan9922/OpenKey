@@ -5,7 +5,8 @@
 Nhánh này bổ sung bảng điều khiển WinUI/Fluent; engine/tray và UI Win32 dự phòng vẫn
 được giữ. Các yêu cầu và ảnh legacy bên dưới không áp dụng cho bản Fluent beta.
 Beta hướng tới Windows 10/11 x64/x86; project khai báo min Windows build 17763,
-nhưng khả năng chạy trên từng phiên bản và máy sạch vẫn đang chờ kiểm thử.
+người dùng đã xác nhận cài/gỡ/cập nhật/Sandbox/máy thật hoạt động ổn.
+Chưa nghiệm thu riêng toàn bộ ma trận Windows/kiến trúc/DPI.
 Không dùng beta Fluent trên Vista/Windows 7 theo yêu cầu legacy ở phần dưới.
 
 Môi trường đã build: Visual Studio 2026 Community (18.x), MSVC v145, workload
@@ -29,6 +30,8 @@ Chạy từ PowerShell tại root repository:
 .\test-ui-binary.ps1 x64 Release # 4 ca PE/icon/manifest; can output da build, khong chay GUI
 .\test-convert.ps1 x64     # 175 text + 17 clipboard giả + 20 engine; không chạm clipboard thật
 .\benchmark-engine.ps1 x64 # chỉ đo handler; không phải độ trễ gõ end-to-end
+.\measure-runtime.ps1 -ProcessId 1234 -Seconds 15 # thay PID; chỉ đọc CPU/bộ nhớ
+.\test-runtime-performance.ps1 # fixture phép tính, không chạy app
 .\test-updater.ps1 x64
 .\test-prerequisites.ps1
 .\test-packaging.ps1
@@ -38,6 +41,7 @@ Chạy từ PowerShell tại root repository:
 .\test-debug-launcher.ps1 # 15 ca launcher/preflight giả; không build/chạy app
 .\test-all.ps1 All       # toàn bộ test x64/x86, log và JSON riêng trong dist
 .\package-beta.ps1 x64
+.\build-setup.ps1 -Release # build mới cả x64/x86 và tạo một setup offline
 ```
 
 Thay x64 bằng x86 ở các script nhận Platform. ZIP nằm trong dist và bị Git bỏ qua.

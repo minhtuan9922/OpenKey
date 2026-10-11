@@ -3,11 +3,28 @@
 
 ## Windows Fluent UI beta trong nhánh này
 
-Giao diện Windows đang được chuyển sang WinUI/Fluent. Đây là bản thử nghiệm nội bộ,
-không thay bản stable ở liên kết tải bên dưới. Xem [hướng dẫn Windows](Sources/OpenKey/win32/README.md#fluent-ui-beta),
-[build/đóng gói beta](BETA_PACKAGING.md) và [sao lưu/nâng cấp/rollback](MIGRATION_FLUENT_BETA.md).
-Các mục chưa kiểm thử (máy sạch, DPI/Narrator, startup, nâng cấp) được theo dõi trong
+Nhánh Windows này bổ sung giao diện WinUI/Fluent, tiếng Việt mặc định, tùy chọn
+English, theme Sáng/Tối/Theo hệ thống và menu tray bo góc. Mã nguồn hiện là 3.0.3;
+engine và giao diện Win32 dự phòng vẫn được giữ.
+
+Tải bộ cài Windows tại [Releases của bản fork](https://github.com/minhtuan9922/OpenKey/releases).
+Chọn asset `OpenKey-Setup.exe`: một bộ cài offline tự chọn x64/x86, có runtime,
+Start Menu và tùy chọn icon Desktop. Yêu cầu Windows 10 1809 trở lên hoặc Windows 11;
+không hỗ trợ ARM. Bộ cài chưa ký số; đối chiếu checksum đi kèm trước khi chạy.
+
+Người dùng đã xác nhận cài đặt, gỡ bỏ, cập nhật lên 3.0.3, Sandbox và máy thật
+hoạt động ổn. Điều này không thay thế toàn bộ ma trận Windows/DPI hoặc ca lỗi UAC/runtime.
+Các mục trợ năng/hiệu năng được chốt theo yêu cầu người dùng, không coi là đã có
+đầy đủ phép đo hoặc nghiệm thu Narrator/High Contrast riêng.
+Xem [hướng dẫn Windows](Sources/OpenKey/win32/README.md#fluent-ui-beta),
+[bộ cài offline](INSTALLER.md), [build/đóng gói beta](BETA_PACKAGING.md),
+[sao lưu/nâng cấp/rollback](MIGRATION_FLUENT_BETA.md),
 [checklist](TODO_FLUENT_UI.md) và [ghi chú QA](FLUENT_UI_QA.md).
+
+Bản fork phát triển từ [OpenKey của Mai Vũ Tuyên](https://github.com/tuyenvm/OpenKey).
+Thông tin và ảnh macOS/legacy bên dưới được giữ để ghi nguồn, không phải ảnh UI Fluent mới.
+
+Khi cần đối chiếu phiên bản/hash để báo lỗi beta, xem [hướng dẫn chẩn đoán](DIAGNOSTICS.md). Công cụ chỉ xuất metadata cục bộ, không thu nội dung gõ/cấu hình và không upload.
 
 Chạy regression tự động bằng `./test-all.ps1 All` tại root repository;
 log từng bộ và báo cáo JSON nằm trong `dist`. Đây không thay thế kiểm thử giao diện,
@@ -17,7 +34,7 @@ Chuẩn bị môi trường kiểm thử cô lập bằng `./prepare-sandbox.ps1
 -ExpectedSha256 <hash> -Platform x64`. Script chỉ tạo cấu hình, không mở máy ảo
 hoặc cài runtime. Xem [hướng dẫn Windows Sandbox](Sandbox/README.md).
 
-### [Download bản mới nhất](https://github.com/tuyenvm/OpenKey/releases)
+### [Download bản gốc macOS/legacy của tác giả](https://github.com/tuyenvm/OpenKey/releases)
 [![GitHub release](https://img.shields.io/github/v/release/tuyenvm/OpenKey.svg)](https://github.com/tuyenvm/OpenKey/releases/latest)
 
 ### Open source Vietnamese Input App for macOS - Bộ gõ tiếng Việt nguồn mở cho macOS.

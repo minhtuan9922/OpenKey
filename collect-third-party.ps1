@@ -1,9 +1,10 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)] [string]$OutputDirectory,
-    [string]$AssetsPath = (Join-Path $PSScriptRoot 'Sources\OpenKey\win32\OpenKey\OpenKey.UI\obj\project.assets.json')
+    [string]$AssetsPath = ''
 )
 $ErrorActionPreference = 'Stop'
+if (-not $AssetsPath) { $AssetsPath = Join-Path $PSScriptRoot 'Sources\OpenKey\win32\OpenKey\OpenKey.UI\obj\project.assets.json' }
 $assets = Get-Content -LiteralPath $AssetsPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 $distRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'dist')) + [IO.Path]::DirectorySeparatorChar
@@ -30,6 +31,9 @@ foreach ($library in ($assets.libraries.PSObject.Properties | Sort-Object Name))
     $metadata = $xml.package.metadata
     $id = [string]$metadata.id
     $version = [string]$metadata.version
+    if (($id + '/' + $version) -ine $library.Name) {
+        throw "NuGet metadata does not match restored identity: $($library.Name)"
+    }
     $destinationName = $id + '-' + $version
     if ($destinationName -notmatch '^[A-Za-z0-9_.+-]+$') { throw 'Unsafe package identity.' }
     $destination = Join-Path $output $destinationName

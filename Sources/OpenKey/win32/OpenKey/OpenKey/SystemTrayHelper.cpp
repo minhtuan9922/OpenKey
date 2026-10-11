@@ -247,7 +247,7 @@ HWND SystemTrayHelper::createFakeWindow(const HINSTANCE & hIns) {
 	wcex.cbWndExtra = 0;
 	wcex.hInstance = hIns;
 	wcex.hIcon = LoadIcon(hIns, MAKEINTRESOURCE(IDI_APP_ICON));
-	wcex.hCursor = NULL;
+		wcex.hCursor = LoadCursorW(nullptr, IDC_ARROW);
 	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 	wcex.lpszMenuName = NULL;
 	wcex.lpszClassName = APP_CLASS;

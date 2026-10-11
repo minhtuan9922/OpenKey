@@ -1,5 +1,24 @@
 # OpenKey Change Log
 
+## Windows Fluent 3.0.3 — mã nguồn/bộ cài local, 2026-10-11
+
+- Giao diện Fluent tiếng Việt mặc định, đổi Anh/Việt, theme Sáng/Tối/Theo hệ thống;
+  menu tray tùy biến bo góc và mở các trang Fluent.
+- Sửa chuyển Caps Lock giữa từ làm mất khả năng gõ dấu cho đến khi nhấn cách.
+- Sửa menu tray bị bảng icon ẩn che và con trỏ giữ loading khi mở lần đầu.
+- Khởi tạo owner của popup panel và tránh sao chép hàng khi đổi lựa chọn.
+- Bộ cài offline chung x64/x86, có runtime, Start Menu và icon Desktop tùy chọn.
+- Khi cập nhật, hỏi trước khi đóng engine/UI; chờ tối đa tổng 5 giây, không kill.
+  Lỗi kiểm tra tiến trình hoặc PID cửa sổ thay đổi chặn cài đặt trước khi thay file.
+- Thêm công cụ đo CPU/bộ nhớ thụ động và hướng dẫn hiệu năng; bộ hồi quy 19 suite.
+
+Đây là ghi chú mã nguồn hiện tại, không khẳng định các chỉnh sửa local đã được
+push/tag hoặc có trong asset GitHub đang phát hành. Bộ cài chưa ký số.
+Luồng cài/gỡ/cập nhật/Sandbox/máy thật trước đó đã được người dùng xác nhận;
+bộ cài vừa build chứa các sửa lỗi mới chưa được cài lại trong lượt đóng gói.
+
+Các ghi chú macOS/Linux/legacy phía dưới được giữ nguyên từ dự án gốc.
+
 ##### OpenKey for Linux: (in development)
 
 ##### Version 1.2 RC5: (26/08/2019)

@@ -194,7 +194,7 @@ namespace OpenKeyTrayPopup
         friend struct TestAccess; // Offscreen regression seam; never opens windows.
         struct Panel
         {
-            Popup* owner;
+            Popup* owner = nullptr;
             HWND window = nullptr;
             std::shared_ptr<AccessibleData> data;
             Accessible* accessible = nullptr;
@@ -247,7 +247,12 @@ namespace OpenKeyTrayPopup
                 if (static_cast<DWORD>(l) == static_cast<DWORD>(OBJID_CLIENT) && panel->accessible)
                     return LresultFromObject(IID_IAccessible, w, panel->accessible);
                 break;
-            case WM_MOUSEMOVE: self->Mouse(false); return 0;
+            case WM_SETCURSOR:
+                SetCursor(LoadCursorW(nullptr, IDC_ARROW)); return TRUE;
+            // Capture bypasses the usual WM_SETCURSOR handling. Do not retain
+            // Explorer's or cold COM initialization's busy cursor.
+            case WM_MOUSEMOVE:
+                SetCursor(LoadCursorW(nullptr, IDC_ARROW)); self->Mouse(false); return 0;
             case WM_TIMER: if (w == HoverTimer) { if (self->m_hoverPending) { self->Mouse(false); self->FlushHover(GetTickCount64()); } return 0; } break;
             case WM_LBUTTONUP: self->Mouse(true); return 0;
             case WM_LBUTTONDOWN: case WM_RBUTTONDOWN: case WM_MBUTTONDOWN: self->Outside(); return 0;
@@ -329,7 +334,7 @@ namespace OpenKeyTrayPopup
             if (selected < 0 || selected >= static_cast<int>(panel.rows.size()) || !(*panel.data->entries)[selected].Enabled()) return;
             const bool changed = selected != panel.data->selected || !panel.data->active;
             const int previous = panel.data->selected, oldScroll = panel.scroll;
-            const auto row = panel.rows[selected]; const int visible = panel.viewport.bottom - panel.viewport.top;
+            const auto& row = panel.rows[selected]; const int visible = panel.viewport.bottom - panel.viewport.top;
             if (row.top < panel.scroll) panel.scroll = row.top;
             else if (row.bottom > panel.scroll + visible) panel.scroll = row.bottom - visible;
             if (!changed && panel.scroll == oldScroll) return;
@@ -560,6 +565,7 @@ namespace OpenKeyTrayPopup
             HWND root = m_panels.front()->window;
             SetForegroundWindow(root); SetFocus(root); SetCapture(root);
             if (GetCapture() != root || GetForegroundWindow() != root) return {};
+            SetCursor(LoadCursorW(nullptr, IDC_ARROW));
             NotifyWinEvent(EVENT_SYSTEM_MENUSTART, root, OBJID_CLIENT, CHILDID_SELF);
             MSG message{};
             while (!m_done)
@@ -577,6 +583,7 @@ namespace OpenKeyTrayPopup
     };
     inline Result Show(HMENU menu, HWND owner, POINT point, bool dark, UINT dpi)
     {
+        SetCursor(LoadCursorW(nullptr, IDC_ARROW));
         struct ComScope
         {
             HRESULT status = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);

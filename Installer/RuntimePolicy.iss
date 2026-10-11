@@ -26,6 +26,25 @@ begin
   Result := ComparePackedVersion(Version, Minimum) >= 0;
 end;
 
+// 0 = already exited, 1 = close engine, 2 = close UI, -1 = stop.
+// Only WAIT_TIMEOUT (258) proves the retained process is still running.
+// WAIT_FAILED or an unknown result must not authorize a window message.
+function AppCloseAction(WaitResult, Kind: Integer; CurrentPID, ExpectedPID: Cardinal): Integer;
+begin
+  Result := -1;
+  if WaitResult = 0 then begin Result := 0; Exit; end;
+  if WaitResult <> 258 then Exit;
+  if (ExpectedPID = 0) or (CurrentPID <> ExpectedPID) then Exit;
+  if (Kind = 1) or (Kind = 2) then Result := Kind;
+end;
+
+function AppCloseWaitMilliseconds(Elapsed: Int64): Integer;
+begin
+  Result := 0;
+  if (Elapsed < 0) or (Elapsed >= 5000) then Exit;
+  Result := 5000 - Elapsed;
+end;
+
 // 0 = continue, 1 = restart and rerun Setup, 2 = stop without app installation.
 function RuntimeOutcome(ExitCode: Integer; Satisfied: Boolean): Integer;
 begin

@@ -1,6 +1,34 @@
 # Gói beta Fluent UI — thử nghiệm nội bộ
 
-## Bộ cài offline một file — 2026-10-11
+## Artifact 3.0.3 hiện tại — 2026-10-11
+
+Bộ cài chung: `dist/setup-b95a532783d34c8eb3d7d1dfd53ab70d/Output/OpenKey-Setup.exe`,
+62.109.873 byte; SHA-256
+`9DF95E847CC844AEE5BF5312F87362153D46527DF14886800E98A25565D296E8`.
+Đường dẫn, các sửa lỗi và phạm vi xác minh ở [INSTALLER.md](INSTALLER.md).
+Người dùng đã xác nhận các luồng cài/gỡ/cập nhật/Sandbox/máy thật trước đó;
+artifact này chưa được chạy cài lại trong lượt build và vẫn chưa ký số.
+
+`package-beta.ps1` nay đối chiếu notices trước khi tạo manifest/ZIP bằng
+`verify-third-party.ps1`. Có thể kiểm tra thư mục notices đã staging:
+
+```powershell
+.\verify-third-party.ps1 -NoticesDirectory <thu-muc-payload>\ThirdPartyNotices
+```
+
+Phải dùng `project.assets.json` và cache restore đúng dependency của gói;
+có thể chỉ định `-AssetsPath`. Verifier tạo một thư mục tham chiếu mới trong
+`dist/notices-reference-*`, không thay payload đầu vào. Nó so sánh danh sách
+file, bytes/hash của nuspec/notices và nội dung inventory; collector chặn
+metadata nuspec có id/version khác dependency đã restore. Đã đối chiếu
+24 file của 9 package trong mỗi payload x64/x86 hiện tại trên PS7/5.1.
+
+Đây là kiểm tra kỹ thuật dựa trên cache local, không xác thực cache từ nhà phát
+hành, không ánh xạ từng binary sang giấy phép và không chốt quyền phân phối.
+Inventory vẫn bao gồm build-only tools. Bộ cài hiện tại không bị sửa lại bởi
+phép kiểm tra; guard mới áp dụng cho những lần đóng gói tiếp theo.
+
+## Bộ cài offline lịch sử — 2026-10-11
 
 Đã tạo `dist/setup-9c0099c69ee6441f8edd91f2ace73cbe/Output/OpenKey-Setup.exe`
 tự chọn x64/x86, 62.053.914 byte; SHA-256

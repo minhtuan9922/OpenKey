@@ -31,6 +31,10 @@ namespace OpenKeyTrayPopup
             font.lfWeight = FW_BOLD; popup.m_bold = CreateFontIndirectW(&font);
             Check(popup.m_font && popup.m_bold, "fixture fonts");
             auto panel = std::unique_ptr<Popup::Panel>(new Popup::Panel);
+            Check(panel->owner == nullptr && panel->window == nullptr && !panel->data &&
+                panel->accessible == nullptr && panel->buffer == nullptr &&
+                panel->bitmap == nullptr && panel->oldBitmap == nullptr,
+                "panel starts without owner or native resources");
             panel->owner = &popup; panel->data = std::make_shared<AccessibleData>();
             panel->data->snapshot = popup.m_snapshot; panel->data->entries = &entries;
             panel->width = popup.Px(300); panel->height = popup.Px(195);

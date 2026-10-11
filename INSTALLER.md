@@ -1,6 +1,34 @@
 # Bộ cài OpenKey Fluent offline
 
-## Bản 3.0.0 mới nhất — 2026-10-11
+## Guard bảo toàn dữ liệu khi đóng gói
+
+`build-setup.ps1` kiểm tra source cài/gỡ trước khi xử lý compiler, runtime, build hoặc staging. Guard giữ AppId/thư mục cài theo tài khoản, chỉ cho payload vào `{app}`, runtime dạng `dontcopy` và chạy engine sau cài theo lựa chọn (bỏ qua khi silent). Chặn section registry/delete, các API ghi/xóa dữ liệu đã liệt kê và include ngoài policy đã kiểm tra.
+
+Chạy riêng `./test-setup-preservation.ps1`: 17 kiểm tra source/fixture, không truy cập registry hoặc cài app; cũng được gọi trong `test-setup.ps1`. Khi cố ý thay layout/actions, phải rà và cập nhật policy cùng fixture. Đây là guard bảo thủ, không phải parser/sandbox bảo mật, không chứng minh nâng cấp thật giữ mọi byte dữ liệu hoặc mọi side effect của runtime/engine. Bộ cài đã build trước đó không bị sửa; guard áp dụng cho lần đóng gói tiếp theo.
+
+## Bộ cài 3.0.3 vừa build — 2026-10-11
+
+- File: `dist/setup-b95a532783d34c8eb3d7d1dfd53ab70d/Output/OpenKey-Setup.exe`.
+- Dung lượng: 62.109.873 byte (khoảng 59,2 MiB); SHA-256:
+  `9DF95E847CC844AEE5BF5312F87362153D46527DF14886800E98A25565D296E8`.
+- Build mới bằng `./build-setup.ps1 -Release`; một EXE chung x64/x86,
+  không tách kiến trúc. Engine, updater và UI cả hai bản đều có FileVersion
+  `3.0.3.0`, setup có ProductVersion `3.0.3`.
+- Chứa sửa con trỏ loading của popup tray, khởi tạo owner của panel và
+  policy đóng app fail-closed khi kiểm tra tiến trình lỗi/PID thay đổi.
+- Verifier đạt trên PS7/5.1: 566 đầu vào compiler, 281 payload mỗi kiến trúc,
+  ZIP/PE/hash và runtime Microsoft đã ký số. Bộ cài OpenKey vẫn chưa ký số.
+- Các ca cập nhật/cài/gỡ/Sandbox trước đó đã được người dùng xác nhận;
+  artifact vừa build này chưa được chạy cài đặt trong lượt đóng gói.
+  Không tự tăng version, push/tag, upload hoặc chuyển kênh stable.
+
+Mở nhanh thư mục chứa file:
+
+```powershell
+Invoke-Item -LiteralPath 'D:\Project\OpenKey\dist\setup-b95a532783d34c8eb3d7d1dfd53ab70d\Output'
+```
+
+## Artifact 3.0.0 lịch sử — 2026-10-11
 
 - File: `dist/setup-cd44680b743447a889ae5935f2a85976/Output/OpenKey-Setup.exe`.
 - Dung lượng: 62.108.317 byte; SHA-256:
@@ -116,7 +144,17 @@ sau sửa compiler resolver. Verifier đối chiếu 566 input nhúng, hai ZIP R
 281 payload/kiến trúc, PE bootstrap x86, size/hash setup và runtime ký Microsoft.
 Build end-to-end PS7/5.1 tạo EXE cùng hash. Không thực thi setup OpenKey trên host.
 
-## Nghiệm thu còn lại trong Sandbox/máy sạch
+## Nghiệm thu thực tế và các ca còn lại
+
+- [x] Người dùng xác nhận luồng cập nhật thực tế lên 3.0.3 hoạt động ổn
+  (2026-10-11). Ghi nhận luồng bình thường; các ca từ chối/timeout/debugger,
+  ma trận tương thích bên dưới vẫn cần xác nhận riêng.
+
+- [x] Người dùng xác nhận cài đặt, gỡ bỏ và chạy trong Windows Sandbox ổn
+  (2026-10-11).
+- [x] Người dùng xác nhận kiểm thử trên máy thật hoạt động ổn (2026-10-11).
+  Các xác nhận này không bao gồm toàn bộ biến thể UAC/runtime, hệ điều hành,
+  kiến trúc và DPI chưa được nêu cụ thể.
 
 Khi cập nhật và OpenKey đang chạy trong đúng thư mục đích, Setup hỏi có đóng
 engine/giao diện không (mặc định Không). Đồng ý sẽ gửi IPC thoát engine và
@@ -125,6 +163,13 @@ TerminateProcess/kill. Từ chối, lỗi quyền, debugger giữ tiến trình 
 đều dừng trước khi cài runtime/thay file. Cài silent không tự đóng ứng dụng.
 Engine ở thư mục khác không bị đóng; nếu còn phiên OpenKey khác, đóng thủ công.
 Nội dung UI chưa lưu có thể mất khi xác nhận đóng, dữ liệu đã lưu được giữ lại.
+
+Bộ cài chỉ gửi lệnh đóng khi handle xác nhận tiến trình còn chạy và PID cửa sổ
+vẫn đúng. `WAIT_FAILED`, kết quả chờ không xác định hoặc PID thay đổi đều chặn
+cập nhật; tiến trình đã thoát không cần gửi message. Policy và deadline 5 giây
+được kiểm tra bằng fixture Pascal dùng chung: 67 ca đạt trên PS7/5.1, mã bộ cài
+thật compile đạt. Các fixture không thực hiện đóng app/UAC/cài đặt, nên không
+thay thế kiểm thử trực tiếp các ca lỗi dưới đây.
 
 - [ ] Cập nhật khi engine/UI đang mở: Đồng ý đóng; từ chối; timeout/debugger;
   engine thư mục khác; UI minimized; kiểm tra giữ cấu hình/gõ tắt và gỡ hook.
