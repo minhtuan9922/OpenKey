@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "scope": "Source baseline only; does not dispatch Windows messages",
+  "otherCodeLabel": "Bảng mã khác",
+  "themeLabel": "Giao diện",
+  "commands": [
+    {"symbol":"POPUP_VIET_ON_OFF","id":900,"label":"Bật Tiếng Việt","menu":"popupMenu","handler":"onToggleVietnamese","argument":"","checked":"vLanguage"},
+    {"symbol":"POPUP_SPELLING","id":901,"label":"Bật kiểm tra chính tả","menu":"popupMenu","handler":"onToggleCheckSpelling","argument":"","checked":"vCheckSpelling"},
+    {"symbol":"POPUP_SMART_SWITCH","id":902,"label":"Bật loại trừ ứng dụng thông minh","menu":"popupMenu","handler":"onToggleUseSmartSwitchKey","argument":"","checked":"vUseSmartSwitchKey"},
+    {"symbol":"POPUP_USE_MACRO","id":903,"label":"Bật gõ tắt","menu":"popupMenu","handler":"onToggleUseMacro","argument":"","checked":"vUseMacro"},
+    {"symbol":"POPUP_MACRO_TABLE","id":990,"label":"Cấu hình gõ tắt...","menu":"popupMenu","handler":"onMacroTable","argument":"","checked":null},
+    {"symbol":"POPUP_CONVERT_TOOL","id":980,"label":"Công cụ chuyển mã...","menu":"popupMenu","handler":"onConvertTool","argument":"","checked":null},
+    {"symbol":"POPUP_QUICK_CONVERT","id":981,"label":"Chuyển mã nhanh","menu":"popupMenu","handler":"onQuickConvert","argument":"","checked":null},
+    {"symbol":"POPUP_TELEX","id":910,"label":"Kiểu gõ Telex","menu":"popupMenu","handler":"onInputType","argument":"0","checked":"vInputType == 0"},
+    {"symbol":"POPUP_VNI","id":911,"label":"Kiểu gõ VNI","menu":"popupMenu","handler":"onInputType","argument":"1","checked":"vInputType == 1"},
+    {"symbol":"POPUP_SIMPLE_TELEX","id":912,"label":"Kiểu gõ Simple Telex","menu":"popupMenu","handler":"onInputType","argument":"2","checked":"vInputType == 2"},
+    {"symbol":"POPUP_UNICODE","id":930,"label":"Unicode dựng sẵn","menu":"popupMenu","handler":"onTableCode","argument":"0","checked":"vCodeTable == 0"},
+    {"symbol":"POPUP_TCVN3","id":931,"label":"TCVN3 (ABC)","menu":"popupMenu","handler":"onTableCode","argument":"1","checked":"vCodeTable == 1"},
+    {"symbol":"POPUP_VNI_WINDOWS","id":932,"label":"VNI Windows","menu":"popupMenu","handler":"onTableCode","argument":"2","checked":"vCodeTable == 2"},
+    {"symbol":"POPUP_UNICODE_COMPOUND","id":933,"label":"Unicode tổ hợp","menu":"otherCode","handler":"onTableCode","argument":"3","checked":"vCodeTable == 3"},
+    {"symbol":"POPUP_VN_LOCALE_1258","id":934,"label":"Vietnamese locale CP 1258","menu":"otherCode","handler":"onTableCode","argument":"4","checked":"vCodeTable == 4"},
+    {"symbol":"POPUP_CONTROL_PANEL","id":1000,"label":"Bảng điều khiển...","menu":"popupMenu","handler":"onControlPanel","argument":"","checked":null},
+    {"symbol":"POPUP_ABOUT_OPENKEY","id":1010,"label":"Giới thiệu OpenKey","menu":"popupMenu","handler":"onOpenKeyAbout","argument":"","checked":null},
+    {"symbol":"POPUP_THEME_SYSTEM","id":1020,"label":"Theo hệ thống","menu":"themeMenu","handler":"onUiTheme","argument":"0","checked":"theme == OpenKeyUITheme::Theme::System"},
+    {"symbol":"POPUP_THEME_LIGHT","id":1021,"label":"Sáng (Light)","menu":"themeMenu","handler":"onUiTheme","argument":"1","checked":"theme == OpenKeyUITheme::Theme::Light"},
+    {"symbol":"POPUP_THEME_DARK","id":1022,"label":"Tối (Dark)","menu":"themeMenu","handler":"onUiTheme","argument":"2","checked":"theme == OpenKeyUITheme::Theme::Dark"},
+    {"symbol":"POPUP_OPENKEY_EXIT","id":2000,"label":"Thoát","menu":"popupMenu","handler":"onOpenKeyExit","argument":"","checked":null}
+  ]
+}

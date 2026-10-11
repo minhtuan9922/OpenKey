@@ -28,7 +28,7 @@ static vector<Uint8> _breakCode = {'.', '?', '!'};
 static bool findKeyCode(const Uint32& charCode, const Uint8& code, int& j, int& k) {
     //find character which has tone/mark
     for (map<Uint32, vector<Uint16>>::iterator it = _codeTable[code].begin(); it != _codeTable[code].end(); ++it) {
-        for (int z = 0; z < it->second.size(); z++) {
+        for (int z = 0; static_cast<size_t>(z) < it->second.size(); z++) {
             if (charCode == it->second[z]) {
                 j = it->first;
                 k = z;
@@ -60,10 +60,10 @@ string convertUtil(const string& sourceString) {
     if (convertToolToAllNonCaps)
         shouldUpperCase = false;
     
-    for (int i = 0; i < data.size(); i++) {
+    for (int i = 0; static_cast<size_t>(i) < data.size(); i++) {
         p = 0;
         //find char with tone/mark
-        if (i < data.size() - 1) {
+        if (static_cast<size_t>(i) < data.size() - 1) {
             switch (convertToolFromCode) {
                 case 2: //VNI
                 case 4: //1258

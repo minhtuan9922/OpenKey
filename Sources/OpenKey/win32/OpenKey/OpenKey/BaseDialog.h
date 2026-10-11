@@ -20,8 +20,8 @@ redistribute your new version, it MUST be open source.
 class BaseDialog {
 protected:
 	UINT resId;
-	HINSTANCE hInstance;
-	HWND hDlg;
+	HINSTANCE hInstance = nullptr;
+	HWND hDlg = nullptr;
 protected:
 	void createToolTip(const HWND& control, LPCTSTR toolTipString);
 	void createToolTip(const HWND& control, const UINT& stringResId);

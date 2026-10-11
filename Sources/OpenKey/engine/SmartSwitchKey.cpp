@@ -44,7 +44,7 @@ void getSmartSwitchKeySaveData(vector<Byte>& outData) {
     
     for (std::map<string, Int8>::iterator it = _smartSwitchKeyData.begin(); it != _smartSwitchKeyData.end(); ++it) {
         outData.push_back((Byte)it->first.length());
-        for (int j = 0; j < it->first.length(); j++) {
+        for (int j = 0; static_cast<size_t>(j) < it->first.length(); j++) {
             outData.push_back(it->first[j]);
         }
         outData.push_back(it->second);

@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="OpenKeyUI.ConvertPage"
+    NavigationCacheMode="Required"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid>
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="WideLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1100" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="ConvertActions.Orientation" Value="Horizontal" />
+                        <Setter Target="TextPanels.ColumnSpacing" Value="16" />
+                        <Setter Target="TextPanels.RowSpacing" Value="0" />
+                        <Setter Target="TextPanelsSecondColumn.Width" Value="*" />
+                        <Setter Target="ResultBox.(Grid.Row)" Value="0" />
+                        <Setter Target="ResultBox.(Grid.Column)" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+    <ScrollViewer HorizontalContentAlignment="Stretch" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel
+            Style="{StaticResource PageStackLayoutStyle}">
+            <StackPanel Spacing="6">
+                <TextBlock TextWrapping="Wrap" x:Uid="ConvertLabel1" Style="{StaticResource OpenKeyPageTitleStyle}" Text="Chuyển mã" />
+                <TextBlock x:Uid="ConvertLabel2"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="Chuyển đổi văn bản giữa các bảng mã tiếng Việt của OpenKey."
+                    TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border Style="{StaticResource OpenKeySettingsCardStyle}">
+                <StackPanel Spacing="16">
+                    <TextBlock TextWrapping="Wrap" x:Uid="ConvertLabel3" Style="{StaticResource SubtitleTextBlockStyle}" Text="Bảng mã" />
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Uid="ConvertSourceCodeCombo"
+                            x:Name="SourceCodeCombo"
+                            AutomationProperties.Name="Bảng mã nguồn"
+                            Header="Nguồn"
+                            HorizontalAlignment="Stretch"
+                            TabIndex="0"
+                            SelectionChanged="OnCodeTableChanged">
+                            <x:String>Unicode</x:String>
+                            <x:String>TCVN3 (ABC)</x:String>
+                            <x:String>VNI Windows</x:String>
+                            <ComboBoxItem x:Uid="CodeUnicodeComposite" Content="Unicode tổ hợp" />
+                            <x:String>Vietnamese Locale CP1258</x:String>
+                        </ComboBox>
+                        <Button x:Uid="ConvertLabel4"
+                            Grid.Column="1"
+                            VerticalAlignment="Bottom"
+                            AutomationProperties.Name="Đổi bảng mã nguồn và đích"
+                            Click="OnSwapClicked"
+                            TabIndex="1"
+                            ToolTipService.ToolTip="Đổi bảng mã nguồn và đích">
+                            <FontIcon Glyph="&#xE8AB;" />
+                        </Button>
+                        <ComboBox x:Uid="ConvertTargetCodeCombo"
+                            x:Name="TargetCodeCombo"
+                            Grid.Column="2"
+                            Header="Đích"
+                            AutomationProperties.Name="Bảng mã đích"
+                            HorizontalAlignment="Stretch"
+                            TabIndex="2"
+                            SelectionChanged="OnCodeTableChanged">
+                            <x:String>Unicode</x:String>
+                            <x:String>TCVN3 (ABC)</x:String>
+                            <x:String>VNI Windows</x:String>
+                            <ComboBoxItem x:Uid="CodeUnicodeComposite" Content="Unicode tổ hợp" />
+                            <x:String>Vietnamese Locale CP1258</x:String>
+                        </ComboBox>
+                    </Grid>
+
+                    <TextBlock TextWrapping="Wrap" x:Uid="ConvertLabel5" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Biến đổi nội dung" />
+                    <Grid ColumnSpacing="20" RowSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <CheckBox x:Uid="ConvertAllCapsCheck" x:Name="AllCapsCheck" AutomationProperties.Name="Viết hoa toàn bộ" Content="VIẾT HOA toàn bộ" Click="OnOptionChanged" TabIndex="3" />
+                        <CheckBox x:Uid="ConvertAllLowerCheck" x:Name="AllLowerCheck" Grid.Column="1" AutomationProperties.Name="Viết thường toàn bộ" Content="viết thường toàn bộ" Click="OnOptionChanged" TabIndex="4" />
+                        <CheckBox x:Uid="ConvertSentenceCapsCheck" x:Name="SentenceCapsCheck" Grid.Row="1" AutomationProperties.Name="Viết hoa đầu câu" Content="Viết hoa đầu câu" Click="OnOptionChanged" TabIndex="5" />
+                        <CheckBox x:Uid="ConvertWordCapsCheck" x:Name="WordCapsCheck" Grid.Row="1" Grid.Column="1" AutomationProperties.Name="Viết hoa mỗi từ" Content="Viết Hoa Mỗi Từ" Click="OnOptionChanged" TabIndex="6" />
+                        <CheckBox x:Uid="ConvertRemoveMarkCheck" x:Name="RemoveMarkCheck" Grid.Row="2" AutomationProperties.Name="Bỏ dấu tiếng Việt" Content="Bỏ dấu tiếng Việt" Click="OnOptionChanged" TabIndex="7" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Grid x:Name="TextPanels" ColumnSpacing="0" RowSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition x:Name="TextPanelsSecondColumn" Width="0" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBox x:Uid="ConvertInputBox"
+                    x:Name="InputBox"
+                    Height="180"
+                    AcceptsReturn="True"
+                    AutomationProperties.Name="Nội dung nguồn"
+                    Header="Nội dung nguồn"
+                    PlaceholderText="Nhập hoặc dán văn bản cần chuyển mã"
+                    TabIndex="8"
+                    TextChanged="OnInputTextChanged"
+                    TextWrapping="Wrap" />
+                <TextBox x:Uid="ConvertResultBox"
+                    x:Name="ResultBox"
+                    Grid.Row="1"
+                    Height="180"
+                    AcceptsReturn="True"
+                    AutomationProperties.HelpText="Vùng chỉ đọc chứa kết quả chuyển mã."
+                    AutomationProperties.Name="Kết quả chuyển mã"
+                    Header="Kết quả"
+                    IsReadOnly="True"
+                    PlaceholderText="Kết quả chuyển mã sẽ hiển thị tại đây"
+                    TabIndex="9"
+                    TextWrapping="Wrap" />
+            </Grid>
+
+            <StackPanel x:Name="ConvertActions" Orientation="Vertical" Spacing="8">
+                <Button ContentTemplate="{StaticResource WrappingTextTemplate}" x:Uid="ConvertConvertButton"
+                    x:Name="ConvertButton"
+                    AccessKey="C"
+                    AutomationProperties.Name="Chuyển mã văn bản"
+                    Click="OnConvertClicked"
+                    Content="Chuyển mã"
+                    TabIndex="10"
+                    Style="{StaticResource AccentButtonStyle}" />
+                <Button ContentTemplate="{StaticResource WrappingTextTemplate}" x:Uid="ConvertCopyButton"
+                    x:Name="CopyButton"
+                    AccessKey="S"
+                    AutomationProperties.Name="Sao chép kết quả chuyển mã"
+                    Click="OnCopyClicked"
+                    Content="Sao chép"
+                    TabIndex="11" />
+                <Button ContentTemplate="{StaticResource WrappingTextTemplate}" x:Uid="ConvertClearButton"
+                    x:Name="ClearButton"
+                    AccessKey="X"
+                    AutomationProperties.Name="Xóa nội dung chuyển mã"
+                    Click="OnClearClicked"
+                    Content="Xóa nội dung"
+                    TabIndex="12" />
+            </StackPanel>
+
+            <Border Style="{StaticResource OpenKeySettingsCardStyle}">
+                <StackPanel Spacing="16">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="4">
+                            <TextBlock TextWrapping="Wrap" x:Uid="ConvertLabel6" Style="{StaticResource SubtitleTextBlockStyle}" Text="Chuyển nhanh clipboard" />
+                            <TextBlock x:Uid="ConvertLabel7"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Chuyển nội dung vừa sao chép bằng các tùy chọn phía trên."
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Button ContentTemplate="{StaticResource WrappingTextTemplate}" x:Uid="ConvertLabel8"
+                            Grid.Column="1"
+                            AccessKey="Q"
+                            AutomationProperties.Name="Chuyển mã nội dung clipboard"
+                            Click="OnQuickConvertClicked"
+                            Content="Chuyển clipboard"
+                            TabIndex="13" />
+                    </Grid>
+
+                    <ToggleSwitch x:Uid="ConvertNotifyToggle"
+                        x:Name="NotifyToggle"
+                        AutomationProperties.Name="Thông báo khi chuyển nhanh hoàn tất"
+                        Header="Thông báo khi chuyển nhanh hoàn tất"
+                        OffContent="Tắt"
+                        OnContent="Bật"
+                        TabIndex="14"
+                        Toggled="OnNotifyToggled" />
+
+                    <TextBlock TextWrapping="Wrap" x:Uid="ConvertLabel9" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Phím tắt chuyển nhanh" />
+                    <StackPanel Spacing="10">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                        <CheckBox x:Uid="ConvertQuickCtrlCheck" x:Name="QuickCtrlCheck" AutomationProperties.Name="Dùng Ctrl cho phím tắt chuyển nhanh" Content="Ctrl" Click="OnQuickHotkeyChanged" TabIndex="15" />
+                        <CheckBox x:Uid="ConvertQuickAltCheck" x:Name="QuickAltCheck" Grid.Column="1" AutomationProperties.Name="Dùng Alt cho phím tắt chuyển nhanh" Content="Alt" Click="OnQuickHotkeyChanged" TabIndex="16" />
+                        <CheckBox x:Uid="ConvertQuickWinCheck" x:Name="QuickWinCheck" Grid.Column="2" AutomationProperties.Name="Dùng Windows cho phím tắt chuyển nhanh" Content="Win" Click="OnQuickHotkeyChanged" TabIndex="17" />
+                        <CheckBox x:Uid="ConvertQuickShiftCheck" x:Name="QuickShiftCheck" Grid.Column="3" AutomationProperties.Name="Dùng Shift cho phím tắt chuyển nhanh" Content="Shift" Click="OnQuickHotkeyChanged" TabIndex="18" />
+                        </Grid>
+                        <ComboBox x:Uid="ConvertQuickKeyCombo"
+                            x:Name="QuickKeyCombo"
+                            AutomationProperties.HelpText="Chọn phím chính cho thao tác chuyển nhanh clipboard."
+                            AutomationProperties.Name="Phím chính chuyển nhanh"
+                            HorizontalAlignment="Stretch"
+                            TabIndex="19"
+                            SelectionChanged="OnQuickKeyChanged" />
+                        <TextBlock TextWrapping="Wrap" x:Uid="ConvertQuickHotkeyPreview"
+                            x:Name="QuickHotkeyPreview"
+                            AutomationProperties.LiveSetting="Polite"
+                            AutomationProperties.Name="Tổ hợp phím chuyển nhanh hiện tại"
+                            VerticalAlignment="Center"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <InfoBar x:Uid="ConvertQuickHotkeyWarning"
+                        x:Name="QuickHotkeyWarning"
+                        AutomationProperties.LiveSetting="Assertive"
+                        AutomationProperties.Name="Cảnh báo phím tắt chuyển nhanh"
+                        IsClosable="False"
+                        IsOpen="False"
+                        Message="Nên chọn ít nhất một phím Ctrl, Alt, Win hoặc Shift để tránh kích hoạt nhầm. Phím tắt được áp dụng ngay khi OpenKey đang chạy."
+                        Severity="Warning"
+                        Title="Phím tắt chưa có phím bổ trợ" />
+                </StackPanel>
+            </Border>
+
+            <InfoBar x:Uid="ConvertStatusBar"
+                x:Name="StatusBar"
+                AutomationProperties.LiveSetting="Polite"
+                AutomationProperties.Name="Trạng thái chuyển mã"
+                IsClosable="False"
+                IsOpen="False" />
+        </StackPanel>
+    </ScrollViewer>
+    </Grid>
+</Page>

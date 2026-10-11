@@ -16,18 +16,48 @@ redistribute your new version, it MUST be open source.
 
 class MainControlDialog : public BaseDialog {
 private:
-	HWND hTab, hTabPage1, hTabPage2, hTabPage3, hTabPage4;
-	HWND comboBoxInputType;
-	HWND comboBoxTableCode;
-	HWND checkCtrl, checkAlt, checkWin, checkShift, textSwitchKey, checkBeep;
-	HWND checkVietnamese, checkEnglish;
-	HWND checkModernOrthorgraphy, checkFixRecommendBrowser, checkShowOnStartup, checkRunWithWindows,
-		checkSpelling, checkRestoreIfWrongSpelling, checkUseClipboard, checkModernIcon,
-		checkAllowZWJF, checkTempOffSpelling, checkQuickStartConsonant, checkQuickEndConsonant;
-	HWND checkSmartSwitchKey, checkCapsFirstChar, checkQuickTelex, checkUseMacro, checkUseMacroInEnglish;
-	HWND checkCreateDesktopShortcut, checkCheckNewVersion, checkRunAsAdmin, checkSupportMetroApp, checkMacroAutoCaps;
-	HWND checkFixChromium, checkRememberTableCode, checkTempOffOpenKey, checkAllowOtherLanguages;
-	HWND hUpdateButton;
+	HWND hTab = nullptr;
+	HWND hTabPage1 = nullptr;
+	HWND hTabPage2 = nullptr;
+	HWND hTabPage3 = nullptr;
+	HWND hTabPage4 = nullptr;
+	HWND comboBoxInputType = nullptr;
+	HWND comboBoxTableCode = nullptr;
+	HWND checkCtrl = nullptr;
+	HWND checkAlt = nullptr;
+	HWND checkWin = nullptr;
+	HWND checkShift = nullptr;
+	HWND textSwitchKey = nullptr;
+	HWND checkBeep = nullptr;
+	HWND checkVietnamese = nullptr;
+	HWND checkEnglish = nullptr;
+	HWND checkModernOrthorgraphy = nullptr;
+	HWND checkFixRecommendBrowser = nullptr;
+	HWND checkShowOnStartup = nullptr;
+	HWND checkRunWithWindows = nullptr;
+	HWND checkSpelling = nullptr;
+	HWND checkRestoreIfWrongSpelling = nullptr;
+	HWND checkUseClipboard = nullptr;
+	HWND checkModernIcon = nullptr;
+	HWND checkAllowZWJF = nullptr;
+	HWND checkTempOffSpelling = nullptr;
+	HWND checkQuickStartConsonant = nullptr;
+	HWND checkQuickEndConsonant = nullptr;
+	HWND checkSmartSwitchKey = nullptr;
+	HWND checkCapsFirstChar = nullptr;
+	HWND checkQuickTelex = nullptr;
+	HWND checkUseMacro = nullptr;
+	HWND checkUseMacroInEnglish = nullptr;
+	HWND checkCreateDesktopShortcut = nullptr;
+	HWND checkCheckNewVersion = nullptr;
+	HWND checkRunAsAdmin = nullptr;
+	HWND checkSupportMetroApp = nullptr;
+	HWND checkMacroAutoCaps = nullptr;
+	HWND checkFixChromium = nullptr;
+	HWND checkRememberTableCode = nullptr;
+	HWND checkTempOffOpenKey = nullptr;
+	HWND checkAllowOtherLanguages = nullptr;
+	HWND hUpdateButton = nullptr;
 private:
 	void initDialog();
 	void onComboBoxSelected(const HWND& hCombobox, const int& comboboxId);

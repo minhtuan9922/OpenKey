@@ -17,23 +17,34 @@ redistribute your new version, it MUST be open source.
 #include "AboutDialog.h"
 #include "ConvertToolDialog.h"
 #include "MacroDialog.h"
+#include "AsyncUpdateCheck.h"
 
 class BaseDialog;
 class AppDelegate {
 private:
-	HINSTANCE hInstance;
+	HINSTANCE hInstance = nullptr;
 	BaseDialog* mainDialog = NULL, *aboutDialog = NULL, *macroDialog = NULL, *convertDialog = NULL;
 private:
 	bool isDialogMsg(MSG &msg) const;
 	void checkUpdate();
+	AsyncUpdateCheck updateCheck;
+	UINT_PTR updateTimer = 0;
+	HWND updateOwner = nullptr, updateButton = nullptr;
+	void* updateToken = nullptr;
+	bool manualUpdateCheck = false;
+	bool exiting = false;
+	void stopUpdateCheck();
 public:
 	AppDelegate();
 	static AppDelegate* getInstance();
 	int run(HINSTANCE hInstance);
 	void createMainDialog();
 	void closeDialog(BaseDialog* dialog);
+	void beginUpdateCheck(HWND owner = nullptr, HWND button = nullptr);
+	void pollUpdateCheck(UINT_PTR timer);
 public: //event
 	void onInputMethodChangedFromHotKey();
+	void onSettingsChangedFromUI();
 	void onDefaultConfig();
 
 	void onToggleVietnamese();
@@ -50,5 +61,6 @@ public: //event
 
 	void onControlPanel();
 	void onOpenKeyAbout();
+	void onUiTheme(int theme);
 	void onOpenKeyExit();
 };

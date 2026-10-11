@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="OpenKeyUI.OverviewPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid>
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="WideLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1100" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="StatusLayout.ColumnSpacing" Value="20" />
+                        <Setter Target="StatusLayout.RowSpacing" Value="0" />
+                        <Setter Target="StatusToggleColumn.Width" Value="Auto" />
+                        <Setter Target="LanguageToggle.(Grid.Row)" Value="0" />
+                        <Setter Target="LanguageToggle.(Grid.Column)" Value="1" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+    <ScrollViewer HorizontalContentAlignment="Stretch" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel
+            Style="{StaticResource PageStackLayoutStyle}">
+
+            <StackPanel Spacing="6">
+                <TextBlock TextWrapping="Wrap" x:Uid="OverviewTitle" Style="{StaticResource OpenKeyPageTitleStyle}" Text="Bộ gõ tiếng Việt" />
+                <TextBlock
+                    x:Uid="OverviewSubtitle"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="Bật hoặc tắt nhanh chế độ nhập tiếng Việt của OpenKey."
+                    TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border Style="{StaticResource OpenKeySettingsCardStyle}">
+                <Grid x:Name="StatusLayout" ColumnSpacing="0" RowSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition x:Name="StatusToggleColumn" Width="0" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Spacing="4">
+                        <TextBlock TextWrapping="Wrap" x:Uid="OverviewStatusTitle" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Trạng thái bộ gõ" />
+                        <TextBlock
+                            x:Name="LanguageDescription"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ToggleSwitch
+                        x:Name="LanguageToggle"
+                        x:Uid="LanguageToggle"
+                        Grid.Row="1"
+                        AutomationProperties.Name="Bật bộ gõ tiếng Việt"
+                        AutomationProperties.HelpText="Chuyển giữa chế độ nhập tiếng Việt và tiếng Anh."
+                        OffContent="Tiếng Anh"
+                        OnContent="Tiếng Việt"
+                        TabIndex="0"
+                        Toggled="OnLanguageToggled" />
+                </Grid>
+            </Border>
+
+            <InfoBar
+                x:Name="SettingsStatus"
+                x:Uid="OverviewStatus"
+                AutomationProperties.LiveSetting="Polite"
+                AutomationProperties.Name="Trạng thái cấu hình"
+                IsClosable="False"
+                IsOpen="True"
+                Message="Các trang cài đặt dùng chung dữ liệu với OpenKey Win32."
+                Severity="Informational"
+                Title="Cấu hình tương thích" />
+        </StackPanel>
+    </ScrollViewer>
+    </Grid>
+</Page>

@@ -1,4 +1,70 @@
 # OpenKey for Windows
+
+## Fluent UI beta
+
+Nhánh này bổ sung bảng điều khiển WinUI/Fluent; engine/tray và UI Win32 dự phòng vẫn
+được giữ. Các yêu cầu và ảnh legacy bên dưới không áp dụng cho bản Fluent beta.
+Beta hướng tới Windows 10/11 x64/x86; project khai báo min Windows build 17763,
+nhưng khả năng chạy trên từng phiên bản và máy sạch vẫn đang chờ kiểm thử.
+Không dùng beta Fluent trên Vista/Windows 7 theo yêu cầu legacy ở phần dưới.
+
+Môi trường đã build: Visual Studio 2026 Community (18.x), MSVC v145, workload
+Desktop development with C++, Windows SDK và công cụ C++/WinRT/WinUI.
+Các NuGet version đang dùng được ghi trong OpenKey.UI.vcxproj; build chạy restore.
+Máy chạy không cần Visual Studio nhưng cần VC++ Redistributable phù hợp và toàn bộ
+thư mục UI/runtime trong gói. Windows App SDK đang được đóng gói self-contained;
+điều này chưa loại bỏ phụ thuộc VC++ runtime hoặc thay kiểm thử máy sạch.
+
+Chạy từ PowerShell tại root repository:
+
+```powershell
+.\build.ps1 Debug x64 All
+.\run-debug.ps1 x64       # build/chạy engine Debug
+.\run-ui-debug.ps1 x64    # build/chạy UI Debug; engine phải chạy để kiểm thử gõ
+.\build.ps1 Release x64 All
+.\build.ps1 Debug x64 UI -Analyze
+.\test-engine.ps1 x64
+.\test-settings.ps1 x64    # 258 ca cấu hình/window/theme/phụ thuộc; API giả, không đổi cấu hình
+.\test-macro.ps1 x64       # 71 ca macro/editor/gate/export; registry giả và file fixture riêng
+.\test-ui-binary.ps1 x64 Release # 4 ca PE/icon/manifest; can output da build, khong chay GUI
+.\test-convert.ps1 x64     # 175 text + 17 clipboard giả + 20 engine; không chạm clipboard thật
+.\benchmark-engine.ps1 x64 # chỉ đo handler; không phải độ trễ gõ end-to-end
+.\test-updater.ps1 x64
+.\test-prerequisites.ps1
+.\test-packaging.ps1
+.\test-third-party.ps1
+.\test-ui-resources.ps1  # 19 kiểm tra XML/style/bản dịch; không thay visual QA
+.\test-sandbox.ps1       # 27 ca cấu hình/guard; không mở Sandbox hoặc chạy GUI
+.\test-debug-launcher.ps1 # 15 ca launcher/preflight giả; không build/chạy app
+.\test-all.ps1 All       # toàn bộ test x64/x86, log và JSON riêng trong dist
+.\package-beta.ps1 x64
+```
+
+Thay x64 bằng x86 ở các script nhận Platform. ZIP nằm trong dist và bị Git bỏ qua.
+Xác minh bằng `verify-beta.ps1 -ZipPath <file.zip>`, rồi giải nén vào thư mục mới và
+chạy `check-prerequisites.ps1` trong gói. Các script chạy ứng dụng không tự gắn debugger;
+để debug tương tác, mở solution trong Visual Studio và chọn project khởi động.
+
+run-ui-debug.ps1 từ chối build nếu đúng executable Debug đang chạy/bị debugger giữ;
+không tự kill process. Dừng bằng Shift+F5 hoặc đóng UI rồi thử lại. Mỗi lần được phép
+build tạo `dist/ui-debug-<GUID>/build.log` và `launch.json`; build lỗi không chạy binary
+cũ. Sau chạy đợi 3 giây: process lỗi báo exit code dạng hex; code 0 chỉ cảnh báo khả
+năng single-instance redirect, không xác nhận cửa sổ đã hiện. Process còn chạy cũng
+không phải nghiệm thu GUI và không được script gắn debugger.
+
+Đọc [hướng dẫn beta](../../../BETA_PACKAGING.md) và
+[migration/rollback](../../../MIGRATION_FLUENT_BETA.md) trước khi chạy.
+Beta và legacy dùng chung registry settings/macro: thư mục riêng không cô lập dữ liệu.
+Không dùng updater stable để nâng cấp bundle Fluent. Chưa có ảnh Fluent mới được
+xác nhận; các ảnh bên dưới là giao diện legacy, không phải ảnh nghiệm thu beta.
+
+Có thể chuẩn bị Windows Sandbox bằng `prepare-sandbox.ps1` tại root; cần ZIP và
+SHA-256 ngoài archive. Xem [hướng dẫn Sandbox](../../../Sandbox/README.md).
+Chỉ chia sẻ một thư mục đầu vào chỉ đọc và một thư mục log riêng có quyền ghi;
+không chia sẻ project, không tự mở Sandbox, bật feature hay cài runtime.
+
+## Bản legacy/stable
+
 [![GitHub release](https://img.shields.io/github/v/release/tuyenvm/OpenKey.svg)](https://github.com/tuyenvm/OpenKey/releases/latest)
 - OpenKey phiên bản cho Windows bắt đầu từ bản 1.5, có tất cả các tính năng của bản macOS.  
 - OpenKey mặc định chạy ở chế độ `Administrator` để có thể dễ dàng gõ Tiếng Việt trong **game**. Mã nguồn đã được phát hành công khai dưới giấy phép **GPL** nên các bạn hoàn toàn yên tâm về tính minh bạch của chương trình, không keylog, không backdoor,...

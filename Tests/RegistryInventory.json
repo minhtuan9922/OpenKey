@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "scope": "Windows application source baseline; not a registry export or migration tool",
+  "locations": [
+    {
+      "hive": "HKEY_CURRENT_USER",
+      "path": "SOFTWARE\\TuyenMai\\OpenKey",
+      "groups": [
+        {
+          "scope": "shared-preferences",
+          "type": "REG_DWORD",
+          "names": [
+            "vLanguage", "vInputType", "vCodeTable", "vCheckSpelling",
+            "vRestoreIfWrongSpelling", "vRememberCode", "vUseModernOrthography",
+            "vQuickTelex", "vQuickStartConsonant", "vQuickEndConsonant", "vAutoCapsMacro",
+            "vUseMacro", "vUseMacroInEnglishMode",
+            "vSwitchKeyStatus", "vFixRecommendBrowser", "vSendKeyStepByStep",
+            "vUseSmartSwitchKey", "vSupportMetroApp", "vOtherLanguage", "vTempOffOpenKey",
+            "vFixChromiumBrowser", "vUpperCaseFirstChar", "vAllowConsonantZFWJ",
+            "vTempOffSpelling", "vUseGrayIcon", "vRunWithWindows", "vShowOnStartUp",
+            "vCheckNewVersion", "convertToolDontAlertWhenCompleted", "convertToolToAllCaps",
+            "convertToolToAllNonCaps", "convertToolToCapsFirstLetter", "convertToolToCapsEachWord",
+            "convertToolRemoveMark", "convertToolFromCode", "convertToolToCode", "convertToolHotKey"
+          ]
+        },
+        {
+          "scope": "legacy-only",
+          "type": "REG_DWORD",
+          "names": ["vRunAsAdmin", "vCreateDesktopShortcut"]
+        },
+        {
+          "scope": "shared-data",
+          "type": "REG_BINARY",
+          "names": ["macroData", "smartSwitchKey"]
+        },
+        {
+          "scope": "fluent-only",
+          "type": "REG_DWORD",
+          "names": ["uiDisplayLanguage", "uiTheme", "uiWindowMaximized"]
+        },
+        {
+          "scope": "fluent-only",
+          "type": "REG_BINARY",
+          "names": ["uiWindowSize", "uiWindowPosition"]
+        }
+      ]
+    },
+    {
+      "hive": "HKEY_CURRENT_USER",
+      "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+      "groups": [{"scope": "startup", "type": "REG_SZ", "names": ["OpenKey"]}]
+    }
+  ]
+}

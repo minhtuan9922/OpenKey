@@ -202,7 +202,7 @@ void MacroDialog::onImportMacroButton() {
 	ofn.lStructSize = sizeof(ofn);
 	ofn.hwndOwner = hDlg;
 	ofn.lpstrFile = szFile;
-	ofn.nMaxFile = sizeof(szFile);
+	ofn.nMaxFile = ARRAYSIZE(szFile);
 	ofn.lpstrFilter = _T("Text file (*.txt)\0*.txt\0All (*.*)\0*.*\0");
 	ofn.nFilterIndex = 1;
 	ofn.lpstrFileTitle = NULL;
@@ -217,7 +217,8 @@ void MacroDialog::onImportMacroButton() {
 			_T("Dữ liệu gõ tắt"),
 			MB_ICONEXCLAMATION | MB_YESNO
 		);
-		wstring path = ofn.lpstrFile;
+		szFile[ARRAYSIZE(szFile) - 1] = L'\0';
+		wstring path = szFile;
 		readFromFile(wideStringToUtf8(path), msgboxID == IDYES);
 		saveAndReload();
 	}
@@ -230,7 +231,7 @@ void MacroDialog::onExportMacrobutton() {
 	ofn.lStructSize = sizeof(ofn);
 	ofn.hwndOwner = hDlg;
 	ofn.lpstrFile = szFile;
-	ofn.nMaxFile = sizeof(szFile);
+	ofn.nMaxFile = ARRAYSIZE(szFile);
 	ofn.lpstrFilter = _T("Text file (*.txt)\0*.txt\0");
 	ofn.lpstrFileTitle = (LPTSTR)_T("lpstrFile");
 	ofn.nFilterIndex = 1;
@@ -238,9 +239,10 @@ void MacroDialog::onExportMacrobutton() {
 	ofn.nMaxFileTitle = 0;
 	ofn.lpstrInitialDir = NULL;
 	ofn.lpstrDefExt = (LPCWSTR)L"txt";
-	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
 	if (GetSaveFileName(&ofn) == TRUE) {
-		wstring path = ofn.lpstrFile;
+		szFile[ARRAYSIZE(szFile) - 1] = L'\0';
+		wstring path = szFile;
 		saveToFile(wideStringToUtf8(path));
 	}
 }

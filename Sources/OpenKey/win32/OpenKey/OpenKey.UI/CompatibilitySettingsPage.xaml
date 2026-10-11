@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="OpenKeyUI.CompatibilitySettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer HorizontalContentAlignment="Stretch" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel
+            Style="{StaticResource PageStackLayoutStyle}">
+
+            <StackPanel Spacing="6">
+                <TextBlock TextWrapping="Wrap" x:Uid="CompatibilityTitle" Style="{StaticResource OpenKeyPageTitleStyle}" Text="Ứng dụng &amp; tương thích" />
+                <TextBlock
+                    x:Uid="CompatibilitySubtitle"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="Điều chỉnh cách OpenKey hoạt động khi chuyển ứng dụng, layout bàn phím và trình duyệt."
+                    TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border Style="{StaticResource OpenKeySettingsCardStyle}">
+                <StackPanel Spacing="18">
+                    <TextBlock TextWrapping="Wrap" x:Uid="AppSwitchingSection" Style="{StaticResource SubtitleTextBlockStyle}" Text="Chuyển ứng dụng" />
+                    <ToggleSwitch
+                        x:Name="SmartSwitchToggle"
+                        x:Uid="SmartSwitchToggle"
+                        AutomationProperties.Name="Ghi nhớ chế độ gõ theo ứng dụng"
+                        Header="Ghi nhớ chế độ gõ theo ứng dụng"
+                        OffContent="Tắt"
+                        OnContent="Bật"
+                        TabIndex="0"
+                        Toggled="OnPreferenceToggled" />
+                    <ToggleSwitch
+                        x:Name="OtherLanguagesToggle"
+                        x:Uid="OtherLanguagesToggle"
+                        AutomationProperties.Name="Cho phép gõ tiếng Việt với layout không phải tiếng Anh"
+                        Header="Cho phép gõ tiếng Việt với layout không phải tiếng Anh"
+                        OffContent="Tắt"
+                        OnContent="Bật"
+                        TabIndex="1"
+                        Toggled="OnPreferenceToggled" />
+                    <ToggleSwitch
+                        x:Name="TemporaryDisableToggle"
+                        x:Uid="TemporaryDisableToggle"
+                        AutomationProperties.Name="Alt tạm ngưng OpenKey đến từ tiếp theo"
+                        Header="Nhấn Alt để tạm ngưng OpenKey đến từ tiếp theo"
+                        OffContent="Tắt"
+                        OnContent="Bật"
+                        TabIndex="2"
+                        Toggled="OnPreferenceToggled" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource OpenKeySettingsCardStyle}">
+                <StackPanel Spacing="18">
+                    <TextBlock TextWrapping="Wrap" x:Uid="BrowserInputSection" Style="{StaticResource SubtitleTextBlockStyle}" Text="Trình duyệt &amp; nhập liệu" />
+                    <ToggleSwitch
+                        x:Name="RecommendationFixToggle"
+                        x:Uid="RecommendationFixToggle"
+                        AutomationProperties.Name="Sửa lỗi đúp từ trong ô gợi ý"
+                        Header="Sửa lỗi đúp từ trong thanh địa chỉ, Excel và ô gợi ý"
+                        OffContent="Tắt"
+                        OnContent="Bật"
+                        TabIndex="3"
+                        Toggled="OnPreferenceToggled" />
+                    <StackPanel Spacing="6">
+                        <ToggleSwitch
+                            x:Name="ChromiumFixToggle"
+                            x:Uid="ChromiumFixToggle"
+                            AutomationProperties.HelpText="Yêu cầu bật tùy chọn sửa lỗi đúp từ."
+                            AutomationProperties.Name="Tối ưu cho trình duyệt Chromium"
+                            Header="Tối ưu cho trình duyệt Chromium"
+                            OffContent="Tắt"
+                            OnContent="Bật"
+                            TabIndex="4"
+                            Toggled="OnPreferenceToggled" />
+                        <TextBlock
+                            x:Name="ChromiumRequirement"
+                            x:Uid="ChromiumRequirement"
+                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                            Text="Hãy bật “Sửa lỗi đúp từ” để sử dụng tùy chọn Chromium."
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ToggleSwitch
+                        x:Name="ClipboardToggle"
+                        x:Uid="ClipboardToggle"
+                        AutomationProperties.Name="Dùng Clipboard cho ứng dụng không nhận tiếng Việt"
+                        Header="Dùng Clipboard cho ứng dụng không nhận được tiếng Việt"
+                        OffContent="Tắt"
+                        OnContent="Bật"
+                        TabIndex="5"
+                        Toggled="OnPreferenceToggled" />
+                    <ToggleSwitch
+                        x:Name="MetroSupportToggle"
+                        x:Uid="MetroSupportToggle"
+                        AutomationProperties.Name="Hỗ trợ ứng dụng Metro và UWP"
+                        Header="Hỗ trợ ứng dụng Metro/UWP"
+                        OffContent="Tắt"
+                        OnContent="Bật"
+                        TabIndex="6"
+                        Toggled="OnPreferenceToggled" />
+                </StackPanel>
+            </Border>
+
+            <InfoBar x:Name="ChromiumDependencyWarning" x:Uid="ChromiumDependencyWarning"
+                Severity="Warning" IsOpen="False" IsClosable="False"
+                AutomationProperties.LiveSetting="Polite"
+                AutomationProperties.Name="Cảnh báo tùy chọn Chromium"
+                Title="Tùy chọn Chromium đang bị khóa"
+                Message="Tùy chọn Chromium vẫn được giữ, nhưng cần bật Sửa lỗi đúp từ để chỉnh sửa. OpenKey không tự tắt lựa chọn đã lưu." />
+
+            <InfoBar
+                x:Name="SettingsStatus"
+                x:Uid="SettingsStatus"
+                AutomationProperties.LiveSetting="Polite"
+                AutomationProperties.Name="Trạng thái lưu cấu hình"
+                IsClosable="False"
+                IsOpen="False" />
+        </StackPanel>
+    </ScrollViewer>
+</Page>

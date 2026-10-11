@@ -75,7 +75,7 @@ void ConvertToolDialog::initDialog() {
 	comboboxDest = GetDlgItem(hDlg, IDC_COMBO_TABLE_CODE_DST);
 
 	vector<LPCTSTR>& tableCode = OpenKeyManager::getTableCode();
-	for (int i = 0; i < tableCode.size(); i++) {
+	for (int i = 0; static_cast<size_t>(i) < tableCode.size(); i++) {
 		SendMessage(comboboxSource, CB_ADDSTRING, i, reinterpret_cast<LPARAM>(tableCode[i]));
 		SendMessage(comboboxDest, CB_ADDSTRING, i, reinterpret_cast<LPARAM>(tableCode[i]));
 	}

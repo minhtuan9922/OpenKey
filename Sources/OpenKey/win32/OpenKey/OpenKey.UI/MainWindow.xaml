@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="OpenKeyUI.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:OpenKeyUI"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="OpenKey"
+    mc:Ignorable="d">
+
+    <Grid x:Name="RootLayout">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Border x:Name="BackdropFallback" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Grid.RowSpan="2" />
+        <Grid x:Name="TitleBarDragRegion" Height="32" Background="Transparent" Visibility="Collapsed">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="TitleBarLeftInset" Width="0" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="TitleBarRightInset" Width="0" />
+            </Grid.ColumnDefinitions>
+            <Border x:Name="CaptionHoverPalette" Visibility="Collapsed"
+                Background="{ThemeResource ControlFillColorSecondaryBrush}" />
+            <Border x:Name="CaptionPressedPalette" Visibility="Collapsed"
+                Background="{ThemeResource ControlFillColorTertiaryBrush}" />
+            <TextBlock x:Name="TitleBarText" Grid.Column="1" Text="OpenKey" Margin="12,0,12,0"
+                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                Style="{StaticResource CaptionTextBlockStyle}" />
+        </Grid>
+    <NavigationView Grid.Row="1"
+        x:Name="RootNavigation"
+        x:Uid="RootNavigation"
+        AutomationProperties.HelpText="Dùng phím mũi tên để chọn một trang cài đặt."
+        AutomationProperties.Name="Điều hướng OpenKey"
+        IsBackButtonVisible="Collapsed"
+        IsPaneToggleButtonVisible="True"
+        IsSettingsVisible="False"
+        PaneDisplayMode="LeftCompact"
+        PaneTitle="OpenKey"
+        SelectionChanged="OnNavigationSelectionChanged">
+
+        <NavigationView.MenuItems>
+            <NavigationViewItem
+                x:Name="OverviewNavigationItem"
+                x:Uid="NavOverview"
+                AutomationProperties.Name="Tổng quan"
+                Content="Tổng quan"
+                Icon="Home"
+                IsSelected="True"
+                Tag="overview" />
+            <NavigationViewItem
+                x:Uid="NavInput"
+                AutomationProperties.Name="Kiểu gõ và bảng mã"
+                Content="Kiểu gõ &amp; bảng mã"
+                Icon="Keyboard"
+                Tag="input" />
+            <NavigationViewItem
+                x:Uid="NavSpelling"
+                AutomationProperties.Name="Chính tả và gõ nhanh"
+                Content="Chính tả &amp; gõ nhanh"
+                Icon="Font"
+                Tag="spelling" />
+            <NavigationViewItem
+                x:Uid="NavHotkeys"
+                AutomationProperties.Name="Phím tắt"
+                Content="Phím tắt"
+                Icon="Permissions"
+                Tag="hotkeys" />
+            <NavigationViewItem
+                x:Uid="NavCompatibility"
+                AutomationProperties.Name="Ứng dụng và tương thích"
+                Content="Ứng dụng &amp; tương thích"
+                Icon="AllApps"
+                Tag="compatibility" />
+            <NavigationViewItem
+                x:Uid="NavAdvanced"
+                AutomationProperties.Name="Cài đặt nâng cao"
+                Content="Cài đặt nâng cao"
+                Icon="Setting"
+                Tag="advanced" />
+            <NavigationViewItem
+                x:Uid="NavMacro"
+                AutomationProperties.Name="Gõ tắt"
+                Content="Gõ tắt"
+                Icon="Edit"
+                Tag="macro" />
+            <NavigationViewItem
+                x:Uid="NavConvert"
+                AutomationProperties.Name="Chuyển mã"
+                Content="Chuyển mã"
+                Icon="Switch"
+                Tag="convert" />
+        </NavigationView.MenuItems>
+
+        <NavigationView.FooterMenuItems>
+            <NavigationViewItem
+                x:Uid="NavAbout"
+                AutomationProperties.Name="Giới thiệu OpenKey"
+                Content="Giới thiệu"
+                Icon="Help"
+                Tag="about" />
+        </NavigationView.FooterMenuItems>
+
+        <Frame x:Name="ContentFrame" IsNavigationStackEnabled="False" />
+    </NavigationView>
+    </Grid>
+</Window>

@@ -13,8 +13,14 @@ redistribute your new version, it MUST be open source.
 -----------------------------------------------------------*/
 #include "SystemTrayHelper.h"
 #include "AppDelegate.h"
+#include <strsafe.h>
+#include "../OpenKey.UI/UiThemeSettings.h"
+#include "TrayMenuTheme.h"
+#include "TrayPopup.h"
 
 #define WM_TRAYMESSAGE (WM_USER + 1)
+#define WM_PREFERENCES_CHANGED (WM_USER + 2020)
+#define WM_OPENKEY_EXIT (WM_USER + 2021)
 #define TRAY_ICONUID 100
 
 #define POPUP_VIET_ON_OFF 900
@@ -39,6 +45,9 @@ redistribute your new version, it MUST be open source.
 
 #define POPUP_CONTROL_PANEL 1000
 #define POPUP_ABOUT_OPENKEY 1010
+#define POPUP_THEME_SYSTEM 1020
+#define POPUP_THEME_LIGHT 1021
+#define POPUP_THEME_DARK 1022
 #define POPUP_OPENKEY_EXIT 2000
 
 #define MODIFY_MENU(MENU, COMMAND, DATA) ModifyMenu(MENU, COMMAND, \
@@ -49,8 +58,13 @@ redistribute your new version, it MUST be open source.
 static HMENU popupMenu;
 //static HMENU menuInputType;
 static HMENU otherCode;
+static HMENU themeMenu;
+static OpenKeyTrayTheme::Session* activeTrayMenu = nullptr;
+static bool trayPopupOpen = false;
 
 static NOTIFYICONDATA nid;
+
+static void loadTrayIcon();
 
 map<UINT, LPCTSTR> menuData = {
 	{POPUP_VIET_ON_OFF, _T("Bật Tiếng Việt")},
@@ -70,6 +84,9 @@ map<UINT, LPCTSTR> menuData = {
 	{POPUP_MACRO_TABLE, _T("Cấu hình gõ tắt...")},
 	{POPUP_CONTROL_PANEL, _T("Bảng điều khiển...")},
 	{POPUP_ABOUT_OPENKEY, _T("Giới thiệu OpenKey")},
+	{POPUP_THEME_SYSTEM, _T("Theo hệ thống")},
+	{POPUP_THEME_LIGHT, _T("Sáng (Light)")},
+	{POPUP_THEME_DARK, _T("Tối (Dark)")},
 	{POPUP_OPENKEY_EXIT, _T("Thoát")},
 };
 
@@ -77,11 +94,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 	static UINT taskbarCreated;
 
 	switch (message) {
+	case WM_MEASUREITEM:
+		if (activeTrayMenu && activeTrayMenu->Measure(reinterpret_cast<MEASUREITEMSTRUCT*>(lParam))) return TRUE;
+		return DefWindowProc(hWnd, message, wParam, lParam);
+	case WM_DRAWITEM:
+		if (activeTrayMenu && activeTrayMenu->Draw(reinterpret_cast<DRAWITEMSTRUCT*>(lParam))) return TRUE;
+		return DefWindowProc(hWnd, message, wParam, lParam);
+	case WM_MENUCHAR:
+		if (activeTrayMenu && activeTrayMenu->Ready())
+			return activeTrayMenu->MenuChar(LOWORD(wParam), reinterpret_cast<HMENU>(lParam));
+		return DefWindowProc(hWnd, message, wParam, lParam);
 	case WM_CREATE:
 		taskbarCreated = RegisterWindowMessage(_T("TaskbarCreated"));
 		break;
 	case WM_USER+2019:
 		AppDelegate::getInstance()->onControlPanel();
+		break;
+	case WM_PREFERENCES_CHANGED:
+		AppDelegate::getInstance()->onSettingsChangedFromUI();
+		break;
+	case WM_OPENKEY_EXIT:
+		AppDelegate::getInstance()->onOpenKeyExit();
 		break;
 	case WM_TRAYMESSAGE: {
 		if (lParam == WM_LBUTTONDBLCLK) {
@@ -91,10 +124,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 			AppDelegate::getInstance()->onToggleVietnamese();
 			SystemTrayHelper::updateData();
 		} else if (lParam == WM_RBUTTONDOWN) {
+			if (trayPopupOpen) return 0; // Do not re-enter either popup loop.
 			POINT curPoint;
 			GetCursorPos(&curPoint);
+			SystemTrayHelper::updateData(); // Refresh checks after settings changed in Fluent.
 			SetForegroundWindow(hWnd);
-			UINT commandId = TrackPopupMenu(
+			const auto theme = OpenKeyUITheme::Read();
+			const bool dark = OpenKeyTrayTheme::ResolveDark(theme, theme == OpenKeyUITheme::Theme::System && OpenKeyTrayTheme::SystemDark());
+			const UINT dpi = OpenKeyTrayTheme::CursorDpi(curPoint);
+			const bool highContrast = OpenKeyTrayTheme::HighContrast();
+			trayPopupOpen = true;
+			const auto custom = highContrast ? OpenKeyTrayPopup::Result{} :
+				OpenKeyTrayPopup::Show(popupMenu, hWnd, curPoint, dark, dpi);
+			UINT commandId = custom.command;
+			if (!custom.handled) {
+			OpenKeyTrayTheme::Session menuAppearance(popupMenu, dark, dpi, highContrast);
+			activeTrayMenu = &menuAppearance;
+			commandId = TrackPopupMenu(
 				popupMenu,
 				TPM_RETURNCMD | TPM_NONOTIFY,
 				curPoint.x,
@@ -103,6 +149,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 				hWnd,
 				NULL
 			);
+			activeTrayMenu = nullptr;
+			menuAppearance.Restore(); // Restore strings/data before command handlers can ModifyMenu.
+			}
+			trayPopupOpen = false;
+			PostMessage(hWnd, WM_NULL, 0, 0); // Dismiss correctly when clicking outside.
 			switch (commandId) {
 			case POPUP_VIET_ON_OFF:
 				AppDelegate::getInstance()->onToggleVietnamese();
@@ -155,6 +206,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 			case POPUP_ABOUT_OPENKEY:
 				AppDelegate::getInstance()->onOpenKeyAbout();
 				break;
+			case POPUP_THEME_SYSTEM:
+				AppDelegate::getInstance()->onUiTheme(0);
+				break;
+			case POPUP_THEME_LIGHT:
+				AppDelegate::getInstance()->onUiTheme(1);
+				break;
+			case POPUP_THEME_DARK:
+				AppDelegate::getInstance()->onUiTheme(2);
+				break;
 			case POPUP_OPENKEY_EXIT:
 				AppDelegate::getInstance()->onOpenKeyExit();
 				break;
@@ -166,7 +226,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 	default:
 		// if the taskbar is restarted, add the system tray icon again
 		if (message == taskbarCreated) {
-			Shell_NotifyIcon(NIM_ADD, &nid);
+			loadTrayIcon();
+			if (Shell_NotifyIcon(NIM_ADD, &nid)) {
+				Shell_NotifyIcon(NIM_SETVERSION, &nid);
+				SystemTrayHelper::updateData();
+			}
 		}
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	}
@@ -233,6 +297,11 @@ void SystemTrayHelper::createPopupMenu() {
 
 	AppendMenu(popupMenu, MF_STRING, POPUP_CONTROL_PANEL, menuData[POPUP_CONTROL_PANEL]);
 	AppendMenu(popupMenu, MF_UNCHECKED, POPUP_ABOUT_OPENKEY, menuData[POPUP_ABOUT_OPENKEY]);
+	themeMenu = CreatePopupMenu();
+	AppendMenu(themeMenu, MF_UNCHECKED, POPUP_THEME_SYSTEM, menuData[POPUP_THEME_SYSTEM]);
+	AppendMenu(themeMenu, MF_UNCHECKED, POPUP_THEME_LIGHT, menuData[POPUP_THEME_LIGHT]);
+	AppendMenu(themeMenu, MF_UNCHECKED, POPUP_THEME_DARK, menuData[POPUP_THEME_DARK]);
+	AppendMenu(popupMenu, MF_POPUP, (UINT_PTR)themeMenu, _T("Giao diện"));
 	AppendMenu(popupMenu, MF_SEPARATOR, 0, 0);
 	AppendMenu(popupMenu, MF_UNCHECKED, POPUP_OPENKEY_EXIT, menuData[POPUP_OPENKEY_EXIT]);
 
@@ -253,6 +322,9 @@ static void loadTrayIcon() {
 }
 
 void SystemTrayHelper::updateData() {
+	// Settings IPC can arrive inside TrackPopupMenu's nested message loop.
+	// Do not replace owner-draw pointers with ModifyMenu until the loop ends.
+	if (trayPopupOpen) return;
 	loadTrayIcon();
 	Shell_NotifyIcon(NIM_MODIFY, &nid);
 
@@ -268,6 +340,10 @@ void SystemTrayHelper::updateData() {
 	MODIFY_MENU(popupMenu, POPUP_VNI_WINDOWS, vCodeTable == 2);
 	MODIFY_MENU(otherCode, POPUP_UNICODE_COMPOUND, vCodeTable == 3);
 	MODIFY_MENU(otherCode, POPUP_VN_LOCALE_1258, vCodeTable == 4);
+	const auto theme = OpenKeyUITheme::Read();
+	MODIFY_MENU(themeMenu, POPUP_THEME_SYSTEM, theme == OpenKeyUITheme::Theme::System);
+	MODIFY_MENU(themeMenu, POPUP_THEME_LIGHT, theme == OpenKeyUITheme::Theme::Light);
+	MODIFY_MENU(themeMenu, POPUP_THEME_DARK, theme == OpenKeyUITheme::Theme::Dark);
 
 	wstring hotkey = L"";
 	bool hasAdd = false;
@@ -343,10 +419,11 @@ void SystemTrayHelper::_createSystemTrayIcon(const HINSTANCE& hIns) {
 
 	// Shell_NotifyIcon may fail if the system tray icon is not fully initialized
 	const int maxRetries = 5;
-	for (int attempt = 0; attempt < maxRetries; ++attempt) {
-		if (Shell_NotifyIcon(NIM_ADD, &nid)) {
-			break;
-		}
+		for (int attempt = 0; attempt < maxRetries; ++attempt) {
+			if (Shell_NotifyIcon(NIM_ADD, &nid)) {
+				Shell_NotifyIcon(NIM_SETVERSION, &nid);
+				break;
+			}
 		Sleep(1000);
 	}
 }
@@ -359,6 +436,34 @@ void CALLBACK SystemTrayHelper::WaitToCreateFakeWindow(HWND hwnd, UINT uMsg, UIN
 
 void SystemTrayHelper::createSystemTrayIcon(const HINSTANCE& hIns) {
 	_createSystemTrayIcon(hIns);
+}
+
+bool SystemTrayHelper::showNotification(LPCTSTR title, LPCTSTR message) {
+	if (nid.hWnd == NULL || message == NULL || message[0] == L'\0') {
+		return false;
+	}
+
+	const UINT previousFlags = nid.uFlags;
+	nid.uFlags = NIF_INFO;
+	nid.dwInfoFlags = NIIF_INFO | NIIF_NOSOUND;
+	nid.uTimeout = 5000;
+	const HRESULT titleResult = StringCchCopy(nid.szInfoTitle, ARRAYSIZE(nid.szInfoTitle),
+		title != NULL ? title : _T("OpenKey"));
+	const HRESULT messageResult = StringCchCopy(nid.szInfo, ARRAYSIZE(nid.szInfo), message);
+	// Truncation is expected for long text; StringCchCopy still terminates the buffer.
+	if ((FAILED(titleResult) && titleResult != STRSAFE_E_INSUFFICIENT_BUFFER) ||
+		(FAILED(messageResult) && messageResult != STRSAFE_E_INSUFFICIENT_BUFFER)) {
+		nid.szInfoTitle[0] = L'\0';
+		nid.szInfo[0] = L'\0';
+		nid.uFlags = previousFlags;
+		return false;
+	}
+
+	const bool shown = Shell_NotifyIcon(NIM_MODIFY, &nid) != FALSE;
+	nid.szInfoTitle[0] = L'\0';
+	nid.szInfo[0] = L'\0';
+	nid.uFlags = previousFlags;
+	return shown;
 }
 
 void SystemTrayHelper::removeSystemTray() {

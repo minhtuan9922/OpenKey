@@ -1,0 +1,8 @@
+namespace OpenKeyUI
+{
+    [default_interface]
+    runtimeclass CompatibilitySettingsPage : Microsoft.UI.Xaml.Controls.Page
+    {
+        CompatibilitySettingsPage();
+    }
+}

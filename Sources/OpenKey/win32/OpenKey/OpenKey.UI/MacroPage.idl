@@ -1,0 +1,8 @@
+namespace OpenKeyUI
+{
+    [default_interface]
+    runtimeclass MacroPage : Microsoft.UI.Xaml.Controls.Page
+    {
+        MacroPage();
+    }
+}

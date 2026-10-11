@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="RootNavigation.PaneTitle" xml:space="preserve"><value>OpenKey</value></data>
+  <data name="NavOverview.Content" xml:space="preserve"><value>Tổng quan</value></data>
+  <data name="NavInput.Content" xml:space="preserve"><value>Kiểu gõ &amp; bảng mã</value></data>
+  <data name="NavSpelling.Content" xml:space="preserve"><value>Chính tả &amp; gõ nhanh</value></data>
+  <data name="NavHotkeys.Content" xml:space="preserve"><value>Phím tắt</value></data>
+  <data name="NavCompatibility.Content" xml:space="preserve"><value>Ứng dụng &amp; tương thích</value></data>
+  <data name="NavAdvanced.Content" xml:space="preserve"><value>Cài đặt nâng cao</value></data>
+  <data name="NavMacro.Content" xml:space="preserve"><value>Gõ tắt</value></data>
+  <data name="NavConvert.Content" xml:space="preserve"><value>Chuyển mã</value></data>
+  <data name="NavAbout.Content" xml:space="preserve"><value>Giới thiệu</value></data>
+  <data name="OverviewTitle.Text" xml:space="preserve"><value>Bộ gõ tiếng Việt</value></data>
+  <data name="OverviewSubtitle.Text" xml:space="preserve"><value>Bật hoặc tắt nhanh chế độ nhập tiếng Việt của OpenKey.</value></data>
+  <data name="OverviewStatusTitle.Text" xml:space="preserve"><value>Trạng thái bộ gõ</value></data>
+  <data name="LanguageToggle.OffContent" xml:space="preserve"><value>Tiếng Anh</value></data>
+  <data name="LanguageToggle.OnContent" xml:space="preserve"><value>Tiếng Việt</value></data>
+  <data name="OverviewStatus.Title" xml:space="preserve"><value>Cấu hình tương thích</value></data>
+  <data name="OverviewStatus.Message" xml:space="preserve"><value>Các trang cài đặt dùng chung dữ liệu với OpenKey Win32.</value></data>
+  <data name="InputTitle.Text" xml:space="preserve"><value>Kiểu gõ &amp; bảng mã</value></data>
+  <data name="InputSubtitle.Text" xml:space="preserve"><value>Chọn cách nhập dấu và định dạng ký tự tiếng Việt phù hợp với ứng dụng.</value></data>
+  <data name="InputMethodTitle.Text" xml:space="preserve"><value>Kiểu gõ</value></data>
+  <data name="InputMethodDescription.Text" xml:space="preserve"><value>Telex dùng phím chữ để đặt dấu; VNI dùng các phím số.</value></data>
+  <data name="InputTypeTelex.Content" xml:space="preserve"><value>Telex</value></data>
+  <data name="InputTypeVni.Content" xml:space="preserve"><value>VNI</value></data>
+  <data name="InputTypeSimple1.Content" xml:space="preserve"><value>Simple Telex 1</value></data>
+  <data name="InputTypeSimple2.Content" xml:space="preserve"><value>Simple Telex 2</value></data>
+  <data name="CodeTableTitle.Text" xml:space="preserve"><value>Bảng mã</value></data>
+  <data name="CodeTableDescription.Text" xml:space="preserve"><value>Unicode phù hợp với hầu hết ứng dụng và được khuyến nghị.</value></data>
+  <data name="CodeUnicode.Content" xml:space="preserve"><value>Unicode</value></data>
+  <data name="CodeTcvn3.Content" xml:space="preserve"><value>TCVN3 (ABC)</value></data>
+  <data name="CodeVniWindows.Content" xml:space="preserve"><value>VNI Windows</value></data>
+  <data name="CodeUnicodeComposite.Content" xml:space="preserve"><value>Unicode tổ hợp</value></data>
+  <data name="CodeVietnameseLocale.Content" xml:space="preserve"><value>Vietnamese locale CP 1258</value></data>
+  <data name="RememberCodeToggle.Header" xml:space="preserve"><value>Ghi nhớ bảng mã theo ứng dụng</value></data>
+  <data name="RememberCodeToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="RememberCodeToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="SpellingTitle.Text" xml:space="preserve"><value>Chính tả &amp; gõ nhanh</value></data>
+  <data name="SpellingSubtitle.Text" xml:space="preserve"><value>Điều chỉnh cách OpenKey kiểm tra từ và mở rộng các quy tắc nhập nhanh.</value></data>
+  <data name="SpellingSection.Text" xml:space="preserve"><value>Chính tả</value></data>
+  <data name="CheckSpellingToggle.Header" xml:space="preserve"><value>Kiểm tra chính tả</value></data>
+  <data name="RestoreWrongSpellingToggle.Header" xml:space="preserve"><value>Khôi phục phím với từ sai</value></data>
+  <data name="ModernOrthographyToggle.Header" xml:space="preserve"><value>Dùng quy tắc đặt dấu kiểu mới</value></data>
+  <data name="QuickTypingSection.Text" xml:space="preserve"><value>Gõ nhanh</value></data>
+  <data name="QuickTelexToggle.Header" xml:space="preserve"><value>Gõ nhanh Telex</value></data>
+  <data name="QuickStartConsonantToggle.Header" xml:space="preserve"><value>Gõ nhanh phụ âm đầu</value></data>
+  <data name="QuickEndConsonantToggle.Header" xml:space="preserve"><value>Gõ nhanh phụ âm cuối</value></data>
+  <data name="HotkeyTitle.Text" xml:space="preserve"><value>Phím tắt</value></data>
+  <data name="HotkeySubtitle.Text" xml:space="preserve"><value>Thiết lập tổ hợp phím dùng để chuyển nhanh giữa chế độ tiếng Việt và tiếng Anh.</value></data>
+  <data name="HotkeySection.Text" xml:space="preserve"><value>Phím chuyển chế độ</value></data>
+  <data name="HotkeyDescription.Text" xml:space="preserve"><value>Chọn ít nhất một phím bổ trợ để tránh kích hoạt nhầm khi đang nhập văn bản.</value></data>
+  <data name="ModifierTitle.Text" xml:space="preserve"><value>Phím bổ trợ</value></data>
+  <data name="PrimaryKeyTitle.Text" xml:space="preserve"><value>Phím chính</value></data>
+  <data name="CurrentShortcutTitle.Text" xml:space="preserve"><value>Tổ hợp hiện tại</value></data>
+  <data name="BeepToggle.Header" xml:space="preserve"><value>Phát âm báo khi chuyển chế độ</value></data>
+  <data name="BeepToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="BeepToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="ShortcutWarning.Title" xml:space="preserve"><value>Phím tắt dễ xung đột</value></data>
+  <data name="ShortcutWarning.Message" xml:space="preserve"><value>Tổ hợp không có phím bổ trợ có thể gây xung đột khi nhập văn bản.</value></data>
+  <data name="CompatibilityTitle.Text" xml:space="preserve"><value>Ứng dụng &amp; tương thích</value></data>
+  <data name="CompatibilitySubtitle.Text" xml:space="preserve"><value>Điều chỉnh cách OpenKey hoạt động khi chuyển ứng dụng, layout bàn phím và trình duyệt.</value></data>
+  <data name="AppSwitchingSection.Text" xml:space="preserve"><value>Chuyển ứng dụng</value></data>
+  <data name="SmartSwitchToggle.Header" xml:space="preserve"><value>Ghi nhớ chế độ gõ theo ứng dụng</value></data>
+  <data name="SmartSwitchToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="SmartSwitchToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="OtherLanguagesToggle.Header" xml:space="preserve"><value>Cho phép gõ tiếng Việt với layout không phải tiếng Anh</value></data>
+  <data name="OtherLanguagesToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="OtherLanguagesToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="TemporaryDisableToggle.Header" xml:space="preserve"><value>Nhấn Alt để tạm ngưng OpenKey đến từ tiếp theo</value></data>
+  <data name="TemporaryDisableToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="TemporaryDisableToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="BrowserInputSection.Text" xml:space="preserve"><value>Trình duyệt &amp; nhập liệu</value></data>
+  <data name="RecommendationFixToggle.Header" xml:space="preserve"><value>Sửa lỗi đúp từ trong thanh địa chỉ, Excel và ô gợi ý</value></data>
+  <data name="RecommendationFixToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="RecommendationFixToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="ChromiumFixToggle.Header" xml:space="preserve"><value>Tối ưu cho trình duyệt Chromium</value></data>
+  <data name="ChromiumFixToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="ChromiumFixToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="ChromiumRequirement.Text" xml:space="preserve"><value>Hãy bật “Sửa lỗi đúp từ” để sử dụng tùy chọn Chromium.</value></data>
+  <data name="ClipboardToggle.Header" xml:space="preserve"><value>Dùng Clipboard cho ứng dụng không nhận được tiếng Việt</value></data>
+  <data name="ClipboardToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="ClipboardToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="MetroSupportToggle.Header" xml:space="preserve"><value>Hỗ trợ ứng dụng Metro/UWP</value></data>
+  <data name="MetroSupportToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="MetroSupportToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="AdvancedTitle.Text" xml:space="preserve"><value>Cài đặt nâng cao</value></data>
+  <data name="AdvancedSubtitle.Text" xml:space="preserve"><value>Tinh chỉnh hành vi nhập liệu, giao diện khay hệ thống và kiểm tra cập nhật.</value></data>
+  <data name="AdvancedInputSection.Text" xml:space="preserve"><value>Nhập liệu nâng cao</value></data>
+  <data name="UpperCaseFirstCharToggle.Header" xml:space="preserve"><value>Tự động viết hoa sau dấu chấm và khi xuống dòng</value></data>
+  <data name="UpperCaseFirstCharToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="UpperCaseFirstCharToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="AllowConsonantToggle.Header" xml:space="preserve"><value>Cho phép z, w, f, j làm phụ âm</value></data>
+  <data name="AllowConsonantToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="AllowConsonantToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="TemporarySpellingToggle.Header" xml:space="preserve"><value>Ctrl tạm tắt kiểm tra chính tả cho một từ</value></data>
+  <data name="TemporarySpellingToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="TemporarySpellingToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="SpellingRequirement.Text" xml:space="preserve"><value>Hãy bật kiểm tra chính tả để sử dụng hai tùy chọn chính tả nâng cao.</value></data>
+  <data name="AppearanceStartupSection.Text" xml:space="preserve"><value>Giao diện &amp; khởi động</value></data>
+  <data name="GrayIconToggle.Header" xml:space="preserve"><value>Dùng biểu tượng đơn sắc trong khay hệ thống</value></data>
+  <data name="GrayIconToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="GrayIconToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="RunWithWindowsToggle.Header" xml:space="preserve"><value>Khởi động OpenKey cùng Windows</value></data>
+  <data name="RunWithWindowsToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="RunWithWindowsToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="ShowOnStartupToggle.Header" xml:space="preserve"><value>Hiện cửa sổ điều khiển khi OpenKey khởi động</value></data>
+  <data name="ShowOnStartupToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="ShowOnStartupToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="CheckUpdatesToggle.Header" xml:space="preserve"><value>Kiểm tra phiên bản mới khi khởi động</value></data>
+  <data name="CheckUpdatesToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="CheckUpdatesToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="SaveSuccessTitle" xml:space="preserve"><value>Đã lưu cấu hình</value></data>
+  <data name="SaveFailureTitle" xml:space="preserve"><value>Không thể lưu cấu hình</value></data>
+  <data name="SaveFailureMessage" xml:space="preserve"><value>Windows không cho phép ghi cấu hình vào tài khoản hiện tại.</value></data>
+  <data name="SpellingSaveSuccessMessage" xml:space="preserve"><value>Thay đổi đã được lưu cho OpenKey.</value></data>
+  <data name="HotkeySaveSuccessTitle" xml:space="preserve"><value>Đã lưu phím tắt</value></data>
+  <data name="HotkeySaveFailureTitle" xml:space="preserve"><value>Không thể lưu phím tắt</value></data>
+  <data name="HotkeySaveSuccessMessage" xml:space="preserve"><value>Phím chuyển chế độ đã được lưu cho OpenKey.</value></data>
+  <data name="CompatibilitySaveSuccessMessage" xml:space="preserve"><value>Thay đổi tương thích đã được lưu cho OpenKey.</value></data>
+  <data name="AdvancedSaveSuccessMessage" xml:space="preserve"><value>Thay đổi nâng cao đã được lưu cho OpenKey.</value></data>
+  <data name="NoCharacterKey" xml:space="preserve"><value>Không dùng phím ký tự</value></data>
+  <data name="CurrentKeyPrefix" xml:space="preserve"><value>Phím hiện tại (mã </value></data>
+  <data name="VietnameseInputDescription" xml:space="preserve"><value>OpenKey đang ở chế độ nhập tiếng Việt.</value></data>
+  <data name="EnglishInputDescription" xml:space="preserve"><value>OpenKey đang ở chế độ nhập tiếng Anh.</value></data>
+  <data name="OverviewSaveSuccessMessage" xml:space="preserve"><value>Thay đổi sẽ được OpenKey Win32 sử dụng ở lần khởi động tiếp theo.</value></data>
+  <data name="MacroOpenWindowMissing" xml:space="preserve"><value>Không tìm thấy cửa sổ OpenKey để mở hộp chọn tệp.</value></data>
+  <data name="MacroSaveWindowMissing" xml:space="preserve"><value>Không tìm thấy cửa sổ OpenKey để mở hộp lưu tệp.</value></data>
+  <data name="MacroFileFilter" xml:space="preserve"><value>Tệp macro OpenKey (*.txt)</value></data>
+  <data name="MacroEditTitle" xml:space="preserve"><value>Sửa mục gõ tắt</value></data>
+  <data name="MacroSaveChanges" xml:space="preserve"><value>Lưu thay đổi</value></data>
+  <data name="MacroEmptyShortcut" xml:space="preserve"><value>Hãy nhập từ khóa dùng để kích hoạt nội dung gõ tắt.</value></data>
+  <data name="MacroEmptyReplacement" xml:space="preserve"><value>Hãy nhập nội dung sẽ thay thế từ khóa.</value></data>
+  <data name="MacroInvalidShortcut" xml:space="preserve"><value>Từ khóa quá dài hoặc chứa ký tự không hợp lệ.</value></data>
+  <data name="MacroInvalidReplacement" xml:space="preserve"><value>Nội dung thay thế quá dài hoặc chứa ký tự không hợp lệ.</value></data>
+  <data name="MacroDuplicateShortcut" xml:space="preserve"><value>Từ khóa này đã tồn tại. Hãy chọn mục tương ứng trong danh sách để sửa.</value></data>
+  <data name="MacroStorageError" xml:space="preserve"><value>Không thể đọc hoặc lưu dữ liệu gõ tắt trong tài khoản hiện tại, hoặc dữ liệu đã lưu không hợp lệ.</value></data>
+  <data name="MacroSaveFailureTitle" xml:space="preserve"><value>Không thể lưu mục gõ tắt</value></data>
+  <data name="MacroSaveSuccessTitle" xml:space="preserve"><value>Đã lưu mục gõ tắt</value></data>
+  <data name="MacroSaveSuccessMessage" xml:space="preserve"><value>Dữ liệu tương thích với OpenKey Win32 đã được cập nhật.</value></data>
+  <data name="MacroDeleteConfirmTitle" xml:space="preserve"><value>Xóa mục gõ tắt?</value></data>
+  <data name="DeleteButtonText" xml:space="preserve"><value>Xóa</value></data>
+  <data name="CancelButtonText" xml:space="preserve"><value>Hủy</value></data>
+  <data name="MacroDeleteSuccessTitle" xml:space="preserve"><value>Đã xóa mục gõ tắt</value></data>
+  <data name="MacroDeleteFailureTitle" xml:space="preserve"><value>Không thể xóa mục gõ tắt</value></data>
+  <data name="MacroDeleteSuccessMessage" xml:space="preserve"><value>Dữ liệu macro đã được cập nhật.</value></data>
+  <data name="MacroDeleteFailureMessage" xml:space="preserve"><value>Mục đã chọn không còn tồn tại hoặc không thể ghi registry.</value></data>
+  <data name="MacroImportTitle" xml:space="preserve"><value>Nhập dữ liệu gõ tắt</value></data>
+  <data name="MacroImportPrompt" xml:space="preserve"><value>Bạn muốn giữ các mục hiện tại rồi bổ sung dữ liệu mới, hay thay thế toàn bộ danh sách?</value></data>
+  <data name="MacroImportMerge" xml:space="preserve"><value>Giữ và bổ sung</value></data>
+  <data name="MacroImportReplace" xml:space="preserve"><value>Thay thế toàn bộ</value></data>
+  <data name="MacroImportSuccessTitle" xml:space="preserve"><value>Nhập dữ liệu thành công</value></data>
+  <data name="MacroImportInvalidFormat" xml:space="preserve"><value>Tệp không có header macro OpenKey/UniKey phiên bản 1.</value></data>
+  <data name="MacroImportEmpty" xml:space="preserve"><value>Tệp không chứa mục gõ tắt hợp lệ để nhập.</value></data>
+  <data name="MacroImportStorageError" xml:space="preserve"><value>Không thể cập nhật dữ liệu macro trong registry.</value></data>
+  <data name="MacroReadFailure" xml:space="preserve"><value>Không thể đọc tệp đã chọn.</value></data>
+  <data name="MacroImportFailureTitle" xml:space="preserve"><value>Không thể nhập dữ liệu</value></data>
+  <data name="MacroOpenFailureTitle" xml:space="preserve"><value>Không thể mở tệp</value></data>
+  <data name="MacroExportSuccessTitle" xml:space="preserve"><value>Đã xuất bản sao lưu</value></data>
+  <data name="MacroExportSuccessMessage" xml:space="preserve"><value>Tệp tương thích với OpenKey Win32 đã được tạo thành công.</value></data>
+  <data name="MacroExportFailureTitle" xml:space="preserve"><value>Không thể xuất dữ liệu</value></data>
+  <data name="MacroExportMultiline" xml:space="preserve"><value>Định dạng macro cũ không hỗ trợ nội dung có nhiều dòng. Hãy sửa các mục chứa dấu xuống dòng rồi thử lại.</value></data>
+  <data name="MacroWriteFailure" xml:space="preserve"><value>Windows không thể ghi vào tệp đã chọn.</value></data>
+  <data name="MacroSaveFileFailureTitle" xml:space="preserve"><value>Không thể lưu tệp</value></data>
+  <data name="MacroOptionsSuccessTitle" xml:space="preserve"><value>Đã lưu tùy chọn gõ tắt</value></data>
+  <data name="MacroOptionsFailureTitle" xml:space="preserve"><value>Không thể lưu tùy chọn gõ tắt</value></data>
+  <data name="MacroAutoCapsMessage" xml:space="preserve"><value>Đã lưu các tùy chọn gõ tắt. Engine đang chạy sẽ nạp lại cấu hình.</value></data>
+  <data name="MacroAddTitle" xml:space="preserve"><value>Thêm mục gõ tắt</value></data>
+  <data name="AddButtonText" xml:space="preserve"><value>Thêm</value></data>
+  <data name="QuickShortcutDisabled" xml:space="preserve"><value>Tắt phím tắt</value></data>
+  <data name="ConvertEmptyTitle" xml:space="preserve"><value>Chưa có nội dung</value></data>
+  <data name="ConvertEmptyMessage" xml:space="preserve"><value>Hãy nhập hoặc dán văn bản cần chuyển mã.</value></data>
+  <data name="ConvertSuccessTitle" xml:space="preserve"><value>Chuyển mã hoàn tất</value></data>
+  <data name="ConvertSuccessMessage" xml:space="preserve"><value>Kết quả đã sẵn sàng để sao chép.</value></data>
+  <data name="CopySuccessTitle" xml:space="preserve"><value>Đã sao chép</value></data>
+  <data name="CopySuccessMessage" xml:space="preserve"><value>Kết quả chuyển mã đã được đưa vào clipboard.</value></data>
+  <data name="ClipboardConvertSuccessTitle" xml:space="preserve"><value>Chuyển mã clipboard hoàn tất</value></data>
+  <data name="ClipboardConvertSuccessMessage" xml:space="preserve"><value>Nội dung trong clipboard đã được thay thế bằng kết quả chuyển mã.</value></data>
+  <data name="ClipboardEmptyTitle" xml:space="preserve"><value>Clipboard không có văn bản</value></data>
+  <data name="ClipboardEmptyMessage" xml:space="preserve"><value>Hãy sao chép một đoạn văn bản rồi thử lại.</value></data>
+  <data name="ClipboardBusyTitle" xml:space="preserve"><value>Clipboard đang được sử dụng</value></data>
+  <data name="ClipboardBusyMessage" xml:space="preserve"><value>Hãy đóng ứng dụng đang giữ clipboard rồi thử lại.</value></data>
+  <data name="ClipboardWriteFailureTitle" xml:space="preserve"><value>Không thể cập nhật clipboard</value></data>
+  <data name="ClipboardWriteFailureMessage" xml:space="preserve"><value>Windows không thể ghi kết quả chuyển mã vào clipboard.</value></data>
+  <data name="SaveOptionsFailureTitle" xml:space="preserve"><value>Không thể lưu tùy chọn</value></data>
+  <data name="UnknownBuildDate" xml:space="preserve"><value>Không xác định</value></data>
+  <data name="LinkFailureTitle" xml:space="preserve"><value>Không thể mở liên kết</value></data>
+  <data name="LinkFailureMessage" xml:space="preserve"><value>Hãy kiểm tra trình duyệt mặc định rồi thử lại.</value></data>
+  <data name="UpdateCheckFailureTitle" xml:space="preserve"><value>Không thể kiểm tra cập nhật</value></data>
+  <data name="UpdateCheckFailureMessage" xml:space="preserve"><value>Hãy kiểm tra kết nối Internet rồi thử lại.</value></data>
+  <data name="UpdateCurrentTitle" xml:space="preserve"><value>OpenKey đã được cập nhật</value></data>
+  <data name="UpdateCurrentMessage" xml:space="preserve"><value>Bạn đang sử dụng phiên bản mới nhất.</value></data>
+  <data name="UpdateConfirmMessage" xml:space="preserve"><value>Tải OpenKey-Setup.exe từ minhtuan9922/OpenKey qua trình duyệt để cập nhật đồng bộ engine, giao diện và runtime. Thoát OpenKey trước khi chạy bộ cài. Ứng dụng không tự chạy bộ cài, thay tệp hoặc thoát.</value></data>
+  <data name="UpdateButtonText" xml:space="preserve"><value>Tải bản cập nhật</value></data>
+  <data name="UpdateLaterButtonText" xml:space="preserve"><value>Để sau</value></data>
+  <data name="UpdaterMissingTitle" xml:space="preserve"><value>Không tìm thấy trình cập nhật</value></data>
+  <data name="UpdaterMissingMessage" xml:space="preserve"><value>Hãy đặt OpenKeyUpdate.exe cùng thư mục với ứng dụng hoặc tải bản mới từ trang phát hành.</value></data>
+  <data name="MacroCountFormat" xml:space="preserve"><value>{0} mục</value></data>
+  <data name="MacroCountOne" xml:space="preserve"><value>1 mục</value></data>
+  <data name="MacroDeleteConfirmFormat" xml:space="preserve"><value>Thao tác này sẽ xóa mục “{0}” khỏi dữ liệu OpenKey.</value></data>
+  <data name="MacroImportedFormat" xml:space="preserve"><value>Đã nhập {0} mục.</value></data>
+  <data name="MacroSkippedFormat" xml:space="preserve"><value> Bỏ qua {0} mục trùng hoặc không hợp lệ.</value></data>
+  <data name="AboutVersionFormat" xml:space="preserve"><value>Phiên bản {0} cho Windows</value></data>
+  <data name="AboutBuildDateFormat" xml:space="preserve"><value>Ngày build: {0}</value></data>
+  <data name="UpdateAvailableFormat" xml:space="preserve"><value>Đã có OpenKey {0}</value></data>
+  <data name="MacroLabel1.Text" xml:space="preserve"><value>Gõ tắt</value></data>
+  <data name="MacroLabel2.Text" xml:space="preserve"><value>Tạo, tìm kiếm và sao lưu các từ gõ tắt trong dữ liệu OpenKey.</value></data>
+  <data name="MacroLabel3.Text" xml:space="preserve"><value>Tự viết hoa nội dung thay thế</value></data>
+  <data name="MacroLabel4.Text" xml:space="preserve"><value>Điều chỉnh chữ hoa theo cách bạn nhập từ khóa.</value></data>
+  <data name="MacroAutoCapsToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Tự viết hoa nội dung gõ tắt</value></data>
+  <data name="MacroAutoCapsToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="MacroAutoCapsToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="MacroSearchBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Tìm kiếm gõ tắt</value></data>
+  <data name="MacroSearchBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Lọc danh sách theo từ khóa hoặc nội dung thay thế. Nhấn Ctrl F để chuyển focus đến ô này.</value></data>
+  <data name="MacroSearchBox.PlaceholderText" xml:space="preserve"><value>Tìm theo từ khóa hoặc nội dung thay thế</value></data>
+  <data name="MacroImportButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Nhập tệp macro (Ctrl+I)</value></data>
+  <data name="MacroImportButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Nhập dữ liệu gõ tắt</value></data>
+  <data name="MacroImportButton.Content" xml:space="preserve"><value>Nhập</value></data>
+  <data name="MacroImportButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Nhập dữ liệu (Ctrl+I)</value></data>
+  <data name="MacroExportButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Xuất tệp sao lưu macro (Ctrl+E)</value></data>
+  <data name="MacroExportButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Xuất bản sao lưu gõ tắt</value></data>
+  <data name="MacroExportButton.Content" xml:space="preserve"><value>Xuất</value></data>
+  <data name="MacroExportButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Xuất bản sao lưu (Ctrl+E)</value></data>
+  <data name="MacroLabel5.Text" xml:space="preserve"><value>Danh sách gõ tắt</value></data>
+  <data name="MacroMacroCount.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Số mục gõ tắt</value></data>
+  <data name="MacroMacroList.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Danh sách gõ tắt</value></data>
+  <data name="MacroLabel6.Text" xml:space="preserve"><value>Không tìm thấy dữ liệu gõ tắt</value></data>
+  <data name="MacroLabel7.Text" xml:space="preserve"><value>Thử một từ khóa khác hoặc thêm mục mới ở khung bên phải.</value></data>
+  <data name="MacroEditorTitle.Text" xml:space="preserve"><value>Thêm mục gõ tắt</value></data>
+  <data name="MacroNewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Tạo mục gõ tắt mới (Ctrl+N)</value></data>
+  <data name="MacroNewButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Tạo mục mới</value></data>
+  <data name="MacroNewButton.Content" xml:space="preserve"><value>Mới</value></data>
+  <data name="MacroNewButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Tạo mục mới (Ctrl+N)</value></data>
+  <data name="MacroShortcutBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Từ khóa gõ tắt</value></data>
+  <data name="MacroShortcutBox.Header" xml:space="preserve"><value>Từ khóa</value></data>
+  <data name="MacroShortcutBox.PlaceholderText" xml:space="preserve"><value>Ví dụ: dc</value></data>
+  <data name="MacroReplacementBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Nội dung thay thế</value></data>
+  <data name="MacroReplacementBox.Header" xml:space="preserve"><value>Nội dung thay thế</value></data>
+  <data name="MacroReplacementBox.PlaceholderText" xml:space="preserve"><value>Ví dụ: được</value></data>
+  <data name="MacroSaveButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Lưu mục gõ tắt (Ctrl+S)</value></data>
+  <data name="MacroSaveButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Lưu mục gõ tắt</value></data>
+  <data name="MacroSaveButton.Content" xml:space="preserve"><value>Thêm</value></data>
+  <data name="MacroSaveButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Lưu mục gõ tắt (Ctrl+S)</value></data>
+  <data name="MacroDeleteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Xóa mục đang chọn (Delete khi danh sách có focus)</value></data>
+  <data name="MacroDeleteButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Xóa mục gõ tắt đang chọn</value></data>
+  <data name="MacroDeleteButton.Content" xml:space="preserve"><value>Xóa</value></data>
+  <data name="MacroDeleteButton.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Xóa mục đang chọn (Delete)</value></data>
+  <data name="MacroEditorStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Trạng thái chỉnh sửa gõ tắt</value></data>
+  <data name="ConvertLabel1.Text" xml:space="preserve"><value>Chuyển mã</value></data>
+  <data name="ConvertLabel2.Text" xml:space="preserve"><value>Chuyển đổi văn bản giữa các bảng mã tiếng Việt của OpenKey.</value></data>
+  <data name="ConvertLabel3.Text" xml:space="preserve"><value>Bảng mã</value></data>
+  <data name="ConvertSourceCodeCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Bảng mã nguồn</value></data>
+  <data name="ConvertSourceCodeCombo.Header" xml:space="preserve"><value>Nguồn</value></data>
+  <data name="ConvertLabel4.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Đổi bảng mã nguồn và đích</value></data>
+  <data name="ConvertLabel4.[using:Microsoft.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve"><value>Đổi bảng mã nguồn và đích</value></data>
+  <data name="ConvertTargetCodeCombo.Header" xml:space="preserve"><value>Đích</value></data>
+  <data name="ConvertTargetCodeCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Bảng mã đích</value></data>
+  <data name="ConvertLabel5.Text" xml:space="preserve"><value>Biến đổi nội dung</value></data>
+  <data name="ConvertAllCapsCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Viết hoa toàn bộ</value></data>
+  <data name="ConvertAllCapsCheck.Content" xml:space="preserve"><value>VIẾT HOA toàn bộ</value></data>
+  <data name="ConvertAllLowerCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Viết thường toàn bộ</value></data>
+  <data name="ConvertAllLowerCheck.Content" xml:space="preserve"><value>viết thường toàn bộ</value></data>
+  <data name="ConvertSentenceCapsCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Viết hoa đầu câu</value></data>
+  <data name="ConvertSentenceCapsCheck.Content" xml:space="preserve"><value>Viết hoa đầu câu</value></data>
+  <data name="ConvertWordCapsCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Viết hoa mỗi từ</value></data>
+  <data name="ConvertWordCapsCheck.Content" xml:space="preserve"><value>Viết Hoa Mỗi Từ</value></data>
+  <data name="ConvertRemoveMarkCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Bỏ dấu tiếng Việt</value></data>
+  <data name="ConvertRemoveMarkCheck.Content" xml:space="preserve"><value>Bỏ dấu tiếng Việt</value></data>
+  <data name="ConvertInputBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Nội dung nguồn</value></data>
+  <data name="ConvertInputBox.Header" xml:space="preserve"><value>Nội dung nguồn</value></data>
+  <data name="ConvertInputBox.PlaceholderText" xml:space="preserve"><value>Nhập hoặc dán văn bản cần chuyển mã</value></data>
+  <data name="ConvertResultBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Vùng chỉ đọc chứa kết quả chuyển mã.</value></data>
+  <data name="ConvertResultBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Kết quả chuyển mã</value></data>
+  <data name="ConvertResultBox.Header" xml:space="preserve"><value>Kết quả</value></data>
+  <data name="ConvertResultBox.PlaceholderText" xml:space="preserve"><value>Kết quả chuyển mã sẽ hiển thị tại đây</value></data>
+  <data name="ConvertConvertButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Chuyển mã văn bản</value></data>
+  <data name="ConvertConvertButton.Content" xml:space="preserve"><value>Chuyển mã</value></data>
+  <data name="ConvertCopyButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Sao chép kết quả chuyển mã</value></data>
+  <data name="ConvertCopyButton.Content" xml:space="preserve"><value>Sao chép</value></data>
+  <data name="ConvertClearButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Xóa nội dung chuyển mã</value></data>
+  <data name="ConvertClearButton.Content" xml:space="preserve"><value>Xóa nội dung</value></data>
+  <data name="ConvertLabel6.Text" xml:space="preserve"><value>Chuyển nhanh clipboard</value></data>
+  <data name="ConvertLabel7.Text" xml:space="preserve"><value>Chuyển nội dung vừa sao chép bằng các tùy chọn phía trên.</value></data>
+  <data name="ConvertLabel8.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Chuyển mã nội dung clipboard</value></data>
+  <data name="ConvertLabel8.Content" xml:space="preserve"><value>Chuyển clipboard</value></data>
+  <data name="ConvertNotifyToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Thông báo khi chuyển nhanh hoàn tất</value></data>
+  <data name="ConvertNotifyToggle.Header" xml:space="preserve"><value>Thông báo khi chuyển nhanh hoàn tất</value></data>
+  <data name="ConvertNotifyToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="ConvertNotifyToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="ConvertLabel9.Text" xml:space="preserve"><value>Phím tắt chuyển nhanh</value></data>
+  <data name="ConvertQuickCtrlCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Dùng Ctrl cho phím tắt chuyển nhanh</value></data>
+  <data name="ConvertQuickAltCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Dùng Alt cho phím tắt chuyển nhanh</value></data>
+  <data name="ConvertQuickWinCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Dùng Windows cho phím tắt chuyển nhanh</value></data>
+  <data name="ConvertQuickShiftCheck.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Dùng Shift cho phím tắt chuyển nhanh</value></data>
+  <data name="ConvertQuickKeyCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Chọn phím chính cho thao tác chuyển nhanh clipboard.</value></data>
+  <data name="ConvertQuickKeyCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Phím chính chuyển nhanh</value></data>
+  <data name="ConvertQuickHotkeyPreview.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Tổ hợp phím chuyển nhanh hiện tại</value></data>
+  <data name="ConvertQuickHotkeyWarning.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Cảnh báo phím tắt chuyển nhanh</value></data>
+  <data name="ConvertQuickHotkeyWarning.Message" xml:space="preserve"><value>Nên chọn ít nhất một phím Ctrl, Alt, Win hoặc Shift để tránh kích hoạt nhầm. Phím tắt được áp dụng ngay khi OpenKey đang chạy.</value></data>
+  <data name="ConvertQuickHotkeyWarning.Title" xml:space="preserve"><value>Phím tắt chưa có phím bổ trợ</value></data>
+  <data name="ConvertStatusBar.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Trạng thái chuyển mã</value></data>
+  <data name="AboutLabel1.Text" xml:space="preserve"><value>Giới thiệu OpenKey</value></data>
+  <data name="AboutLabel2.Text" xml:space="preserve"><value>Bộ gõ tiếng Việt mã nguồn mở, gọn nhẹ và tôn trọng trải nghiệm Windows.</value></data>
+  <data name="AboutCheckUpdateButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Kiểm tra phiên bản OpenKey mới qua Internet.</value></data>
+  <data name="AboutCheckUpdateButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Kiểm tra cập nhật</value></data>
+  <data name="AboutCheckUpdateButton.Content" xml:space="preserve"><value>Kiểm tra cập nhật</value></data>
+  <data name="AboutUpdateProgress.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Đang kiểm tra cập nhật</value></data>
+  <data name="AboutLabel3.Text" xml:space="preserve"><value>Dự án</value></data>
+  <data name="AboutLabel4.Text" xml:space="preserve"><value>OpenKey Fluent được phát triển tại minhtuan9922/OpenKey, dựa trên OpenKey của Mai Vũ Tuyên (tuyenvm/OpenKey).</value></data>
+  <data name="AboutLabel5.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Mở mã nguồn OpenKey Fluent của minhtuan9922 trên GitHub</value></data>
+  <data name="AboutLabel5.Content" xml:space="preserve"><value>GitHub: minhtuan9922/OpenKey</value></data>
+  <data name="AboutLabel6.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Mở trang các bản phát hành OpenKey</value></data>
+  <data name="AboutLabel6.Content" xml:space="preserve"><value>Các bản phát hành</value></data>
+  <data name="AboutLabel7.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Mở mã nguồn OpenKey gốc của Mai Vũ Tuyên trên GitHub</value></data>
+  <data name="AboutLabel7.Content" xml:space="preserve"><value>Nguồn gốc: tuyenvm/OpenKey</value></data>
+  <data name="AboutLabel8.Text" xml:space="preserve"><value>Giấy phép</value></data>
+  <data name="AboutLabel9.Text" xml:space="preserve"><value>Bạn có quyền sử dụng, nghiên cứu, sửa đổi và phân phối OpenKey theo các điều khoản của GPLv3.</value></data>
+  <data name="AboutLabel10.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Đọc giấy phép GPL phiên bản 3</value></data>
+  <data name="AboutLabel10.Content" xml:space="preserve"><value>Đọc giấy phép GPLv3</value></data>
+  <data name="AboutLabel11.Text" xml:space="preserve"><value>Copyright © 2019–2026 Mai Vũ Tuyên và các cộng tác viên. Bản Fluent: minhtuan9922/OpenKey.</value></data>
+  <data name="AboutLinkStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Trạng thái liên kết và cập nhật</value></data>
+  <data name="RootNavigation.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Dùng phím mũi tên để chọn một trang cài đặt.</value></data>
+  <data name="RootNavigation.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Điều hướng OpenKey</value></data>
+  <data name="NavOverview.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Tổng quan</value></data>
+  <data name="NavInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Kiểu gõ và bảng mã</value></data>
+  <data name="NavSpelling.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Chính tả và gõ nhanh</value></data>
+  <data name="NavHotkeys.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Phím tắt</value></data>
+  <data name="NavCompatibility.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Ứng dụng và tương thích</value></data>
+  <data name="NavAdvanced.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Cài đặt nâng cao</value></data>
+  <data name="NavMacro.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Gõ tắt</value></data>
+  <data name="NavConvert.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Chuyển mã</value></data>
+  <data name="NavAbout.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Giới thiệu OpenKey</value></data>
+  <data name="LanguageToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Bật bộ gõ tiếng Việt</value></data>
+  <data name="LanguageToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Chuyển giữa chế độ nhập tiếng Việt và tiếng Anh.</value></data>
+  <data name="OverviewStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Trạng thái cấu hình</value></data>
+  <data name="InputTypeCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Chọn phương thức đặt dấu tiếng Việt.</value></data>
+  <data name="InputTypeCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Kiểu gõ</value></data>
+  <data name="CodeTableCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Chọn bảng mã dùng để xuất ký tự tiếng Việt.</value></data>
+  <data name="CodeTableCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Bảng mã</value></data>
+  <data name="RememberCodeToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Ghi nhớ bảng mã riêng cho từng ứng dụng.</value></data>
+  <data name="RememberCodeToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Ghi nhớ bảng mã theo ứng dụng</value></data>
+  <data name="InputSettingsStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Trạng thái lưu cấu hình</value></data>
+  <data name="CheckSpellingToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Kiểm tra chính tả</value></data>
+  <data name="RestoreWrongSpellingToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Khôi phục phím với từ sai</value></data>
+  <data name="ModernOrthographyToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Dùng quy tắc đặt dấu kiểu mới</value></data>
+  <data name="QuickTelexToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Gõ nhanh Telex</value></data>
+  <data name="QuickStartConsonantToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Gõ nhanh phụ âm đầu</value></data>
+  <data name="QuickEndConsonantToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Gõ nhanh phụ âm cuối</value></data>
+  <data name="SettingsStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Trạng thái lưu cấu hình</value></data>
+  <data name="HotkeySettingsPageCtrlCheckBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Dùng phím Ctrl</value></data>
+  <data name="HotkeySettingsPageAltCheckBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Dùng phím Alt</value></data>
+  <data name="HotkeySettingsPageWinCheckBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Dùng phím Windows</value></data>
+  <data name="HotkeySettingsPageShiftCheckBox.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Dùng phím Shift</value></data>
+  <data name="KeyCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Chọn phím chính của tổ hợp chuyển chế độ.</value></data>
+  <data name="KeyCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Phím chính</value></data>
+  <data name="HotkeySettingsPageHotkeyPreview.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Tổ hợp phím hiện tại</value></data>
+  <data name="BeepToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Phát âm báo khi chuyển chế độ</value></data>
+  <data name="ShortcutWarning.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Cảnh báo phím tắt</value></data>
+  <data name="HotkeySettingsStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Trạng thái lưu phím tắt</value></data>
+  <data name="SmartSwitchToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Ghi nhớ chế độ gõ theo ứng dụng</value></data>
+  <data name="OtherLanguagesToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Cho phép gõ tiếng Việt với layout không phải tiếng Anh</value></data>
+  <data name="TemporaryDisableToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Alt tạm ngưng OpenKey đến từ tiếp theo</value></data>
+  <data name="RecommendationFixToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Sửa lỗi đúp từ trong ô gợi ý</value></data>
+  <data name="ChromiumFixToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Yêu cầu bật tùy chọn sửa lỗi đúp từ.</value></data>
+  <data name="ChromiumFixToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Tối ưu cho trình duyệt Chromium</value></data>
+  <data name="ClipboardToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Dùng Clipboard cho ứng dụng không nhận tiếng Việt</value></data>
+  <data name="MetroSupportToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Hỗ trợ ứng dụng Metro và UWP</value></data>
+  <data name="UpperCaseFirstCharToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Tự động viết hoa sau dấu chấm và khi xuống dòng</value></data>
+  <data name="AllowConsonantToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Cho phép z, w, f, j làm phụ âm</value></data>
+  <data name="TemporarySpellingToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Ctrl tạm tắt kiểm tra chính tả cho một từ</value></data>
+  <data name="GrayIconToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Dùng biểu tượng đơn sắc trong khay hệ thống</value></data>
+  <data name="RunWithWindowsToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Khởi động OpenKey cùng Windows</value></data>
+  <data name="ShowOnStartupToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Hiện cửa sổ điều khiển khi OpenKey khởi động</value></data>
+  <data name="CheckUpdatesToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Kiểm tra phiên bản mới khi khởi động</value></data>
+  <data name="CheckSpellingToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="CheckSpellingToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="RestoreWrongSpellingToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="RestoreWrongSpellingToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="ModernOrthographyToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="ModernOrthographyToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="QuickTelexToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="QuickTelexToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="QuickStartConsonantToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="QuickStartConsonantToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="QuickEndConsonantToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="QuickEndConsonantToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="UiLanguageSection.Text" xml:space="preserve"><value>Ngôn ngữ giao diện</value></data>
+  <data name="UiLanguageCombo.Header" xml:space="preserve"><value>Ngôn ngữ hiển thị</value></data>
+  <data name="UiLanguageCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Ngôn ngữ hiển thị</value></data>
+  <data name="UiLanguageHelp.Text" xml:space="preserve"><value>Đóng và mở lại cửa sổ giao diện để áp dụng. Không thay đổi chế độ gõ Việt/Anh.</value></data>
+  <data name="UiLanguageSavedTitle" xml:space="preserve"><value>Đã lưu ngôn ngữ giao diện</value></data>
+  <data name="UiLanguageRestartMessage" xml:space="preserve"><value>Đóng và mở lại cửa sổ giao diện để áp dụng ngôn ngữ đã chọn. Bộ gõ ở khay hệ thống vẫn hoạt động.</value></data>
+  <data name="MacroReloadButton.Content" xml:space="preserve"><value>Tải lại</value></data>
+  <data name="MacroReloadButton.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Tải lại danh sách gõ tắt</value></data>
+  <data name="MacroReloadTitle" xml:space="preserve"><value>Tải lại danh sách</value></data>
+  <data name="MacroReloadPrompt" xml:space="preserve"><value>Nội dung đang sửa chưa được lưu. Tải lại sẽ bỏ phần đang nhập và đọc lại danh sách đã lưu. Không xóa dữ liệu gõ tắt đã lưu. Tiếp tục?</value></data>
+  <data name="MacroReloadFailure" xml:space="preserve"><value>Không đọc được danh sách đã lưu hoặc dữ liệu không hợp lệ. Danh sách hiện tại và nội dung đang sửa được giữ nguyên.</value></data>
+  <data name="MacroRefreshAfterWriteTitle" xml:space="preserve"><value>Đã ghi dữ liệu, chưa tải lại được danh sách</value></data>
+  <data name="MacroRefreshAfterWriteFailure" xml:space="preserve"><value>Thao tác đã hoàn tất nhưng không đọc lại được dữ liệu đã lưu. Danh sách và nội dung đang sửa vẫn được giữ nguyên; chúng có thể chưa phản ánh dữ liệu mới. Hãy dùng Tải lại trước khi thao tác tiếp, không cần lặp lại thao tác vừa thực hiện.</value></data>
+  <data name="UiThemeSection.Text" xml:space="preserve"><value>Giao diện sáng/tối</value></data>
+  <data name="UiThemeCombo.Header" xml:space="preserve"><value>Chủ đề giao diện</value></data>
+  <data name="UiThemeCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Chủ đề giao diện</value></data>
+  <data name="UiThemeSystem.Content" xml:space="preserve"><value>Theo hệ thống</value></data>
+  <data name="UiThemeLight.Content" xml:space="preserve"><value>Sáng</value></data>
+  <data name="UiThemeDark.Content" xml:space="preserve"><value>Tối</value></data>
+  <data name="UiThemeHelp.Text" xml:space="preserve"><value>Áp dụng ngay, không thay đổi cấu hình bộ gõ. Mặc định theo giao diện Windows; chế độ tương phản cao vẫn được ưu tiên.</value></data>
+  <data name="UiThemeSavedTitle" xml:space="preserve"><value>Đã lưu chủ đề giao diện</value></data>
+  <data name="UiThemeAppliedMessage" xml:space="preserve"><value>Chủ đề đã được áp dụng và sẽ được giữ khi mở lại giao diện. Nội dung đang nhập và cấu hình bộ gõ không thay đổi.</value></data>
+  <data name="MacroDiscardTitle" xml:space="preserve"><value>Nội dung chưa lưu</value></data>
+  <data name="MacroDiscardPrompt" xml:space="preserve"><value>Nội dung gõ tắt đang sửa chưa được lưu. Tiếp tục có thể bỏ phần đang nhập; dữ liệu đã lưu không bị xóa bởi xác nhận này.</value></data>
+  <data name="MacroDiscardButton" xml:space="preserve"><value>Tiếp tục, bỏ thay đổi</value></data>
+  <data name="ChromiumDependencyWarning.Title" xml:space="preserve"><value>Tùy chọn Chromium đang bị khóa</value></data>
+  <data name="ChromiumDependencyWarning.Message" xml:space="preserve"><value>Tùy chọn Chromium vẫn được giữ, nhưng cần bật Sửa lỗi đúp từ để chỉnh sửa. OpenKey không tự tắt lựa chọn đã lưu.</value></data>
+  <data name="ChromiumDependencyWarning.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Cảnh báo tùy chọn Chromium</value></data>
+  <data name="SpellingDependencyWarning.Title" xml:space="preserve"><value>Tùy chọn chính tả nâng cao đang bị khóa</value></data>
+  <data name="SpellingDependencyWarning.Message" xml:space="preserve"><value>Một số tùy chọn chính tả nâng cao vẫn được giữ, nhưng cần bật Kiểm tra chính tả để chỉnh sửa. OpenKey không tự tắt lựa chọn đã lưu.</value></data>
+  <data name="SpellingDependencyWarning.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Cảnh báo tùy chọn chính tả</value></data>
+  <data name="UseMacroToggle.Header" xml:space="preserve"><value>Bật gõ tắt</value></data>
+  <data name="UseMacroToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="UseMacroToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="UseMacroToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Bật gõ tắt</value></data>
+  <data name="MacroInEnglishToggle.Header" xml:space="preserve"><value>Gõ tắt cả khi tắt gõ tiếng Việt</value></data>
+  <data name="MacroInEnglishToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="MacroInEnglishToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="MacroInEnglishToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Gõ tắt trong chế độ tiếng Anh</value></data>
+</root>

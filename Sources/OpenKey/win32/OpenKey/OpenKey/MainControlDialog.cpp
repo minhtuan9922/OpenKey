@@ -42,7 +42,7 @@ void MainControlDialog::initDialog() {
     //input type
     comboBoxInputType = GetDlgItem(hDlg, IDC_COMBO_INPUT_TYPE);
     vector<LPCTSTR>& inputType = OpenKeyManager::getInputType();
-    for (int i = 0; i < inputType.size(); i++) {
+    for (int i = 0; static_cast<size_t>(i) < inputType.size(); i++) {
         SendMessage(comboBoxInputType, CB_ADDSTRING, i, reinterpret_cast<LPARAM>(inputType[i]));
     }
     createToolTip(comboBoxInputType, IDS_STRING_INPUT);
@@ -50,7 +50,7 @@ void MainControlDialog::initDialog() {
     //code table
     comboBoxTableCode = GetDlgItem(hDlg, IDC_COMBO_TABLE_CODE);
     vector<LPCTSTR>& tableCode = OpenKeyManager::getTableCode();
-    for (int i = 0; i < tableCode.size(); i++) {
+    for (int i = 0; static_cast<size_t>(i) < tableCode.size(); i++) {
         SendMessage(comboBoxTableCode, CB_ADDSTRING, i, reinterpret_cast<LPARAM>(tableCode[i]));
     }
     createToolTip(comboBoxTableCode, IDS_STRING_CODE);
@@ -601,35 +601,7 @@ void MainControlDialog::onTabIndexChanged() {
 }
 
 void MainControlDialog::onUpdateButton() {
-    EnableWindow(hUpdateButton, false);
-    string newVersion;
-    if (OpenKeyManager::checkUpdate(newVersion)) {
-        WCHAR msg[256];
-        wsprintf(msg,
-            TEXT("OpenKey Có phiên bản mới (%s), bạn có muốn cập nhật không?"),
-            utf8ToWideString(newVersion).c_str());
-
-        int msgboxID = MessageBox(
-            hDlg,
-            msg,
-            _T("OpenKey Update"),
-            MB_ICONEXCLAMATION | MB_YESNO
-        );
-        if (msgboxID == IDYES) {
-            //Call OpenKeyUpdate
-            WCHAR path[MAX_PATH];
-            GetCurrentDirectory(MAX_PATH, path);
-            wsprintf(path, TEXT("%s\\OpenKeyUpdate.exe"), path);
-            ShellExecute(0, L"", path, 0, 0, SW_SHOWNORMAL);
-
-            AppDelegate::getInstance()->onOpenKeyExit();
-        }
-
-    }
-    else {
-        MessageBox(hDlg, _T("Bạn đang dùng phiên bản mới nhất!"), _T("OpenKey Update"), MB_OK);
-    }
-    EnableWindow(hUpdateButton, true);
+    AppDelegate::getInstance()->beginUpdateCheck(hDlg, hUpdateButton);
 }
 
 void MainControlDialog::requestRestartAsAdmin() {

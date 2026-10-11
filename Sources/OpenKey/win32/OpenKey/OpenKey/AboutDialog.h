@@ -23,6 +23,6 @@ public:
 	~AboutDialog();
 	virtual void fillData() override;
 private:
-	HWND hUpdateButton;
+	HWND hUpdateButton = nullptr;
 	void onUpdateButton();
 };

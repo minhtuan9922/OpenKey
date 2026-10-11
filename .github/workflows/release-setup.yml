@@ -1,0 +1,101 @@
+name: Build offline setup on tag
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag (for example v3.0.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: setup-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate tag and checkout
+        run: |
+          $ErrorActionPreference = 'Stop'
+          . ./Installer/ReleasePolicy.ps1
+          $metadata = Get-Content version.json -Raw | ConvertFrom-Json
+          Assert-OpenKeyReleaseTag $env:RELEASE_TAG $metadata
+          $tagCommit = git rev-parse "refs/tags/$($env:RELEASE_TAG)^{commit}"
+          if ($LASTEXITCODE -ne 0 -or $tagCommit -ne (git rev-parse HEAD)) { throw 'Checkout must match an existing tag.' }
+      - name: Verify Visual Studio 2026 and ATL
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -version '[18.0,19.0)' -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 Microsoft.VisualStudio.Component.VC.ATL -property installationPath
+          if (-not $vs) { throw 'VS 2026 C++ x86/x64 and ATL are required.' }
+      - name: Download verified offline inputs and portable compiler
+        run: ./prepare-ci.ps1
+      - name: Build, verify and stage setup
+        run: ./build-ci-release.ps1 -Tag $env:RELEASE_TAG
+      - name: Upload verified release files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: offline-setup
+          path: dist/ci-release/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Retain diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: setup-diagnostics
+          path: |
+            dist/regression-*/**
+            dist/setup-*/setup-build.json
+            dist/setup-*/compiler-manifest.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
+  publish:
+    needs: build
+    if: github.repository == 'minhtuan9922/OpenKey'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: offline-setup
+          path: release-files
+      - name: Verify and attach setup to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          cd release-files
+          sha256sum --check SHA256SUMS.txt
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease --title "OpenKey $RELEASE_TAG" --notes-file RELEASE_NOTES.md
+            gh release upload "$RELEASE_TAG" OpenKey-Setup.exe SHA256SUMS.txt
+            gh release edit "$RELEASE_TAG" --draft=false
+          else
+            # Deliberately no --clobber: never replace an existing release binary.
+            gh release upload "$RELEASE_TAG" OpenKey-Setup.exe SHA256SUMS.txt
+          fi
