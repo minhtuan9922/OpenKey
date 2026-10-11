@@ -4,6 +4,7 @@
 #include <functional>
 #include <memory>
 #include <thread>
+namespace SetupUpdateService { struct Package; }
 
 // UI owns this coordinator. Workers own only shared state, never a dialog/app.
 class AsyncUpdateCheck {
@@ -11,6 +12,8 @@ public:
     struct Outcome {
         UpdateCheckService::Result result = UpdateCheckService::Result::DownloadFailed;
         std::string version;
+        bool setupDownload = false;
+        std::shared_ptr<SetupUpdateService::Package> installer;
     };
 private:
     struct State {

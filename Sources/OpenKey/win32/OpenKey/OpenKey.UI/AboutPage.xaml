@@ -142,6 +142,7 @@
                 </Border>
             </Grid>
 
+            <ProgressBar x:Name="DownloadProgress" Minimum="0" Maximum="100" Visibility="Collapsed" />
             <InfoBar x:Uid="AboutLinkStatus"
                 x:Name="LinkStatus"
                 AutomationProperties.LiveSetting="Assertive"

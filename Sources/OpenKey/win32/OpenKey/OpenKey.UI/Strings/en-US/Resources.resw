@@ -193,7 +193,11 @@
   <data name="UpdateCheckFailureMessage" xml:space="preserve"><value>Check your Internet connection and try again.</value></data>
   <data name="UpdateCurrentTitle" xml:space="preserve"><value>OpenKey is up to date</value></data>
   <data name="UpdateCurrentMessage" xml:space="preserve"><value>You are using the latest version.</value></data>
-  <data name="UpdateConfirmMessage" xml:space="preserve"><value>Download OpenKey-Setup.exe from minhtuan9922/OpenKey through your browser to update the engine, UI, and runtime together. Exit OpenKey before running the installer. The app will not run the installer, replace files, or exit automatically.</value></data>
+  <data name="UpdateConfirmMessage" xml:space="preserve"><value>Download and verify Setup from minhtuan9922/OpenKey, then run it to update the engine, UI, and runtime. OpenKey will close when Setup starts. Save any work you are editing before continuing.</value></data>
+  <data name="UpdateDownloadingTitle" xml:space="preserve"><value>Downloading update</value></data>
+  <data name="UpdateDownloadingMessage" xml:space="preserve"><value>Downloading and verifying Setup. OpenKey will close when Setup starts.</value></data>
+  <data name="UpdateInstallFailureTitle" xml:space="preserve"><value>Could not update</value></data>
+  <data name="UpdateInstallFailureMessage" xml:space="preserve"><value>Could not download, verify, or start Setup. Check your Internet connection and retry. OpenKey is still running.</value></data>
   <data name="UpdateButtonText" xml:space="preserve"><value>Download update</value></data>
   <data name="UpdateLaterButtonText" xml:space="preserve"><value>Later</value></data>
   <data name="UpdaterMissingTitle" xml:space="preserve"><value>Updater not found</value></data>

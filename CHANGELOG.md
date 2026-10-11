@@ -1,5 +1,16 @@
 # OpenKey Change Log
 
+## Windows Fluent 3.0.6 — 2026-10-11
+
+- Nâng đồng bộ engine, updater, UI và bộ cài lên 3.0.6; metadata Windows
+  `v3.0.6` / `393219` (`0x00060003`).
+- Tải bộ cài trực tiếp trong ứng dụng, hiển thị tiến độ và kiểm tra SHA-256
+  từ `SHA256SUMS.txt` của cùng tag trước khi chạy.
+- Tự thoát OpenKey khi bộ cài khởi chạy thành công; tải, xác minh hoặc khởi chạy
+  thất bại thì giữ ứng dụng hoạt động và báo lỗi.
+
+Chưa tạo tag hoặc phát hành GitHub cho bản 3.0.6.
+
 ## Windows Fluent 3.0.5 — mã nguồn local, 2026-10-11
 
 - Nâng đồng bộ version engine, updater, UI và bộ cài lên 3.0.5; metadata Windows

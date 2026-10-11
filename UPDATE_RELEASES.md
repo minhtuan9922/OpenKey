@@ -7,8 +7,8 @@ Có workflow tự build theo tag và upload setup vào Release; xem `CI_RELEASES
 Nhánh mặc định của repo hiện là `master`. Không dùng metadata hay bản tải của
 `tuyenvm/OpenKey`; liên kết tác giả gốc trong Giới thiệu chỉ dùng ghi nguồn.
 
-Mã nguồn hiện là `3.0.5`; metadata trong workspace dùng `v3.0.5` / `327683`.
-Bộ cài local đã ghi nhận trong INSTALLER.md vẫn là 3.0.3, chưa build bộ cài 3.0.5
+Mã nguồn hiện là `3.0.6`; metadata trong workspace dùng `v3.0.6` / `393219`.
+Bộ cài local đã ghi nhận trong INSTALLER.md vẫn là 3.0.3, chưa build bộ cài 3.0.6
 trong lượt tăng version. Người dùng đã xác nhận cập nhật thực tế lên 3.0.3 hoạt động ổn.
 Tài liệu này không kiểm tra trạng thái Release/asset GitHub hiện tại.
 Các sửa lỗi local sau đó cần commit và phát hành bằng một phiên bản mới nếu
@@ -16,7 +16,7 @@ muốn ứng dụng 3.0.3 nhận thông báo cập nhật; build lại cùng ver
 
 ## Chuẩn bị một bản mới
 
-1. Tăng phiên bản ứng dụng, metadata và bộ cài đồng bộ. Source hiện là `3.0.5`.
+1. Tăng phiên bản ứng dụng, metadata và bộ cài đồng bộ. Source hiện là `3.0.6`.
 2. Build và đóng gói bằng `./build-setup.ps1 -Release`; giữ SHA-256 được in ra.
 3. Commit các thay đổi trước khi tạo tag `vX.Y.Z` trong `minhtuan9922/OpenKey`.
    Workflow build/publish theo tag được mô tả ở `CI_RELEASES.md`; dùng tag mới,
@@ -27,8 +27,8 @@ muốn ứng dụng 3.0.3 nhận thông báo cập nhật; build lại cùng ver
 
 ```json
 "latestWinVersion": {
-  "versionName": "v3.0.5",
-  "versionCode": 327683
+  "versionName": "v3.0.6",
+  "versionCode": 393219
 }
 ```
 
@@ -40,13 +40,13 @@ Không tăng metadata trước khi bộ cài của tag đã sẵn sàng. Đây l
 ## Hành vi người dùng
 
 - Kiểm tra khi bấm nút hoặc khi engine khởi động nếu bật tùy chọn kiểm tra.
-- Phiên bản cao hơn: hỏi xác nhận, rồi mở trình duyệt tải asset của đúng tag:
-  `https://github.com/minhtuan9922/OpenKey/releases/download/v3.0.5/OpenKey-Setup.exe`.
-- Ứng dụng không tự chạy setup, tắt engine hoặc thay file đang dùng. Người dùng
-  chạy bộ cài; bộ cài hỏi trước khi đóng engine/UI trong đúng thư mục đích,
-  không cưỡng bức thoát, quản lý runtime và giữ cấu hình đã lưu.
-- Không xác minh checksum file tải qua trình duyệt trong ứng dụng. Người dùng
-  cần đối chiếu checksum phát hành; chữ ký số bộ cài vẫn là hạng mục riêng.
+- Phiên bản cao hơn: hỏi xác nhận, rồi tải trực tiếp asset của đúng tag:
+  `https://github.com/minhtuan9922/OpenKey/releases/download/v3.0.6/OpenKey-Setup.exe`.
+- Giao diện hiển thị tiến độ tải; ứng dụng kiểm tra SHA-256 từ `SHA256SUMS.txt`
+  của cùng tag trước khi chạy bộ cài. OpenKey tự thoát khi khởi chạy bộ cài
+  thành công. Nếu tải, xác minh hoặc khởi chạy thất bại thì vẫn tiếp tục chạy.
+- Bộ cài quản lý runtime và giữ cấu hình đã lưu. Hãy lưu nội dung đang chỉnh sửa
+  trước khi cập nhật. Chữ ký số bộ cài vẫn là hạng mục riêng.
 - Gói legacy không có Fluent vẫn dùng updater ZIP cũ, nhưng chuyển sang repo
   này và cần asset `OpenKey<TAG>-Windows.zip`. Không dùng updater ZIP cho Fluent.
 

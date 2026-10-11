@@ -2,6 +2,7 @@
 #include "AboutPage.xaml.h"
 #include "Localization.h"
 #include "../OpenKey/UpdateService.h"
+#include "../OpenKey/SetupUpdateService.h"
 
 #include <winrt/Windows.System.h>
 
@@ -14,8 +15,8 @@ using namespace Microsoft::UI::Xaml;
 
 namespace
 {
-    constexpr wchar_t OpenKeyVersion[] = L"3.0.5";
-    constexpr uint32_t OpenKeyVersionCode = 0x00050003; // Packed 3.0.5, low byte = major.
+    constexpr wchar_t OpenKeyVersion[] = L"3.0.6";
+    constexpr uint32_t OpenKeyVersionCode = 0x00060003; // Packed 3.0.6, low byte = major.
 
     hstring buildDate()
     {
@@ -172,26 +173,48 @@ namespace winrt::OpenKeyUI::implementation
             co_return;
         }
 
-        bool opened = false;
-        try
-        {
-            opened = co_await Windows::System::Launcher::LaunchUriAsync(
-                Windows::Foundation::Uri(OpenKeyUpdateSource::SetupUrl(update.version)));
+        auto package = std::make_shared<SetupUpdateService::Package>();
+        UpdateProgress().IsActive(true);
+        DownloadProgress().Value(0);
+        DownloadProgress().Visibility(Visibility::Visible);
+        LinkStatus().Severity(Controls::InfoBarSeverity::Informational);
+        LinkStatus().Title(OpenKeyUILocalization::GetString(L"UpdateDownloadingTitle"));
+        LinkStatus().Message(OpenKeyUILocalization::GetString(L"UpdateDownloadingMessage"));
+        LinkStatus().IsOpen(true);
+        auto progressTimer = DispatcherQueue().CreateTimer();
+        progressTimer.Interval(std::chrono::milliseconds(150));
+        progressTimer.Tick([weak = get_weak(), package, ticket](auto const&, auto const&) {
+            if (auto page = weak.get(); page && page->updateRequest.Current(ticket))
+                page->DownloadProgress().Value(package->percent.load());
+        });
+        progressTimer.Start();
+        bool downloaded = false;
+        try {
+            co_await resume_background();
+            downloaded = SetupUpdateService::Download(update.version, *package);
         }
-        catch (hresult_error const&)
-        {
-        }
+        catch (...) {}
         try { co_await uiThread; }
         catch (hresult_error const&) { co_return; }
+        progressTimer.Stop();
+        DownloadProgress().Visibility(Visibility::Collapsed);
         if (!updateRequest.Current(ticket)) {
             FinishUpdate(ticket);
             co_return;
         }
-        if (!opened)
+        if (downloaded && SetupUpdateService::Launch(*package))
+        {
+            if (const auto engine = FindWindowW(L"OpenKeyVietnameseInputMethod", nullptr))
+                PostMessageW(engine, WM_USER + 2021, 0, 0);
+            FinishUpdate(ticket);
+            Application::Current().Exit();
+            co_return;
+        }
+        else
         {
             LinkStatus().Severity(Controls::InfoBarSeverity::Error);
-            LinkStatus().Title(OpenKeyUILocalization::GetString(L"LinkFailureTitle"));
-            LinkStatus().Message(OpenKeyUILocalization::GetString(L"LinkFailureMessage"));
+            LinkStatus().Title(OpenKeyUILocalization::GetString(L"UpdateInstallFailureTitle"));
+            LinkStatus().Message(OpenKeyUILocalization::GetString(L"UpdateInstallFailureMessage"));
             LinkStatus().IsOpen(true);
         }
         FinishUpdate(ticket);

@@ -34,6 +34,7 @@ private:
 	bool manualUpdateCheck = false;
 	bool exiting = false;
 	void stopUpdateCheck();
+		void beginSetupDownload(HWND owner, HWND button, const std::string& version);
 public:
 	AppDelegate();
 	static AppDelegate* getInstance();

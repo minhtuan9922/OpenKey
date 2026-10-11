@@ -4,13 +4,19 @@
 ## Windows Fluent UI beta trong nhánh này
 
 Nhánh Windows này bổ sung giao diện WinUI/Fluent, tiếng Việt mặc định, tùy chọn
-English, theme Sáng/Tối/Theo hệ thống và menu tray bo góc. Mã nguồn hiện là 3.0.5;
+English, theme Sáng/Tối/Theo hệ thống và menu tray bo góc. Mã nguồn hiện là 3.0.6;
 engine và giao diện Win32 dự phòng vẫn được giữ.
 
 Tải bộ cài Windows tại [Releases của bản fork](https://github.com/minhtuan9922/OpenKey/releases).
 Chọn asset `OpenKey-Setup.exe`: một bộ cài offline tự chọn x64/x86, có runtime,
 Start Menu và tùy chọn icon Desktop. Yêu cầu Windows 10 1809 trở lên hoặc Windows 11;
 không hỗ trợ ARM. Bộ cài chưa ký số; đối chiếu checksum đi kèm trước khi chạy.
+
+Trong ứng dụng, chọn **Kiểm tra cập nhật → Tải bản cập nhật** để tải bộ cài
+trực tiếp, kiểm tra SHA-256 từ `SHA256SUMS.txt` của cùng bản phát hành rồi chạy
+bộ cài. OpenKey tự thoát khi bộ cài khởi chạy; tải hoặc xác minh thất bại thì
+ứng dụng tiếp tục chạy. Không cần mở trình duyệt. Hãy lưu nội dung đang chỉnh sửa
+trước khi cập nhật. File bộ cài đã chạy được giữ trong thư mục tạm của Windows.
 
 Người dùng đã xác nhận cài đặt, gỡ bỏ, cập nhật lên 3.0.3, Sandbox và máy thật
 hoạt động ổn. Điều này không thay thế toàn bộ ma trận Windows/DPI hoặc ca lỗi UAC/runtime.

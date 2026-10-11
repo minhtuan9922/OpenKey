@@ -11,21 +11,6 @@
 namespace UpdateLaunchService {
 enum class Result { Started, ManualUpdateRequired, Failed };
 
-// Download through the user's browser; never execute a downloaded installer.
-template<typename Execute>
-bool OpenSetupDownload(HWND owner, const std::string& version, Execute execute) {
-    const auto url = OpenKeyUpdateSource::SetupUrl(version);
-    return !url.empty() && execute(owner, url.c_str()) > 32;
-}
-inline bool OpenSetupDownload(HWND owner, const std::string& version) {
-    const bool opened = OpenSetupDownload(owner, version, [](HWND parent, LPCWSTR url) {
-        return reinterpret_cast<INT_PTR>(ShellExecuteW(parent, L"open", url, nullptr, nullptr, SW_SHOWNORMAL));
-    });
-    if (!opened) MessageBoxW(owner, L"Kh\u00f4ng th\u1ec3 m\u1edf li\u00ean k\u1ebft t\u1ea3i b\u1ea3n c\u1eadp nh\u1eadt.",
-        L"OpenKey Update", MB_OK | MB_ICONERROR);
-    return opened;
-}
-
 // Injectable launch boundary: tests never start an updater or display a dialog.
 template<typename Allowed, typename ModulePath, typename Execute>
 Result Start(HWND owner, Allowed allowed, ModulePath modulePath, Execute execute) {

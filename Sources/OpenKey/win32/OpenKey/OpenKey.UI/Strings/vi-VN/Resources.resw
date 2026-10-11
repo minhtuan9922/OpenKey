@@ -193,7 +193,11 @@
   <data name="UpdateCheckFailureMessage" xml:space="preserve"><value>Hãy kiểm tra kết nối Internet rồi thử lại.</value></data>
   <data name="UpdateCurrentTitle" xml:space="preserve"><value>OpenKey đã được cập nhật</value></data>
   <data name="UpdateCurrentMessage" xml:space="preserve"><value>Bạn đang sử dụng phiên bản mới nhất.</value></data>
-  <data name="UpdateConfirmMessage" xml:space="preserve"><value>Tải OpenKey-Setup.exe từ minhtuan9922/OpenKey qua trình duyệt để cập nhật đồng bộ engine, giao diện và runtime. Thoát OpenKey trước khi chạy bộ cài. Ứng dụng không tự chạy bộ cài, thay tệp hoặc thoát.</value></data>
+  <data name="UpdateConfirmMessage" xml:space="preserve"><value>Tải và kiểm tra bộ cài từ minhtuan9922/OpenKey, sau đó chạy bộ cài để cập nhật engine, giao diện và runtime. OpenKey sẽ tự đóng khi bộ cài khởi chạy. Hãy lưu nội dung đang chỉnh sửa trước khi tiếp tục.</value></data>
+  <data name="UpdateDownloadingTitle" xml:space="preserve"><value>Đang tải bản cập nhật</value></data>
+  <data name="UpdateDownloadingMessage" xml:space="preserve"><value>Đang tải và kiểm tra bộ cài. OpenKey sẽ đóng khi bộ cài khởi chạy.</value></data>
+  <data name="UpdateInstallFailureTitle" xml:space="preserve"><value>Không thể cập nhật</value></data>
+  <data name="UpdateInstallFailureMessage" xml:space="preserve"><value>Không thể tải, xác minh hoặc chạy bộ cài. Hãy kiểm tra kết nối Internet và thử lại. OpenKey vẫn đang chạy.</value></data>
   <data name="UpdateButtonText" xml:space="preserve"><value>Tải bản cập nhật</value></data>
   <data name="UpdateLaterButtonText" xml:space="preserve"><value>Để sau</value></data>
   <data name="UpdaterMissingTitle" xml:space="preserve"><value>Không tìm thấy trình cập nhật</value></data>

@@ -172,9 +172,9 @@ Test-UI 'About links identify the Fluent fork and credit the original project' {
 }
 Test-UI 'Update controllers use shared fork download destination' {
     $about = Get-Content -LiteralPath (Join-Path $uiRoot 'AboutPage.xaml.cpp') -Raw -Encoding UTF8
-    Assert-UI ($about.Contains('OpenKeyUpdateSource::SetupUrl(update.version)') -and -not $about.Contains('github.com/tuyenvm')) 'About update uses upstream release'
+    Assert-UI ($about.Contains('SetupUpdateService::Download(update.version, *package)') -and $about.Contains('SetupUpdateService::Launch(*package)')) 'About update does not download and run verified setup'
     $engine = Get-Content -LiteralPath (Join-Path $uiRoot '../OpenKey/AppDelegate.cpp') -Raw -Encoding UTF8
-    Assert-UI ($engine.Contains('if (fluent) UpdateLaunchService::OpenSetupDownload(owner, outcome.version);')) 'Fluent engine does not open setup download'
+    Assert-UI ($engine.Contains('if (fluent) beginSetupDownload(owner, button, outcome.version);')) 'Fluent engine does not download setup'
     $metadata = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'version.json') -Raw | ConvertFrom-Json
     $versionText = [regex]::Match($about, 'OpenKeyVersion\[\] = L"([0-9.]+)"').Groups[1].Value
     $version = [version]$versionText

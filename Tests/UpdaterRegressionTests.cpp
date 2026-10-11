@@ -12,6 +12,7 @@ std::string ReadBytes(const std::wstring& path) {
 #include "../Sources/OpenKey/win32/OpenKey/OpenKey/UpdateDownloadService.h"
 #include "../Sources/OpenKey/win32/OpenKey/OpenKey/AsyncUpdateCheck.h"
 #include "../Sources/OpenKey/win32/OpenKey/OpenKey/UpdateService.h"
+#include "../Sources/OpenKey/win32/OpenKey/OpenKey/SetupUpdateService.h"
 #include "../Sources/OpenKey/win32/OpenKey/OpenKey.UI/UpdateRequestState.h"
 #include <future>
 #include <chrono>
@@ -91,14 +92,6 @@ int TestSharedUpdateService() {
     for (const std::string tag : {"", ".", "..", "../evil", "https://evil", "2?x", "2#x", "2%2f", "2 x", "2\\x"})
         require(OpenKeyUpdateSource::SetupUrl(tag).empty());
     require(OpenKeyUpdateSource::SetupUrl(std::string(65, 'a')).empty());
-    int downloadLaunches = 0;
-    require(UpdateLaunchService::OpenSetupDownload(nullptr, "2.0.6", [&](HWND, LPCWSTR url) {
-        ++downloadLaunches; return std::wstring(url) == expectedSetup ? 33 : 0;
-    }));
-    require(downloadLaunches == 1);
-    require(!UpdateLaunchService::OpenSetupDownload(nullptr, "../evil", [&](HWND, LPCWSTR) { ++downloadLaunches; return 33; }));
-    require(downloadLaunches == 1);
-    require(!UpdateLaunchService::OpenSetupDownload(nullptr, "2.0.6", [](HWND, LPCWSTR) { return 32; }));
     for (const auto& test : {
         VersionCase{0x00050002, "v2.0.5", Result::UpToDate},
         VersionCase{0x00000003, "v3.0.0", Result::UpToDate},
@@ -249,7 +242,80 @@ int TestBackgroundUpdateChecks() {
     return failures;
 }
 
+int TestSetupDownload(const std::wstring& root) {
+    using namespace SetupUpdateService;
+    int failures = 0, checks = 0;
+    auto require = [&](bool passed) { ++checks; if (!passed) ++failures; };
+    const std::string hash = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"; // SHA-256 of abc.
+    std::string parsed;
+    require(ExpectedHash(hash + "  OpenKey-Setup.exe\r\n", parsed) && parsed == hash);
+    require(!ExpectedHash(hash + "  wrong.exe\n", parsed));
+    require(!ExpectedHash(hash + "  OpenKey-Setup.exe\n" + hash + "  OpenKey-Setup.exe\n", parsed));
+    require(!ExpectedHash(std::string(64, 'z') + "  OpenKey-Setup.exe\n", parsed));
+    require(!ExpectedHash("", parsed));
+    std::wstring host, target;
+    require(AllowedUrl(L"https://github.com/minhtuan9922/OpenKey/releases/download/v3.0.6/OpenKey-Setup.exe", host, target));
+    require(AllowedUrl(L"https://release-assets.githubusercontent.com/file?token=test", host, target));
+    for (const auto url : {L"http://github.com/file", L"https://evil.test/file", L"https://github.com.evil.test/file",
+        L"https://github.com:444/file", L"https://user:password@github.com/file"}) require(!AllowedUrl(url, host, target));
+    for (int scenario = 0; scenario < 8; ++scenario) {
+        Package package;
+        int reads = 0, writes = 0;
+        const bool result = Transfer(5, true, 3,
+            [&](char* data, DWORD capacity, DWORD& count) {
+                ++reads;
+                if (scenario == 3) return false;
+                count = reads > 1 ? 0 : scenario == 1 ? 2 : scenario == 2 ? 4 : scenario == 6 ? capacity + 1 : scenario == 7 ? 6 : 3;
+                if (count <= capacity) std::fill_n(data, count, 'a');
+                return true;
+            }, [&](const char*, DWORD) { ++writes; return scenario != 4; },
+            [&] { return ULONGLONG(scenario == 5 ? 600001 : 0); }, 0, package, true);
+        require(result == (scenario == 0));
+        if (scenario == 0) require(package.percent == 100 && writes == 1);
+    }
+    const std::wstring directory = root + L"\\setup-download";
+    CreateDirectoryW(directory.c_str(), nullptr);
+    const std::wstring path = directory + L"\\OpenKey-Setup.exe";
+    { std::ofstream output(path, std::ios::binary); output << "abc"; }
+    require(VerifyFile(path, hash));
+    require(!VerifyFile(path, std::string(64, '0')));
+    require(!VerifyFile(directory + L"\\missing.exe", hash));
+    int launches = 0;
+    {
+        Package package; package.directory = directory; package.path = path; package.expectedHash = hash;
+        auto execute = [&](HWND, LPCWSTR executable, LPCWSTR working) {
+            ++launches; require(std::wstring(executable) == path && std::wstring(working) == directory); return 33;
+        };
+        require(!Launch(package, nullptr, execute) && launches == 0);
+        package.verified = true;
+        require(!Launch(package, nullptr, [](HWND, LPCWSTR, LPCWSTR) { return 32; }) && !package.launched);
+        { std::ofstream output(path, std::ios::binary); output << "tampered"; }
+        require(!Launch(package, nullptr, execute) && launches == 0);
+        { std::ofstream output(path, std::ios::binary); output << "abc"; }
+        require(Launch(package, nullptr, execute) && launches == 1);
+        require(!Launch(package, nullptr, execute) && launches == 1);
+    }
+    require(GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES); // Successful launch retains Setup.
+    {
+        Package cleanup; cleanup.directory = directory; cleanup.path = path;
+    }
+    require(GetFileAttributesW(directory.c_str()) == INVALID_FILE_ATTRIBUTES);
+    Package invalid;
+    require(!Download("../evil", invalid) && invalid.directory.empty());
+    std::cout << "Setup download integrity/launch: " << checks << " checks, " << failures << " failures\n";
+    return failures;
+}
+
 int wmain(int argc, wchar_t** argv) {
+    if (argc == 3 && std::wstring(argv[1]) == L"--download-only") {
+        const std::wstring version = argv[2];
+        std::string tag;
+        for (auto ch : version) { if (ch > 127) return 2; tag += static_cast<char>(ch); }
+        SetupUpdateService::Package package;
+        const bool downloaded = SetupUpdateService::Download(tag, package);
+        std::cout << (downloaded ? "PASS" : "FAIL") << " native HTTPS setup download and SHA-256 verification (no installer launched)\n";
+        return downloaded ? 0 : 1; // Package destructor removes the downloaded fixture.
+    }
     if (argc == 3 && std::wstring(argv[1]) == L"--policy") {
         const bool expectedAllowed = std::wstring(argv[2]) == L"allow";
         return OpenKeyUpdatePolicy::CanUseLegacyUpdater() == expectedAllowed ? 0 : 1;
@@ -269,7 +335,7 @@ int wmain(int argc, wchar_t** argv) {
         {L"invalid-pe", false, false},
         {L"both-architectures", true, false},
     };
-    int failures = TestBackgroundUpdateChecks() + TestSharedUpdateService();
+    int failures = TestBackgroundUpdateChecks() + TestSharedUpdateService() + TestSetupDownload(root);
     using CheckResult = UpdateCheckService::Result;
     const std::wstring validMetadata = L"{\"latestVersion\":{\"versionName\":\"9.9\",\"versionCode\":47},\"latestWinVersion\":{\"versionName\":\"2.0.2\",\"versionCode\":131074}}";
     int checkCases = 0;

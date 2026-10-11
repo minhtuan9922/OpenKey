@@ -20,6 +20,7 @@ static AppDelegate* _instance;
 static constexpr wchar_t updateCheckProperty[] = L"OpenKey.UpdateCheck.Owner";
 
 #include "../OpenKey.UI/UiThemeSettings.h"
+#include "SetupUpdateService.h"
 
 namespace {
 		bool launchModernControlPanel(const wchar_t* page = L"overview") {
@@ -176,22 +177,58 @@ void AppDelegate::stopUpdateCheck() {
 	updateCheck.Abandon();
 }
 
+void AppDelegate::beginSetupDownload(HWND owner, HWND button, const std::string& version) {
+	if (exiting || updateCheck.Busy()) return;
+	updateTimer = SetTimer(nullptr, 0, 100, [](HWND, UINT, UINT_PTR timer, DWORD) {
+		AppDelegate::getInstance()->pollUpdateCheck(timer);
+	});
+	if (!updateTimer || !updateCheck.Start([version] {
+		AsyncUpdateCheck::Outcome outcome;
+		outcome.setupDownload = true;
+		try {
+			outcome.installer = std::make_shared<SetupUpdateService::Package>();
+			if (SetupUpdateService::Download(version, *outcome.installer))
+				outcome.result = UpdateCheckService::Result::Available;
+		} catch (...) { /* Preserve the download action so its failure is reported. */ }
+		return outcome;
+	})) {
+		stopUpdateCheck();
+		MessageBoxW(owner, L"Không thể bắt đầu tải bản cập nhật.", L"OpenKey Update", MB_OK | MB_ICONERROR);
+		return;
+	}
+	updateOwner = owner; updateButton = button; manualUpdateCheck = owner != nullptr;
+	updateToken = updateCheck.Token();
+	if (owner && !SetPropW(owner, updateCheckProperty, updateToken)) {
+		stopUpdateCheck();
+		return;
+	}
+	if (button) EnableWindow(button, false);
+	SystemTrayHelper::showNotification(L"OpenKey Update", L"Đang tải và kiểm tra bộ cài. OpenKey sẽ thoát khi bộ cài khởi chạy.");
+}
+
 void AppDelegate::pollUpdateCheck(UINT_PTR timer) {
 	if (!updateTimer || timer != updateTimer) return;
 	AsyncUpdateCheck::Outcome outcome;
 	if (!updateCheck.Poll(outcome)) return;
 	const HWND owner = updateOwner;
+	const HWND button = updateButton;
 	const bool manual = manualUpdateCheck;
 	const bool validOwner = owner && GetPropW(owner, updateCheckProperty) == updateToken;
 	stopUpdateCheck(); // Release request/timer before any modal/re-entrant UI.
 	if (manual && !validOwner) return;
+	if (outcome.setupDownload) {
+		if (!exiting && outcome.installer && SetupUpdateService::Launch(*outcome.installer, owner)) onOpenKeyExit();
+		else MessageBoxW(owner, L"Không thể tải, xác minh hoặc chạy bộ cài. Hãy kiểm tra kết nối Internet và thử lại. OpenKey vẫn đang chạy.",
+			L"OpenKey Update", MB_OK | MB_ICONERROR);
+		return;
+	}
 	if (outcome.result == UpdateCheckService::Result::Available) {
 		const bool fluent = !OpenKeyUpdatePolicy::CanUseLegacyUpdater();
 		const auto message = L"OpenKey có phiên bản mới (" + utf8ToWideString(outcome.version)
-			+ (fluent ? L"). Tải bộ cài từ minhtuan9922/OpenKey qua trình duyệt? Thoát OpenKey trước khi chạy bộ cài."
+			+ (fluent ? L"). Tải và chạy bộ cài? OpenKey sẽ thoát khi bộ cài khởi chạy. Hãy lưu nội dung đang chỉnh sửa trước khi tiếp tục."
 				: L"), bạn có muốn cập nhật không?");
 		if (MessageBoxW(owner, message.c_str(), L"OpenKey Update", MB_ICONEXCLAMATION | MB_YESNO) == IDYES && !exiting) {
-			if (fluent) UpdateLaunchService::OpenSetupDownload(owner, outcome.version);
+			if (fluent) beginSetupDownload(owner, button, outcome.version);
 			else if (UpdateLaunchService::StartOrNotify(owner)) onOpenKeyExit();
 		}
 	} else if (manual) {
