@@ -29,6 +29,14 @@ begin
   Result := False;
   Report := ExpandConstant('{param:Report|}');
   if Report = '' then Exit;
+  Check(AppCloseKind('C:\OpenKey\OpenKey64.exe', 'C:\OpenKey', 'OpenKeyVietnameseInputMethod') = 1, 'engine exact path');
+  Check(AppCloseKind('C:\OpenKey\OpenKey32.exe', 'C:\OpenKey\', 'OpenKeyVietnameseInputMethod') = 1, 'x86 exact path');
+  Check(AppCloseKind('C:\OpenKey\OpenKey.exe', 'C:\OpenKey', 'OpenKeyVietnameseInputMethod') = 1, 'debug engine exact path');
+  Check(AppCloseKind('c:\openkey\OpenKey.UI\OpenKey.UI.exe', 'C:\OpenKey', 'WinUI') = 2, 'UI exact path case insensitive');
+  Check(AppCloseKind('C:\Other\OpenKey64.exe', 'C:\OpenKey', 'OpenKeyVietnameseInputMethod') = 0, 'other installation untouched');
+  Check(AppCloseKind('C:\OpenKey-old\OpenKey64.exe', 'C:\OpenKey', 'OpenKeyVietnameseInputMethod') = 0, 'prefix directory untouched');
+  Check(AppCloseKind('C:\OpenKey\OpenKey64.exe', 'C:\OpenKey', 'OtherClass') = 0, 'engine requires IPC class');
+  Check(AppCloseKind('C:\OpenKey\other.exe', 'C:\OpenKey', 'OpenKeyVietnameseInputMethod') = 0, 'other executable untouched');
   Check(RuntimeVersionSufficient(1, '14.51.36231.0', '14.51.36231.0'), 'equal minimum');
   Check(RuntimeVersionSufficient(1, 'v14.51.36247.0', '14.51.36231.0'), 'newer v prefix');
   Check(RuntimeVersionSufficient(1, 'V14.52.1.0', '14.51.36231.0'), 'newer V prefix');

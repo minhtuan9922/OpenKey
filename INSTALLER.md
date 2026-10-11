@@ -118,6 +118,17 @@ Build end-to-end PS7/5.1 tạo EXE cùng hash. Không thực thi setup OpenKey t
 
 ## Nghiệm thu còn lại trong Sandbox/máy sạch
 
+Khi cập nhật và OpenKey đang chạy trong đúng thư mục đích, Setup hỏi có đóng
+engine/giao diện không (mặc định Không). Đồng ý sẽ gửi IPC thoát engine và
+WM_CLOSE cho UI, đợi tối đa tổng cộng 5 giây để tiến trình thoát. Không dùng
+TerminateProcess/kill. Từ chối, lỗi quyền, debugger giữ tiến trình hoặc timeout
+đều dừng trước khi cài runtime/thay file. Cài silent không tự đóng ứng dụng.
+Engine ở thư mục khác không bị đóng; nếu còn phiên OpenKey khác, đóng thủ công.
+Nội dung UI chưa lưu có thể mất khi xác nhận đóng, dữ liệu đã lưu được giữ lại.
+
+- [ ] Cập nhật khi engine/UI đang mở: Đồng ý đóng; từ chối; timeout/debugger;
+  engine thư mục khác; UI minimized; kiểm tra giữ cấu hình/gõ tắt và gỡ hook.
+
 - [ ] Runtime thiếu/cũ/đủ; consent, hủy UAC, mã lỗi, restart cần thiết.
 - [ ] Cài offline với mạng tắt, chỉ một EXE; thư mục có dấu/khoảng trắng.
 - [ ] Shortcut Start Menu khởi chạy engine và gõ tiếng Việt; Settings mở Fluent.

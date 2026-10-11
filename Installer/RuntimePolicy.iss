@@ -1,4 +1,18 @@
 // Pure policy, shared with the native Pascal fixture; no registry/process APIs.
+// Only exact executables in the selected installation may be asked to close.
+function AppCloseKind(ImagePath, InstallDir, WindowClass: String): Integer;
+begin
+  Result := 0;
+  InstallDir := AddBackslash(InstallDir);
+  if CompareText(ImagePath, InstallDir + 'OpenKey.UI\OpenKey.UI.exe') = 0 then
+    Result := 2
+  else if (CompareText(WindowClass, 'OpenKeyVietnameseInputMethod') = 0) and
+    ((CompareText(ImagePath, InstallDir + 'OpenKey64.exe') = 0) or
+     (CompareText(ImagePath, InstallDir + 'OpenKey32.exe') = 0) or
+     (CompareText(ImagePath, InstallDir + 'OpenKey.exe') = 0)) then
+    Result := 1;
+end;
+
 function RuntimeVersionSufficient(Installed: Cardinal; VersionText, MinimumText: String): Boolean;
 var
   Version, Minimum: Int64;

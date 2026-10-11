@@ -22,6 +22,12 @@ Assert-Setup ($taskSource -match 'userdesktop.*Tasks: desktopicon') 'optional de
 Assert-Setup ($taskSource -match 'Name: "desktopicon".*Flags: unchecked') 'desktop unchecked by default'
 Assert-Setup ($taskSource -match 'postinstall nowait skipifsilent unchecked runasoriginaluser') 'opt-in launch as user'
 Assert-Setup ($taskSource -match 'CloseApplications=no' -and $taskSource -match 'RestartApplications=no') 'no forced process shutdown'
+Assert-Setup ($taskSource -match 'if WizardSilent then Exit;.*' -and $taskSource -match 'MB_YESNO or MB_DEFBUTTON2') 'interactive app close consent defaults to No'
+Assert-Setup ($taskSource -match 'PostMessage\(CloseWindows\[Index\], \$0400 \+ 2021' -and $taskSource -match 'PostMessage\(CloseWindows\[Index\], \$0010') 'graceful engine IPC and UI close'
+Assert-Setup ($taskSource -match 'Remaining := 5000 - \(AppTicks - Started\)' -and $taskSource -match 'AppWait\(CloseHandles\[Index\], Remaining\)' -and $taskSource -match 'AppCloseHandle\(CloseHandles\[Index\]\)') 'bounded process exit wait and handle cleanup'
+Assert-Setup ($taskSource -notmatch 'TerminateProcess|taskkill|Stop-Process') 'never force terminate'
+Assert-Setup ($taskSource -match 'CurrentProcessID <> CloseProcessIDs\[Index\]') 'revalidate HWND process after user confirmation'
+Assert-Setup ($taskSource.IndexOf('if not CloseInstalledApps then') -lt $taskSource.IndexOf('if RuntimeSatisfied then Exit;')) 'close before runtime/file installation'
 Assert-Setup ($taskSource -match 'RuntimePage.Values\[0\] := False') 'explicit runtime consent'
 Assert-Setup ($taskSource -match 'if WizardSilent or not RuntimePage.Values\[0\]') 'silent missing-runtime fails closed'
 Assert-Setup ($taskSource -match 'function PrepareToInstall') 'runtime installed before app files'
@@ -55,6 +61,33 @@ Write-Output '9 build shortcut/packaging contract checks passed.'
 if (-not (Test-Path -LiteralPath $IsccPath -PathType Leaf)) { throw 'Inno compiler required for native Pascal policy fixture.' }
 $taskProbeRoot = Join-Path $PSScriptRoot ('dist\setup-policy-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $taskProbeRoot | Out-Null
+# Compile the actual installer [Code], without payloads or executing its callbacks.
+# This catches API/type mistakes not covered by pure policy fixtures.
+$taskCode = ($taskSource -split '(?m)^\[Code\]\s*', 2)[1]
+$taskPolicyPath = Join-Path $PSScriptRoot 'Installer\RuntimePolicy.iss'
+$taskCode = $taskCode.Replace('#include "RuntimePolicy.iss"', ('#include "' + $taskPolicyPath + '"'))
+$taskCompileSource = @"
+[Setup]
+AppId=OpenKeyAppCloseCompileFixtureOnly
+AppName=OpenKey app close compile fixture
+AppVersion=1
+PrivilegesRequired=lowest
+CreateAppDir=no
+Uninstallable=no
+OutputDir=$taskProbeRoot
+OutputBaseFilename=AppCloseCompileProbe
+[Code]
+$taskCode
+function InitializeSetup: Boolean;
+begin
+  Result := False;
+end;
+"@
+$taskCompileFile = Join-Path $taskProbeRoot 'AppCloseCompileProbe.iss'
+$taskCompileSource | Set-Content -LiteralPath $taskCompileFile -Encoding UTF8
+& $IsccPath /Q /DMinimumRuntime=14.51.36231.0 /DRuntimeHashX64=fixture /DRuntimeHashX86=fixture $taskCompileFile
+if ($LASTEXITCODE -ne 0) { throw 'Actual installer app-close code compilation failed.' }
+Write-Output 'Actual installer code compiled; app-close callbacks were not executed.'
 & $IsccPath /Q "/DProbeOutput=$taskProbeRoot" (Join-Path $PSScriptRoot 'Tests\InstallerPolicyTests.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Native policy fixture compilation failed.' }
 $taskReport = Join-Path $taskProbeRoot 'report.txt'

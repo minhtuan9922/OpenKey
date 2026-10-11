@@ -6,7 +6,7 @@
 [Setup]
 AppId={{88759ADC-2201-4DF1-A68A-687EB37B1A02}
 AppName=OpenKey Fluent Beta
-AppVersion=3.0.2
+AppVersion=3.0.3
 AppPublisher=OpenKey contributors
 DefaultDirName={localappdata}\Programs\OpenKey-Fluent
 DefaultGroupName=OpenKey Fluent
@@ -46,8 +46,10 @@ vietnamese.RuntimeConsent=Tôi đồng ý cài Microsoft Visual C++ Runtime nế
 english.RuntimeConsent=I agree to install the Microsoft Visual C++ Runtime if needed
 vietnamese.AcceptRuntime=Vui lòng đồng ý cài thư viện cần thiết hoặc hủy bộ cài.
 english.AcceptRuntime=Please accept installation of the required runtime, or cancel Setup.
-vietnamese.CloseApp=Vui lòng thoát OpenKey ở tray và đóng giao diện hoặc dừng debugger trước khi tiếp tục. Bộ cài không tự dừng ứng dụng.
-english.CloseApp=Please exit OpenKey from the tray and close its UI or stop the debugger before continuing. Setup does not stop it automatically.
+vietnamese.CloseApp=OpenKey chưa thoát hoàn toàn. Vui lòng thoát ở tray, đóng giao diện hoặc dừng debugger rồi thử lại. Bộ cài không cưỡng bức dừng tiến trình.
+english.CloseApp=OpenKey has not fully exited. Exit from the tray, close its UI or stop the debugger, then retry. Setup will not force-terminate processes.
+vietnamese.CloseAppConfirm=Đóng OpenKey và giao diện đang chạy trong thư mục cài đặt để tiếp tục cập nhật? Cấu hình và gõ tắt đã lưu được giữ lại; nội dung chưa lưu trong giao diện sẽ bị mất. Chọn Không để dừng trước khi thay file.
+english.CloseAppConfirm=Close OpenKey and its UI running from the installation folder to continue updating? Saved settings and text expansions are preserved; unsaved UI text will be lost. Choose No to stop before replacing files.
 vietnamese.SilentRuntime=Thiếu Microsoft Visual C++ Runtime hoặc phiên bản quá cũ. Chạy bộ cài tương tác để đồng ý cài thư viện.
 english.SilentRuntime=Required Microsoft Visual C++ Runtime is missing or too old. Run interactive Setup to approve its installation.
 vietnamese.BadRuntime=Kiểm tra tính toàn vẹn runtime thất bại. OpenKey chưa được cài.
@@ -83,6 +85,108 @@ Filename: "{app}\{code:EngineName}"; Description: "{cm:StartApp}"; WorkingDir: "
 
 var
   RuntimePage: TInputOptionWizardPage;
+  CloseWindows: array of HWND;
+  CloseHandles: array of THandle;
+  CloseKinds: array of Integer;
+  CloseProcessIDs: array of Cardinal;
+
+#if VER >= EncodeVer(7, 0, 0)
+function AppEnumWindows(Callback: NativeInt; Param: LPARAM): Boolean;
+#else
+function AppEnumWindows(Callback: LongWord; Param: Longint): Boolean;
+#endif
+  external 'EnumWindows@user32.dll stdcall';
+function AppWindowProcess(Window: HWND; var ProcessID: Cardinal): Cardinal;
+  external 'GetWindowThreadProcessId@user32.dll stdcall';
+function AppOpenProcess(Access: Cardinal; Inherit: Boolean; ProcessID: Cardinal): THandle;
+  external 'OpenProcess@kernel32.dll stdcall';
+function AppImageName(Process: THandle; Flags: Cardinal; Buffer: String; var Size: Cardinal): Boolean;
+  external 'QueryFullProcessImageNameW@kernel32.dll stdcall';
+function AppWindowClass(Window: HWND; Buffer: String; Size: Integer): Integer;
+  external 'GetClassNameW@user32.dll stdcall';
+function AppWindowOwner(Window: HWND; Command: Cardinal): HWND;
+  external 'GetWindow@user32.dll stdcall';
+function AppWait(Process: THandle; Milliseconds: Cardinal): Cardinal;
+  external 'WaitForSingleObject@kernel32.dll stdcall';
+function AppTicks: Int64;
+  external 'GetTickCount64@kernel32.dll stdcall';
+function AppCloseHandle(Process: THandle): Boolean;
+  external 'CloseHandle@kernel32.dll stdcall';
+
+#if VER >= EncodeVer(7, 0, 0)
+function CollectInstalledApp(Window: HWND; Param: LPARAM): Boolean;
+#else
+function CollectInstalledApp(Window: HWND; Param: Longint): Boolean;
+#endif
+var
+  ProcessID, Size: Cardinal;
+  Process: THandle;
+  ImagePath, WindowClass: String;
+  Kind, Count: Integer;
+begin
+  Result := True;
+  ProcessID := 0;
+  if AppWindowProcess(Window, ProcessID) = 0 then Exit;
+  Process := AppOpenProcess($00101000, False, ProcessID); { query + synchronize only }
+  if Process = 0 then Exit;
+  ImagePath := StringOfChar(#0, 32768); Size := Length(ImagePath);
+  WindowClass := StringOfChar(#0, 256);
+  SetLength(WindowClass, AppWindowClass(Window, WindowClass, Length(WindowClass)));
+  Kind := 0;
+  if AppImageName(Process, 0, ImagePath, Size) then begin
+    SetLength(ImagePath, Size);
+    Kind := AppCloseKind(ImagePath, ExpandConstant('{app}'), WindowClass);
+  end;
+  { UI main window only, not owned menus/dialogs. Engine uses its hidden IPC window. }
+  if (Kind = 2) and (AppWindowOwner(Window, 4) <> 0) then Kind := 0;
+  if Kind = 0 then begin AppCloseHandle(Process); Exit; end;
+  Count := GetArrayLength(CloseWindows);
+  SetArrayLength(CloseWindows, Count + 1);
+  SetArrayLength(CloseHandles, Count + 1);
+  SetArrayLength(CloseKinds, Count + 1);
+  SetArrayLength(CloseProcessIDs, Count + 1);
+  CloseWindows[Count] := Window; CloseHandles[Count] := Process; CloseKinds[Count] := Kind;
+  CloseProcessIDs[Count] := ProcessID;
+end;
+
+function CloseInstalledApps: Boolean;
+var
+  Index: Integer;
+  Started, Remaining: Int64;
+  CurrentProcessID: Cardinal;
+begin
+  Result := False;
+  try
+    if not AppEnumWindows(CreateCallback(@CollectInstalledApp), 0) then Exit;
+    if GetArrayLength(CloseWindows) = 0 then begin Result := True; Exit; end;
+    { Silent installs never close apps without an interactive confirmation. }
+    if WizardSilent then Exit;
+    if MsgBox(CustomMessage('CloseAppConfirm'), mbConfirmation, MB_YESNO or MB_DEFBUTTON2) <> IDYES then Exit;
+    Result := True;
+    Started := AppTicks;
+    for Index := 0 to GetArrayLength(CloseWindows) - 1 do begin
+      { The user may have closed a window while the confirmation was open.
+        Never send to a recycled HWND owned by another process. }
+      if AppWait(CloseHandles[Index], 0) <> 0 then begin
+        CurrentProcessID := 0;
+        AppWindowProcess(CloseWindows[Index], CurrentProcessID);
+        if CurrentProcessID <> CloseProcessIDs[Index] then Result := False
+        else if CloseKinds[Index] = 1 then begin
+          if not PostMessage(CloseWindows[Index], $0400 + 2021, 0, 0) then Result := False;
+        end else if not PostMessage(CloseWindows[Index], $0010, 0, 0) then Result := False;
+      end;
+    end;
+    for Index := 0 to GetArrayLength(CloseHandles) - 1 do begin
+      Remaining := 5000 - (AppTicks - Started);
+      if Remaining < 0 then Remaining := 0;
+      if AppWait(CloseHandles[Index], Remaining) <> 0 then Result := False;
+    end;
+  finally
+    for Index := 0 to GetArrayLength(CloseHandles) - 1 do AppCloseHandle(CloseHandles[Index]);
+    SetArrayLength(CloseWindows, 0); SetArrayLength(CloseHandles, 0); SetArrayLength(CloseKinds, 0);
+    SetArrayLength(CloseProcessIDs, 0);
+  end;
+end;
 
 function UseX64: Boolean;
 begin
@@ -157,6 +261,10 @@ var
   ExitCode: Integer;
 begin
   Result := '';
+  if not CloseInstalledApps then begin
+    Result := CustomMessage('CloseApp');
+    Exit;
+  end;
   if EngineRunning then begin
     Result := CustomMessage('CloseApp');
     Exit;
