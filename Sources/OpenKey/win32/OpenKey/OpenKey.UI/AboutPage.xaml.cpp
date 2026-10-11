@@ -15,8 +15,8 @@ using namespace Microsoft::UI::Xaml;
 
 namespace
 {
-    constexpr wchar_t OpenKeyVersion[] = L"3.0.6";
-    constexpr uint32_t OpenKeyVersionCode = 0x00060003; // Packed 3.0.6, low byte = major.
+    constexpr wchar_t OpenKeyVersion[] = L"3.0.7";
+    constexpr uint32_t OpenKeyVersionCode = 0x00070003; // Packed 3.0.7, low byte = major.
 
     hstring buildDate()
     {

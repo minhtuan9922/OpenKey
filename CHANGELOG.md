@@ -1,5 +1,12 @@
 # OpenKey Change Log
 
+## Windows Fluent 3.0.7 — 2026-10-11
+
+- Nâng đồng bộ phiên bản engine, updater, giao diện và cấu hình bộ cài lên 3.0.7;
+  metadata Windows `v3.0.7` / `458755` (`0x00070003`).
+
+Chưa tạo bộ cài, tag hoặc phát hành GitHub cho bản 3.0.7.
+
 ## Windows Fluent 3.0.6 — 2026-10-11
 
 - Nâng đồng bộ engine, updater, UI và bộ cài lên 3.0.6; metadata Windows

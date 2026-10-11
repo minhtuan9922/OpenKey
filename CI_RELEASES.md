@@ -8,14 +8,14 @@ Commit mã nguồn, scripts và workflow đã sửa trước khi tạo tag; tag 
 commit chứa đúng phiên bản. Không tạo tag trên commit cũ chưa có workflow.
 
 ```powershell
-git tag v3.0.6
-git push origin v3.0.6
+git tag v3.0.7
+git push origin v3.0.7
 ```
 
 Xem GitHub → Actions → **Build offline setup on tag**.
-Ví dụ trên chỉ dùng nếu tag chưa tồn tại và source/metadata đều 3.0.6.
+Ví dụ trên chỉ dùng nếu tag chưa tồn tại và source/metadata đều 3.0.7.
 Nếu tag đã phát hành, tăng version đồng bộ và dùng tag mới, không ghi đè tag cũ.
-Hoặc chạy **Run workflow** với input `tag` là tag đã tồn tại (`v3.0.6`).
+Hoặc chạy **Run workflow** với input `tag` là tag đã tồn tại (`v3.0.7`).
 Để chạy thủ công, workflow phải có trên nhánh mặc định. Repo cần bật Actions
 và cho phép quyền `contents: write` của job publish. Không cần PAT riêng.
 
@@ -59,7 +59,7 @@ script dừng khi hash/chữ ký/version không đúng, không tự chấp nhậ
 ```powershell
 .\test-ci-release.ps1
 .\prepare-ci.ps1 -DownloadOnly
-.\build-ci-release.ps1 -Tag v3.0.6
+.\build-ci-release.ps1 -Tag v3.0.7
 ```
 
 Lệnh cuối build và chạy các fixture; không publish, không chạy setup. Thư mục
