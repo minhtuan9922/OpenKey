@@ -78,6 +78,6 @@ try {
                 $reader.ReadUInt32() -ne 0x4550 -or $reader.ReadUInt16() -ne $machine) { throw "Invalid PE architecture: $name" }
         } finally { $reader.Dispose() }
     }
-    $result = [pscustomobject]@{ Zip = $resolved; Architecture = $manifest.architecture; VerifiedFiles = $records.Count; Integrity = 'Passed; authenticity is not established by an unsigned manifest' }
+    $result = [pscustomobject]@{ Zip = $resolved; Architecture = $manifest.architecture; VerifiedFiles = $records.Count; VcRuntimeMinimumVersion = $minimum.ToString(); Integrity = 'Passed; authenticity is not established by an unsigned manifest' }
 } finally { $archive.Dispose() }
 $result

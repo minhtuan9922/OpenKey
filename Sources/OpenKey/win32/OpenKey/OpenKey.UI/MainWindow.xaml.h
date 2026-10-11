@@ -9,6 +9,7 @@ namespace winrt::OpenKeyUI::implementation
     struct MainWindow : MainWindowT<MainWindow>
     {
         MainWindow();
+        void OpenPage(winrt::hstring const& page);
 
         void OnNavigationSelectionChanged(
             winrt::Microsoft::UI::Xaml::Controls::NavigationView const& sender,
@@ -28,6 +29,8 @@ namespace winrt::OpenKeyUI::implementation
         winrt::Windows::UI::ViewManagement::AccessibilitySettings::HighContrastChanged_revoker m_contrastChanged;
         winrt::Windows::UI::ViewManagement::UISettings m_systemSettings;
         winrt::Windows::UI::ViewManagement::UISettings::ColorValuesChanged_revoker m_colorsChanged;
+        winrt::Microsoft::UI::Dispatching::DispatcherQueueTimer m_themeTimer{ nullptr };
+        int m_appliedTheme = -1;
     };
 }
 

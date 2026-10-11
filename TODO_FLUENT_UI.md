@@ -2,7 +2,86 @@
 
 ## Mục tiêu
 
+### Bộ cài offline một file (2026-10-11)
+
+- [x] Thêm Installer/OpenKey.iss và build-setup.ps1: một EXE tự chọn x64/x86,
+  cài theo tài khoản, Start Menu cho engine/Settings, Desktop và chạy app tùy chọn.
+- [x] Kiểm tra VC++ đúng kiến trúc/minimum, consent và UAC khi thiếu, hash trước
+  chạy runtime offline; fail closed khi hủy/lỗi, restart rồi chạy lại khi cần.
+- [x] Gỡ qua Windows, giữ settings/macro/runtime; không tự kill process hoặc
+  thay startup. Tiếng Việt/Anh và wizard Sáng/Tối theo hệ thống.
+- [x] 24 source contract + 38 native Pascal fixtures; verify 566 input compiler,
+  ZIP/hash/PE/chữ ký runtime PS7/5.1 đạt. Full hồi quy 17/17 mỗi shell.
+- [x] Tạo setup khoảng 59,2 MiB; đường dẫn/hash/build và hướng dẫn ở INSTALLER.md.
+- [ ] Nghiệm thu cài/gỡ/UAC/shortcut/nâng cấp thật trong Sandbox/máy sạch.
+- [ ] Rà quyền phân phối runtime/dependency, ký số và phát hành công khai.
+
+### Giảm giật khi chuyển menu tray (2026-10-11)
+
+- [x] Vẽ vào back buffer riêng cho từng panel rồi BitBlt một lần; tái sử dụng
+  DC/bitmap, giải phóng khi đóng panel, chỉ invalidate hai dòng đổi hover.
+- [x] Bỏ repaint và cập nhật MSAA location khi con trỏ vẫn ở cùng một dòng.
+- [x] Hover submenu chờ 200 ms; giữ submenu cũ khi rê chéo qua dòng cha,
+  hủy chuyển khi vào submenu; click/bàn phím/MSAA vẫn phản hồi ngay.
+- [x] 297 kiểm tra popup/kiến trúc, gồm deadline/cancel/chuyển submenu,
+  300 frame dùng lại buffer và cân bằng GDI sau mỗi lifetime panel.
+- [x] Người dùng xác nhận popup ổn sau sửa giật (2026-10-11).
+- [ ] Nghiệm thu riêng đổi Sáng/Tối và màn hình DPI hỗn hợp; xác nhận “ổn”
+  không được coi là đã chạy toàn bộ ma trận kiểm thử.
+
+### Popup tray tùy biến bo góc (2026-10-11)
+
+- [x] Thay popup chính bằng cửa sổ WS_POPUP bo góc 12 DIP, khoảng đệm 10 DIP,
+  hover bo góc và mũi tên submenu tự vẽ đúng màu Sáng/Tối/Theo hệ thống.
+- [x] Giữ snapshot HMENU và 21 ID/handler, checked/default/disabled; không đổi
+  dữ liệu registry. Native menu dự phòng khi High Contrast hoặc khởi tạo lỗi.
+- [x] Bàn phím lên/xuống/trái/phải/Home/End/PageUp/PageDown/Enter/Space/Escape,
+  chọn/cycle chữ đầu; chuột/submenu/click ngoài, cuộn khi thấp, giới hạn work area.
+- [x] Provider IAccessible cho tên/role/trạng thái/action/location, event menu/
+  focus và lifetime snapshot sau đóng; COM/DPI scope cân bằng, không API private.
+- [x] 169 tests popup model/MSAA/offscreen mỗi kiến trúc, xem bitmap Sáng/Tối;
+  giữ 303 tests fallback renderer; ghi nhận hồi quy/build ở FLUENT_UI_QA.md.
+- [ ] Người dùng kiểm thử popup thực tế: submenu/chuột/bàn phím/ngoài menu,
+  Narrator, DPI hỗn hợp, Win10/11, High Contrast và resize/taskbar nhiều màn hình.
+- [ ] Làm mới ZIP/Sandbox sau nghiệm thu; gói cũ chưa chứa popup tùy biến.
+
+### Màu Sáng/Tối thực sự cho nội dung menu tray (2026-10-11)
+
+- [x] Owner-draw nền/chữ/hover/separator/checked/default/disabled của HMENU và
+  submenu; dùng uiTheme chung, mặc định theo UISettings Windows.
+- [x] Giữ native menu loop/lệnh/arrow, tên MSAA; font menu theo DPI; mnemonic/
+  chọn và cycle chữ đầu; High Contrast dùng menu native, không API private.
+- [x] Session quản lý và khôi phục itemData/fType/brush/GDI, ngăn ModifyMenu và
+  mở lại menu trong nested loop; kiểm thử offscreen tích hợp test-settings.
+- [x] 303 checks menu/kiến trúc; hồi quy 16/16 trên PS7 và PS5.1 đạt, build
+  engine Debug/Release x64/x86 sạch 0 cảnh báo/0 lỗi. Báo cáo ở FLUENT_UI_QA.md.
+- [ ] QA trực tiếp light/dark/system, màu arrow/viền native, phím mũi tên/
+  Enter/Escape, submenu, click ngoài, Narrator, màn hình DPI hỗn hợp và HC.
+- [ ] Làm mới ZIP/Sandbox sau nghiệm thu; gói beta cũ chưa chứa thay đổi tray.
+
+### Gõ tắt, theme và mở trang Fluent từ tray (2026-10-11)
+
+- [x] Thêm vUseMacro/vUseMacroInEnglishMode vào Preferences/store/engine mapping,
+  toggle song ngữ ở MacroPage; lưu chọn lọc và refresh 500 ms, giữ default/reset cũ.
+- [x] Tray thêm Giao diện → Theo hệ thống/Sáng/Tối, dùng uiTheme chung với
+  Cài đặt nâng cao. Mặc định khi chưa lưu theo Windows; giữ lựa chọn người dùng.
+  UI đang mở refresh theme, combo đồng bộ; popup hiện dùng cửa sổ tùy biến,
+  owner-draw HMENU giữ làm dự phòng như các mục trên.
+- [x] Gõ tắt/Chuyển mã/Giới thiệu ưu tiên Fluent đúng trang qua --page allowlist,
+  cả initial/redirected activation; fallback dialog legacy nếu launch thất bại.
+- [ ] QA tray mở đúng trang khi UI đóng/đang mở/minimize, đổi theme từ hai phía,
+  theo Windows/High Contrast, macro bật/tắt và gõ tắt trong chế độ Anh thực tế.
+- [x] Link lại engine Debug x64 sau khi người dùng thoát OpenKey: All Debug x64
+  build sạch, 0 cảnh báo/0 lỗi; cả All Debug/Release x64/x86 đã build sạch.
+  Hồi quy 16/16 PS7/5.1 đạt; chưa làm mới ZIP/Sandbox.
+
 ### Chuẩn bị kiểm thử Sandbox (2026-10-10)
+
+- [x] Đưa 13 ca tích hợp staging vào test-packaging/test-all (2026-10-11): 10 đầu vào lỗi bị từ chối trước tạo session, x64/x86 không runtime và chạy lặp tạo GUID mới; kiểm tra digest, metadata, bản sao helper, Input chỉ đọc/Logs riêng, mạng/clipboard tắt. Fixture không chạy executable/installer/guest; đạt PS7/5.1. Các thư mục sandbox sinh bởi test này chỉ chứa ZIP giả, không dùng để nghiệm thu.
+
+- [x] Tự động chuẩn bị runtime offline khi chỉ định đủ RuntimePath/RuntimeExpectedSha256 (2026-10-11): kiểm tra SHA-256, chữ ký Microsoft, kiến trúc và minimum beta trước/sau copy; tạo hướng dẫn guest và metadata session. 54/54 fixture Sandbox PS7/5.1 đạt; tích hợp bộ cài thật x64/x86 đạt; sai kiến trúc không tạo staging; luồng không runtime giữ nguyên. Không mở Sandbox hoặc chạy bộ cài.
+
+- [x] Bổ sung runtime offline x64/x86 cho hai session mới ngày 2026-10-11: FileVersion 14.51.36247.0, đúng ProductName kiến trúc, Authenticode Valid/Microsoft Corporation, hash trước/sau copy và kiểm tra lại PS7/5.1 đạt. x64 tái dùng bộ cài cũ, x86 tải permalink Microsoft; từng Input có OFFLINE_RUNTIME.md. Không chạy/cài installer, không đổi ZIP/.wsb, không xác nhận quyền phân phối hoặc nghiệm thu máy sạch. Tên/hash ở BETA_PACKAGING.md.
 
 - [x] Làm mới beta x64/x86 và chuẩn bị hai session Sandbox riêng ngày 2026-10-11 sau dọn helper/liên kết/khóa About workflow: Release All sạch, 281 payload/gói/hash/PE verifier PS7/5.1 đạt, resources 4/4, executable/notice khớp nguồn; 27/27 fixture Sandbox đạt hai shell. Tên/hash/.wsb mới ở BETA_PACKAGING.md. Không mở guest/cài runtime, không thay session cũ; các phiên mới không kèm VC++ Redistributable, máy sạch chưa nghiệm thu.
 
@@ -52,13 +131,13 @@ Các thành phần giao diện cần thay thế dần:
 ## Giai đoạn 0 — Khóa phạm vi và tạo baseline
 
 - [ ] Chụp ảnh tất cả màn hình hiện tại để làm tài liệu đối chiếu.
-- [ ] Liệt kê toàn bộ control, giá trị mặc định và hành vi của màn hình chính.
-- [ ] Liệt kê toàn bộ chức năng của Macro Dialog.
-- [ ] Liệt kê toàn bộ chức năng của Convert Tool Dialog.
-- [ ] Liệt kê toàn bộ hành động trong system tray menu.
-- [ ] Ghi lại tất cả registry key mà ứng dụng đang đọc/ghi.
-- [ ] Ghi lại luồng khởi động, single-instance, cập nhật và thoát ứng dụng.
-- [ ] Tạo checklist kiểm thử thủ công cho bản Win32 hiện tại.
+- [x] MAIN_CONTROL_BASELINE.md kiểm kê control chung/bốn tab Win32, ID → registry/default/trang Fluent và side effect (2026-10-11); ghi rõ default load/reset khác nhau, clipboard đảo, legacy-only, dependency khác biệt và reset không đồng bộ toàn bộ startup. Chỉ baseline source, GUI chưa nghiệm thu.
+- [x] Kiểm kê Macro Dialog và đối chiếu MacroPage/MacroService trong MACRO_CONVERT_BASELINE.md (2026-10-11): CRUD, nhập/xuất, tự viết hoa, buffer/UTF-8, lưu ngay, khác biệt trùng tên/đổi tên/xác nhận/bản nháp và giới hạn poll. Checklist GUI/engine vẫn chờ nghiệm thu.
+- [x] Kiểm kê Convert Tool Dialog và đối chiếu ConvertPage/shared services trong MACRO_CONVERT_BASELINE.md (2026-10-11): năm bảng mã, swap, casing/bỏ dấu, clipboard-only legacy, thông báo/hotkey/tray, vùng text bổ sung ở Fluent và giới hạn UI-only. Không đánh dấu Sandbox hoặc clipboard/hotkey thật đạt.
+- [x] Kiểm kê 18 lệnh tray từ source, ID/label/handler/đối số/checked/menu cha ở Tests/TrayContract.json; TRAY_LIFECYCLE_BASELINE.md ghi nhấp chuột, default, encoding submenu, Explorer recovery và các entry còn mở legacy. 29 nhóm source guard tray/lifecycle đạt PS5.1 và được đưa vào test-all; tương tác tray thực tế vẫn cần QA.
+- [x] Kiểm kê registry từ source Windows: 46 giá trị khóa ứng dụng + 1 Run startup, nhóm/kiểu ở Tests/RegistryInventory.json; REGISTRY_INVENTORY.md ghi dữ liệu binary, Fluent-only, khác biệt default legacy, task/shortcut và prerequisite riêng. 10 nhóm source guard đạt PS7/5.1, tích hợp test-all; không truy cập registry thật. Nghiệm thu nâng cấp/rollback vẫn chưa hoàn tất.
+- [x] TRAY_LIFECYCLE_BASELINE.md ghi startup/elevation, FindWindow single-instance, init settings/startup/macro/hook/tray, tách UI/engine, activation/fallback, IPC/update và exit cleanup; lưu ý side effect startup khi mở engine, UI crash sau launch không tự fallback và giới hạn race/IPC. Chỉ kiểm kê source, không chứng minh runtime lifecycle đạt.
+- [x] Checklist thủ công nhóm màn hình chính/default/reset/startup ở MAIN_CONTROL_BASELINE.md, kết hợp MACRO_CONVERT_BASELINE.md và TRAY_LIFECYCLE_BASELINE.md cho macro/chuyển mã/tray/lifecycle. Các ca vẫn để trống, chưa đánh dấu chạy thực tế đạt.
 - [ ] Build và lưu kết quả baseline cho `Debug x64`, `Release x64` và `Release x86`.
 - [ ] Quyết định có tiếp tục hỗ trợ Windows trước Windows 10 1809 hay không.
 

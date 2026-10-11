@@ -58,6 +58,8 @@ SettingsService::Preferences SettingsService::readPreferences() {
 	preferences.quickStartConsonant = readDword(key, L"vQuickStartConsonant", preferences.quickStartConsonant);
 	preferences.quickEndConsonant = readDword(key, L"vQuickEndConsonant", preferences.quickEndConsonant);
 	preferences.autoCapsMacro = readDword(key, L"vAutoCapsMacro", preferences.autoCapsMacro);
+		preferences.useMacro = readDword(key, L"vUseMacro", preferences.useMacro);
+		preferences.useMacroInEnglishMode = readDword(key, L"vUseMacroInEnglishMode", preferences.useMacroInEnglishMode);
 	preferences.switchKeyStatus = readDword(key, L"vSwitchKeyStatus", preferences.switchKeyStatus);
 	preferences.fixRecommendBrowser = readDword(key, L"vFixRecommendBrowser", preferences.fixRecommendBrowser);
 	preferences.sendKeyStepByStep = readDword(key, L"vSendKeyStepByStep", preferences.sendKeyStepByStep);
@@ -94,6 +96,8 @@ namespace {
 	};
 	constexpr PreferenceField PreferenceFields[] = {
 		{ L"vLanguage", &SettingsService::Preferences::language },
+			{ L"vUseMacro", &SettingsService::Preferences::useMacro },
+			{ L"vUseMacroInEnglishMode", &SettingsService::Preferences::useMacroInEnglishMode },
 		{ L"vInputType", &SettingsService::Preferences::inputType },
 		{ L"vCodeTable", &SettingsService::Preferences::codeTable },
 		{ L"vCheckSpelling", &SettingsService::Preferences::checkSpelling },

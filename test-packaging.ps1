@@ -57,7 +57,8 @@ foreach ($case in $cases) {
 }
 $validZip = Join-Path $root 'valid-x64.zip'
 $expectedHash = (Get-FileHash -LiteralPath $validZip -Algorithm SHA256).Hash
-& (Join-Path $PSScriptRoot 'verify-beta.ps1') $validZip -ExpectedSha256 $expectedHash | Out-Null
+$verified = & (Join-Path $PSScriptRoot 'verify-beta.ps1') $validZip -ExpectedSha256 $expectedHash
+if ($verified.VcRuntimeMinimumVersion -ne '14.51.36231.0') { throw 'Verified runtime minimum was not preserved.' }
 Write-Host 'PASS external-hash-match'
 foreach ($testArguments in @(@{ ExpectedSha256 = ('0' * 64) }, @{ ExpectedArchitecture = 'x86' })) {
     $rejected = $false
@@ -65,3 +66,4 @@ foreach ($testArguments in @(@{ ExpectedSha256 = ('0' * 64) }, @{ ExpectedArchit
     if (-not $rejected) { throw 'External hash/architecture mismatch was accepted.' }
 }
 Write-Host "17/17 synthetic package checks passed. No executables loaded; fixtures retained: $root"
+& (Join-Path $PSScriptRoot 'test-sandbox-staging.ps1') -FixtureRoot $root

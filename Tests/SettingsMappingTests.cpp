@@ -50,6 +50,7 @@ int main() {
             MAP(vRememberCode, rememberCode), MAP(vUseModernOrthography, useModernOrthography),
             MAP(vQuickTelex, quickTelex), MAP(vQuickStartConsonant, quickStartConsonant),
             MAP(vQuickEndConsonant, quickEndConsonant), MAP(vAutoCapsMacro, autoCapsMacro),
+            MAP(vUseMacro, useMacro), MAP(vUseMacroInEnglishMode, useMacroInEnglishMode),
             { [] { return vSwitchKeyStatus; }, 0x7A000206, identity }, // Preserve legacy load fallback.
             MAP(vFixRecommendBrowser, fixRecommendBrowser), MAP(vSendKeyStepByStep, sendKeyStepByStep),
             MAP(vUseSmartSwitchKey, useSmartSwitchKey), MAP(vSupportMetroApp, supportMetroApp),
@@ -91,7 +92,6 @@ int main() {
         }
         struct Extra { const wchar_t* key; int* global; int fallback; };
         const Extra extras[] = {
-            { L"vUseMacro", &vUseMacro, 1 }, { L"vUseMacroInEnglishMode", &vUseMacroInEnglishMode, 0 },
             { L"vRunAsAdmin", &vRunAsAdmin, 0 }, { L"vCreateDesktopShortcut", &vCreateDesktopShortcut, 0 }
         };
         for (const auto& extra : extras) {
@@ -119,6 +119,7 @@ int main() {
         for (size_t index = 0; index < count; ++index) {
             const std::wstring key = mapping[index].key;
             if (key == L"vQuickStartConsonant" || key == L"vQuickEndConsonant" || key == L"vCheckNewVersion") continue;
+            if (key == L"vUseMacro" || key == L"vUseMacroInEnglishMode") continue; // Checked below: reset differs from load.
             int expected = defaults.*mapping[index].member;
             if (key == L"vSupportMetroApp") expected = 1; // Reset differs from first-load default.
             require(engine[index].actual() == expected);

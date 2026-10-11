@@ -167,7 +167,7 @@
   <data name="MacroSaveFileFailureTitle" xml:space="preserve"><value>Could not save file</value></data>
   <data name="MacroOptionsSuccessTitle" xml:space="preserve"><value>Text expansion options saved</value></data>
   <data name="MacroOptionsFailureTitle" xml:space="preserve"><value>Could not save text expansion options</value></data>
-  <data name="MacroAutoCapsMessage" xml:space="preserve"><value>OpenKey will match the replacement text capitalization to the shortcut.</value></data>
+  <data name="MacroAutoCapsMessage" xml:space="preserve"><value>Text expansion options saved. The running engine will reload its settings.</value></data>
   <data name="MacroAddTitle" xml:space="preserve"><value>Add text expansion</value></data>
   <data name="AddButtonText" xml:space="preserve"><value>Add</value></data>
   <data name="QuickShortcutDisabled" xml:space="preserve"><value>Disable shortcut</value></data>
@@ -193,8 +193,8 @@
   <data name="UpdateCheckFailureMessage" xml:space="preserve"><value>Check your Internet connection and try again.</value></data>
   <data name="UpdateCurrentTitle" xml:space="preserve"><value>OpenKey is up to date</value></data>
   <data name="UpdateCurrentMessage" xml:space="preserve"><value>You are using the latest version.</value></data>
-  <data name="UpdateConfirmMessage" xml:space="preserve"><value>Fluent beta does not yet support updating the engine, UI, and runtime together. View the releases page and beta guide for manual updates; the app will not replace files or exit.</value></data>
-  <data name="UpdateButtonText" xml:space="preserve"><value>View releases</value></data>
+  <data name="UpdateConfirmMessage" xml:space="preserve"><value>Download OpenKey-Setup.exe from minhtuan9922/OpenKey through your browser to update the engine, UI, and runtime together. Exit OpenKey before running the installer. The app will not run the installer, replace files, or exit automatically.</value></data>
+  <data name="UpdateButtonText" xml:space="preserve"><value>Download update</value></data>
   <data name="UpdateLaterButtonText" xml:space="preserve"><value>Later</value></data>
   <data name="UpdaterMissingTitle" xml:space="preserve"><value>Updater not found</value></data>
   <data name="UpdaterMissingMessage" xml:space="preserve"><value>Place OpenKeyUpdate.exe beside the application or download the latest version from the releases page.</value></data>
@@ -309,18 +309,18 @@
   <data name="AboutCheckUpdateButton.Content" xml:space="preserve"><value>Check for updates</value></data>
   <data name="AboutUpdateProgress.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Checking for updates</value></data>
   <data name="AboutLabel3.Text" xml:space="preserve"><value>Project</value></data>
-  <data name="AboutLabel4.Text" xml:space="preserve"><value>Browse the source code, releases, and OpenKey community.</value></data>
-  <data name="AboutLabel5.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open OpenKey source code on GitHub</value></data>
-  <data name="AboutLabel5.Content" xml:space="preserve"><value>Source code on GitHub</value></data>
+  <data name="AboutLabel4.Text" xml:space="preserve"><value>OpenKey Fluent is developed at minhtuan9922/OpenKey, based on OpenKey by Mai Vũ Tuyên (tuyenvm/OpenKey).</value></data>
+  <data name="AboutLabel5.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open minhtuan9922's OpenKey Fluent source code on GitHub</value></data>
+  <data name="AboutLabel5.Content" xml:space="preserve"><value>GitHub: minhtuan9922/OpenKey</value></data>
   <data name="AboutLabel6.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open OpenKey releases</value></data>
   <data name="AboutLabel6.Content" xml:space="preserve"><value>Releases</value></data>
-  <data name="AboutLabel7.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open the OpenKey community</value></data>
-  <data name="AboutLabel7.Content" xml:space="preserve"><value>OpenKey community</value></data>
+  <data name="AboutLabel7.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open Mai Vũ Tuyên's original OpenKey source code on GitHub</value></data>
+  <data name="AboutLabel7.Content" xml:space="preserve"><value>Original source: tuyenvm/OpenKey</value></data>
   <data name="AboutLabel8.Text" xml:space="preserve"><value>License</value></data>
   <data name="AboutLabel9.Text" xml:space="preserve"><value>You may use, study, modify, and distribute OpenKey under the terms of GPLv3.</value></data>
   <data name="AboutLabel10.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Read the GNU General Public License version 3</value></data>
   <data name="AboutLabel10.Content" xml:space="preserve"><value>Read the GPLv3 license</value></data>
-  <data name="AboutLabel11.Text" xml:space="preserve"><value>Copyright © 2019–2026 Mai Vũ Tuyền and contributors.</value></data>
+  <data name="AboutLabel11.Text" xml:space="preserve"><value>Copyright © 2019–2026 Mai Vũ Tuyên and contributors. Fluent edition: minhtuan9922/OpenKey.</value></data>
   <data name="AboutLinkStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Link and update status</value></data>
   <data name="RootNavigation.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Use the arrow keys to select a settings page.</value></data>
   <data name="RootNavigation.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>OpenKey navigation</value></data>
@@ -418,4 +418,12 @@
   <data name="SpellingDependencyWarning.Title" xml:space="preserve"><value>Advanced spelling options are locked</value></data>
   <data name="SpellingDependencyWarning.Message" xml:space="preserve"><value>Some advanced spelling selections are retained, but enable Check spelling to edit them. OpenKey does not automatically turn off the saved selections.</value></data>
   <data name="SpellingDependencyWarning.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Spelling option warning</value></data>
+  <data name="UseMacroToggle.Header" xml:space="preserve"><value>Enable text expansion</value></data>
+  <data name="UseMacroToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="UseMacroToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="UseMacroToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Enable text expansion</value></data>
+  <data name="MacroInEnglishToggle.Header" xml:space="preserve"><value>Expand text in English input mode too</value></data>
+  <data name="MacroInEnglishToggle.OnContent" xml:space="preserve"><value>On</value></data>
+  <data name="MacroInEnglishToggle.OffContent" xml:space="preserve"><value>Off</value></data>
+  <data name="MacroInEnglishToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Text expansion in English input mode</value></data>
 </root>

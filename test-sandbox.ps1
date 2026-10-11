@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Sandbox\SandboxConfig.ps1')
 . (Join-Path $PSScriptRoot 'Sandbox\SandboxSmoke.ps1')
+. (Join-Path $PSScriptRoot 'Sandbox\OfflineRuntime.ps1')
 $passed = 0
 function Assert-Sandbox([bool]$Condition) { if (-not $Condition) { throw 'Sandbox assertion failed' } }
 function Test-Sandbox([string]$Name, [scriptblock]$Action) {
@@ -48,8 +49,48 @@ Test-Sandbox 'Empty account rejected' { Assert-Sandbox (-not (Test-OpenKeySandbo
 Test-Sandbox 'Runtime missing is not success' { Assert-Sandbox ((Get-OpenKeySmokeStatus $false $false) -eq 'prerequisite-missing') }
 Test-Sandbox 'Process exited is not success' { Assert-Sandbox ((Get-OpenKeySmokeStatus $true $true) -eq 'ui-exited-early') }
 Test-Sandbox 'Process alive is smoke only' { Assert-Sandbox ((Get-OpenKeySmokeStatus $true $false) -eq 'ui-running-smoke-only') }
+$runtimeFixture = @{ Sha256 = ('A' * 64); SignatureStatus = 'Valid';
+    SignerSubject = 'CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US';
+    FileVersion = '14.51.36247.0'; ProductName = 'Microsoft Visual C++ v14 Redistributable (x64) - 14.51.36247' }
+Test-Sandbox 'Valid runtime at minimum' { Assert-OpenKeyRuntimeMetadata $runtimeFixture x64 ([version]'14.51.36247.0') ('A' * 64) }
+Test-Sandbox 'Valid newer runtime and lowercase hash' { Assert-OpenKeyRuntimeMetadata $runtimeFixture x64 ([version]'14.51.36231.0') ('a' * 64) }
+Test-Sandbox 'Valid x86 runtime' {
+    $candidate = $runtimeFixture.Clone(); $candidate.ProductName = 'Microsoft Visual C++ v14 Redistributable (x86) - 14.51.36247'
+    Assert-OpenKeyRuntimeMetadata $candidate x86 ([version]'14.51.36231.0') ('A' * 64)
+}
+foreach ($mutation in @(
+    @{ Field = 'SignatureStatus'; Value = 'NotSigned' },
+    @{ Field = 'SignatureStatus'; Value = 'HashMismatch' },
+    @{ Field = 'SignatureStatus'; Value = 'UnknownError' },
+    @{ Field = 'SignerSubject'; Value = 'CN=Other, O=Microsoft Corporation' },
+    @{ Field = 'SignerSubject'; Value = 'CN=Microsoft Corporation' },
+    @{ Field = 'SignerSubject'; Value = 'CN=Microsoft Corporation Evil, O=Microsoft Corporation' },
+    @{ Field = 'SignerSubject'; Value = 'CN=Microsoft Corporation, O=Microsoft Corporation Evil' },
+    @{ Field = 'FileVersion'; Value = '14.50.0.0' },
+    @{ Field = 'FileVersion'; Value = 'invalid' },
+    @{ Field = 'FileVersion'; Value = '' },
+    @{ Field = 'ProductName'; Value = 'Microsoft Visual C++ v14 Redistributable (x86) - 14.51.36247' },
+    @{ Field = 'ProductName'; Value = 'Other runtime (x64)' },
+    @{ Field = 'Sha256'; Value = 'invalid' },
+    @{ Field = 'Sha256'; Value = ('B' * 64) }
+)) {
+    Test-Sandbox ("Runtime rejects {0}: {1}" -f $mutation.Field, $mutation.Value) {
+        $candidate = $runtimeFixture.Clone(); $candidate[$mutation.Field] = $mutation.Value
+        Assert-SandboxThrows { Assert-OpenKeyRuntimeMetadata $candidate x64 ([version]'14.51.36231.0') ('A' * 64) }
+    }
+}
+Test-Sandbox 'Runtime rejects higher package minimum' { Assert-SandboxThrows { Assert-OpenKeyRuntimeMetadata $runtimeFixture x64 ([version]'14.52.0.0') ('A' * 64) } }
+Test-Sandbox 'Runtime rejects invalid minimum' { Assert-SandboxThrows { Assert-OpenKeyRuntimeMetadata $runtimeFixture x64 ([version]'13.0') ('A' * 64) } }
+Test-Sandbox 'Runtime rejects missing minimum' { Assert-SandboxThrows { Assert-OpenKeyRuntimeMetadata $runtimeFixture x64 $null ('A' * 64) } }
+Test-Sandbox 'Runtime rejects invalid expected hash' { Assert-SandboxThrows { Assert-OpenKeyRuntimeMetadata $runtimeFixture x64 ([version]'14.51.36231.0') 'invalid' } }
+Test-Sandbox 'Runtime rejects missing metadata' { Assert-SandboxThrows { Assert-OpenKeyRuntimeMetadata $null x64 ([version]'14.51.36231.0') ('A' * 64) } }
+Test-Sandbox 'Runtime arguments optional as a pair' { Assert-OpenKeyRuntimeArguments '' '' }
+Test-Sandbox 'Runtime arguments accepted together' { Assert-OpenKeyRuntimeArguments 'fixture.exe' ('A' * 64) }
+Test-Sandbox 'Runtime path alone rejected' { Assert-SandboxThrows { Assert-OpenKeyRuntimeArguments 'fixture.exe' '' } }
+Test-Sandbox 'Runtime hash alone rejected' { Assert-SandboxThrows { Assert-OpenKeyRuntimeArguments '' ('A' * 64) } }
+Test-Sandbox 'Runtime directory rejected' { Assert-SandboxThrows { Get-OpenKeyRuntimeMetadata (Join-Path $PSScriptRoot 'Sandbox') } }
 Test-Sandbox 'Scripts parse on current shell' {
-    foreach ($name in @('prepare-sandbox.ps1','Sandbox\SandboxConfig.ps1','Sandbox\SandboxSmoke.ps1','test-sandbox.ps1')) {
+    foreach ($name in @('prepare-sandbox.ps1','Sandbox\SandboxConfig.ps1','Sandbox\SandboxSmoke.ps1','Sandbox\OfflineRuntime.ps1','test-sandbox-staging.ps1','test-sandbox.ps1')) {
         $tokens = $null; $parseErrors = $null
         $null = [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot $name), [ref]$tokens, [ref]$parseErrors)
         Assert-Sandbox (@($parseErrors).Count -eq 0)

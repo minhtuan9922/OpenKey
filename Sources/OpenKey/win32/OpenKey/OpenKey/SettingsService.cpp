@@ -40,8 +40,8 @@ void SettingsService::load() {
 	loadSetting(L"vSwitchKeyStatus", vSwitchKeyStatus, 0x7A000206);
 	vRestoreIfWrongSpelling = preferences.restoreIfWrongSpelling;
 	loadSetting(L"vFixRecommendBrowser", vFixRecommendBrowser, 1);
-	loadSetting(L"vUseMacro", vUseMacro, 1);
-	loadSetting(L"vUseMacroInEnglishMode", vUseMacroInEnglishMode, 0);
+	vUseMacro = preferences.useMacro;
+	vUseMacroInEnglishMode = preferences.useMacroInEnglishMode;
 	vAutoCapsMacro = preferences.autoCapsMacro;
 	loadSetting(L"vSendKeyStepByStep", vSendKeyStepByStep, 1);
 	loadSetting(L"vUseGrayIcon", vUseGrayIcon, 0);

@@ -119,6 +119,7 @@
     <ClInclude Include="UiLanguageSettings.h" />
     <ClInclude Include="UiThemeSettings.h" />
     <ClInclude Include="UiTheme.h" />
+    <ClInclude Include="UiLaunchRoute.h" />
     <ClInclude Include="UiWindowSizeSettings.h" />
     <ClInclude Include="MacroEditorState.h" />
     <ClInclude Include="UiOperationGate.h" />

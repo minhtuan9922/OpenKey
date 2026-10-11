@@ -50,11 +50,11 @@ INT_PTR AboutDialog::eventProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 		case NM_RETURN: {
 			PNMLINK link = (PNMLINK)lParam;
 			if (link->hdr.idFrom == IDC_SYSLINK_HOME_PAGE)
-				ShellExecute(NULL, _T("open"), _T("https://github.com/tuyenvm/OpenKey"), NULL, NULL, SW_SHOWNORMAL);
+					ShellExecute(NULL, _T("open"), _T("https://github.com/minhtuan9922/OpenKey"), NULL, NULL, SW_SHOWNORMAL);
 			else if (link->hdr.idFrom == IDC_SYSLINK_NEW_VERSION)
-				ShellExecute(NULL, _T("open"), _T("https://github.com/tuyenvm/OpenKey/releases"), NULL, NULL, SW_SHOWNORMAL);
+					ShellExecute(NULL, _T("open"), _T("https://github.com/minhtuan9922/OpenKey/releases"), NULL, NULL, SW_SHOWNORMAL);
 			else if (link->hdr.idFrom == IDC_SYSLINK_FANPAGE)
-				ShellExecute(NULL, _T("open"), _T("https://www.facebook.com/OpenKeyVN"), NULL, NULL, SW_SHOWNORMAL);
+					ShellExecute(NULL, _T("open"), _T("https://github.com/tuyenvm/OpenKey"), NULL, NULL, SW_SHOWNORMAL);
 		}
 		break;
 		}
@@ -67,6 +67,9 @@ void AboutDialog::initDialog() {
 	SET_DIALOG_ICON(IDI_APP_ICON);
 	
 	hUpdateButton = GetDlgItem(hDlg, IDC_BUTTON_CHECK_VERSION);
+	// Keep the fallback About dialog aligned with Fluent attribution; retain original copyright.
+	SetDlgItemTextW(hDlg, IDC_SYSLINK_HOME_PAGE, L"<a>github.com/minhtuan9922/OpenKey</a>");
+	SetDlgItemTextW(hDlg, IDC_SYSLINK_FANPAGE, L"Nguồn gốc: <a>github.com/tuyenvm/OpenKey</a>");
 
 	HFONT hFont = CreateFont(48, 0, 0, 0, FW_THIN, FALSE, FALSE, FALSE,
 		ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, 

@@ -61,5 +61,6 @@ public: //event
 
 	void onControlPanel();
 	void onOpenKeyAbout();
+	void onUiTheme(int theme);
 	void onOpenKeyExit();
 };

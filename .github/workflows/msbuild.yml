@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
 
     steps:
     - uses: actions/checkout@v4
@@ -29,10 +29,10 @@ jobs:
       uses: microsoft/setup-msbuild@v2
 
     - name: Build x86
-      run: msbuild -m -target:Rebuild -p:Configuration=Release -p:Platform=x86 ${{env.SOLUTION_FILE_PATH}}
+      run: ./build.ps1 -Configuration Release -Platform x86 -Target All
 
     - name: Build x64
-      run: msbuild -m -target:Rebuild -p:Configuration=Release -p:Platform=x64 ${{env.SOLUTION_FILE_PATH}}
+      run: ./build.ps1 -Configuration Release -Platform x64 -Target All
 
     - name: Upload a Build Artifact
       id: upload
@@ -42,6 +42,8 @@ jobs:
         path: |
           ${{env.SOLUTION_FILE_PATH}}/Release/
           ${{env.SOLUTION_FILE_PATH}}/x64/Release/
+          ${{env.SOLUTION_FILE_PATH}}/OpenKey.UI/Release/OpenKey.UI/
+          ${{env.SOLUTION_FILE_PATH}}/OpenKey.UI/x64/Release/OpenKey.UI/
 
     outputs:
       subject-name: OpenKey

@@ -2,12 +2,36 @@
 #include "App.xaml.h"
 #include "MainWindow.xaml.h"
 #include "UiLanguageSettings.h"
+#include "UiLaunchRoute.h"
+#include <shellapi.h>
+#include <winrt/Windows.ApplicationModel.Activation.h>
 
 #include <winrt/Microsoft.Windows.AppLifecycle.h>
 #include <winrt/Microsoft.Windows.Globalization.h>
 
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
+
+namespace
+{
+    winrt::hstring RequestedPage(winrt::Microsoft::Windows::AppLifecycle::AppActivationArguments const& args)
+    {
+        try
+        {
+            const auto launch = args.Data().try_as<winrt::Windows::ApplicationModel::Activation::ILaunchActivatedEventArgs>();
+            if (!launch) return {};
+            const auto command = launch.Arguments();
+            if (command.empty()) return {};
+            int count = 0;
+            auto arguments = CommandLineToArgvW(command.c_str(), &count);
+            if (!arguments) return {};
+            struct ArgumentsOwner { LPWSTR* value; ~ArgumentsOwner() { LocalFree(value); } } owner{ arguments };
+            const auto page = OpenKeyUILaunch::Page(count, arguments);
+            return winrt::hstring(page);
+        }
+        catch (winrt::hresult_error const&) { return {}; }
+    }
+}
 
 namespace winrt::OpenKeyUI::implementation
 {
@@ -43,6 +67,8 @@ namespace winrt::OpenKeyUI::implementation
         m_dispatcher = Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
         m_activationToken = m_appInstance.Activated({ this, &App::OnInstanceActivated });
         m_window = make<MainWindow>();
+        get_self<MainWindow>(m_window.as<OpenKeyUI::MainWindow>())->OpenPage(
+            RequestedPage(AppInstance::GetCurrent().GetActivatedEventArgs()));
         ActivateMainWindow();
     }
 
@@ -64,7 +90,7 @@ namespace winrt::OpenKeyUI::implementation
 
     void App::OnInstanceActivated(
         IInspectable const&,
-        Microsoft::Windows::AppLifecycle::AppActivationArguments const&)
+        Microsoft::Windows::AppLifecycle::AppActivationArguments const& args)
     {
         if (!m_dispatcher)
         {
@@ -72,8 +98,11 @@ namespace winrt::OpenKeyUI::implementation
         }
 
         auto lifetime = get_strong();
-        m_dispatcher.TryEnqueue([lifetime]()
+        const auto page = RequestedPage(args);
+        m_dispatcher.TryEnqueue([lifetime, page]()
         {
+            if (lifetime->m_window && !page.empty())
+                get_self<MainWindow>(lifetime->m_window.as<OpenKeyUI::MainWindow>())->OpenPage(page);
             lifetime->ActivateMainWindow();
         });
     }

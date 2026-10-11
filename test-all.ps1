@@ -7,7 +7,7 @@ $taskShell = (Get-Process -Id $PID).Path
 $taskReportRoot = Join-Path $PSScriptRoot ('dist\regression-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $taskReportRoot -Force | Out-Null
 $taskSuites = [System.Collections.Generic.List[object]]::new()
-foreach ($taskName in @('ui-resources', 'packaging', 'prerequisites', 'third-party', 'sandbox', 'debug-launcher')) {
+foreach ($taskName in @('ui-resources', 'packaging', 'prerequisites', 'third-party', 'sandbox', 'debug-launcher', 'registry-inventory', 'tray-contract', 'setup', 'ci-release')) {
     $taskSuites.Add(@{ Name = $taskName; Arguments = @() })
 }
 $taskArchitectures = if ($Platform -eq 'All') { @('x64','x86') } else { @($Platform) }

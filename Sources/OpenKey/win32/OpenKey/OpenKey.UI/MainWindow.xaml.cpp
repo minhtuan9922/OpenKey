@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "MainWindow.xaml.h"
+#include <chrono>
 #include "InputSettingsPage.xaml.h"
 #include "OverviewPage.xaml.h"
 #include "SpellingSettingsPage.xaml.h"
@@ -42,6 +43,20 @@ namespace winrt::OpenKeyUI::implementation
             }
         }
         ApplySavedTheme();
+        m_themeTimer = DispatcherQueue().CreateTimer();
+        m_themeTimer.Interval(std::chrono::milliseconds(500));
+        m_themeTimer.Tick([weak = get_weak()](auto const&, auto const&)
+        {
+            if (auto window = weak.get())
+            {
+                if (window->m_appliedTheme != static_cast<int>(OpenKeyUITheme::Read()))
+                {
+                    window->ApplySavedTheme();
+                    window->UpdateTitleBarTheme();
+                }
+            }
+        });
+        m_themeTimer.Start();
         // Keep the XAML fallback brush visible if material is unavailable or
         // initialization fails. Built-in Mica handles system material policies.
         try
@@ -107,7 +122,11 @@ namespace winrt::OpenKeyUI::implementation
         });
         AppWindow().Closing([weak = get_weak()](auto const&, auto const&)
         {
-            if (auto window = weak.get()) window->SaveWindowState();
+            if (auto window = weak.get())
+            {
+                window->SaveWindowState();
+                window->m_themeTimer.Stop();
+            }
         });
         if (OpenKeyUIWindowSize::ReadMaximized())
         {
@@ -119,7 +138,9 @@ namespace winrt::OpenKeyUI::implementation
 
     void MainWindow::ApplySavedTheme()
     {
-        RootLayout().RequestedTheme(OpenKeyUITheme::Resolve(OpenKeyUITheme::Read(), m_systemSettings));
+        const auto theme = OpenKeyUITheme::Read();
+        RootLayout().RequestedTheme(OpenKeyUITheme::Resolve(theme, m_systemSettings));
+        m_appliedTheme = static_cast<int>(theme);
     }
 
     void MainWindow::ConfigureTitleBar()
@@ -264,6 +285,26 @@ namespace winrt::OpenKeyUI::implementation
             OpenKeyUIWindowSize::SavePosition(m_normalGeometry.position);
         }
         OpenKeyUIWindowSize::SaveMaximized(IsZoomed(windowHandle) != FALSE);
+    }
+
+    void MainWindow::OpenPage(hstring const& page)
+    {
+        const auto select = [&](auto const& items)
+        {
+            for (auto const& item : items)
+            {
+                if (auto navigation = item.template try_as<Controls::NavigationViewItem>())
+                {
+                    if (navigation.Tag() && unbox_value<hstring>(navigation.Tag()) == page)
+                    {
+                        RootNavigation().SelectedItem(navigation);
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+        if (!select(RootNavigation().MenuItems())) select(RootNavigation().FooterMenuItems());
     }
 
     void MainWindow::NavigateTo(wchar_t const* pageName)

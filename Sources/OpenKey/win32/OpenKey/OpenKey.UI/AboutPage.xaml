@@ -92,29 +92,29 @@
                         <TextBlock TextWrapping="Wrap" x:Uid="AboutLabel3" Style="{StaticResource SubtitleTextBlockStyle}" Text="Dự án" />
                         <TextBlock x:Uid="AboutLabel4"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Text="Xem mã nguồn, bản phát hành và theo dõi cộng đồng OpenKey."
+                            Text="OpenKey Fluent được phát triển tại minhtuan9922/OpenKey, dựa trên OpenKey của Mai Vũ Tuyên (tuyenvm/OpenKey)."
                             TextWrapping="Wrap" />
                         <Button ContentTemplate="{StaticResource WrappingTextTemplate}" x:Uid="AboutLabel5"
                             HorizontalAlignment="Stretch"
-                            AutomationProperties.Name="Mở mã nguồn OpenKey trên GitHub"
+                            AutomationProperties.Name="Mở mã nguồn OpenKey Fluent của minhtuan9922 trên GitHub"
                             Click="OnLinkClicked"
-                            Content="Mã nguồn trên GitHub"
+                            Content="GitHub: minhtuan9922/OpenKey"
                             TabIndex="1"
-                            Tag="https://github.com/tuyenvm/OpenKey" />
+                            Tag="https://github.com/minhtuan9922/OpenKey" />
                         <Button ContentTemplate="{StaticResource WrappingTextTemplate}" x:Uid="AboutLabel6"
                             HorizontalAlignment="Stretch"
                             AutomationProperties.Name="Mở trang các bản phát hành OpenKey"
                             Click="OnLinkClicked"
                             Content="Các bản phát hành"
                             TabIndex="2"
-                            Tag="https://github.com/tuyenvm/OpenKey/releases" />
+                            Tag="https://github.com/minhtuan9922/OpenKey/releases" />
                         <Button ContentTemplate="{StaticResource WrappingTextTemplate}" x:Uid="AboutLabel7"
                             HorizontalAlignment="Stretch"
-                            AutomationProperties.Name="Mở cộng đồng OpenKey"
+                            AutomationProperties.Name="Mở mã nguồn OpenKey gốc của Mai Vũ Tuyên trên GitHub"
                             Click="OnLinkClicked"
-                            Content="Cộng đồng OpenKey"
+                            Content="Nguồn gốc: tuyenvm/OpenKey"
                             TabIndex="3"
-                            Tag="https://www.facebook.com/OpenKeyVN" />
+                            Tag="https://github.com/tuyenvm/OpenKey" />
                     </StackPanel>
                 </Border>
 
@@ -136,7 +136,7 @@
                         <TextBlock x:Uid="AboutLabel11"
                             Margin="0,8,0,0"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Text="Copyright © 2019–2026 Mai Vũ Tuyền và các cộng tác viên."
+                            Text="Copyright © 2019–2026 Mai Vũ Tuyên và các cộng tác viên. Bản Fluent: minhtuan9922/OpenKey."
                             TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>

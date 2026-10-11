@@ -6,6 +6,10 @@ không chép đè beta lên bản đang dùng.
 
 ## Dữ liệu và giới hạn
 
+Danh sách tên/kiểu/nhóm và các khác biệt default legacy nằm trong
+[REGISTRY_INVENTORY.md](REGISTRY_INVENTORY.md) và Tests/RegistryInventory.json.
+Kiểm kê chỉ đọc source, không chứng minh nâng cấp giữ dữ liệu thực tế.
+
 Engine và Fluent UI dùng chung `HKEY_CURRENT_USER\SOFTWARE\TuyenMai\OpenKey`.
 Cài đặt là các giá trị DWORD; Gõ tắt lưu trong giá trị binary `macroData`.
 Thay đổi cài đặt/Gõ tắt trong beta cũng ảnh hưởng bản cũ của cùng tài khoản.
@@ -13,6 +17,14 @@ Thư mục cài riêng không tạo hồ sơ riêng. Không đổi tài khoản 
 bằng thông tin đăng nhập của tài khoản khác khi kiểm thử giữ nguyên dữ liệu.
 
 Sao lưu registry không sao lưu Scheduled Task, shortcut hoặc tệp executable.
+Chỉ xuất khóa OpenKey cũng không chứa Run entry `OpenKey` ở
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. Ghi lại giá trị/đích
+riêng nếu có, không xuất/nhập toàn bộ khóa Run để rollback một ứng dụng.
+Engine gọi registerRunOnStartup khi khởi tạo: chỉ mở beta cũng có thể đổi
+Run entry/task sang executable beta hoặc xóa entry/task khi startup tắt,
+dù chưa đổi toggle trong UI. Ưu tiên VM/snapshot để thử nâng cấp, đối chiếu
+startup trước/sau; không coi mở engine là thao tác chỉ đọc.
+Xem [baseline tray/vòng đời](TRAY_LIFECYCLE_BASELINE.md).
 Xuất Gõ tắt ra văn bản cũng không thay thế sao lưu binary: nội dung nhiều dòng
 không được hỗ trợ bởi chức năng xuất macro hiện tại.
 

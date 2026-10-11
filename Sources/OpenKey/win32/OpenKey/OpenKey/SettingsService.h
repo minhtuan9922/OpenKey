@@ -30,6 +30,8 @@ public:
 		int quickStartConsonant = 0;
 		int quickEndConsonant = 0;
 		int autoCapsMacro = 0;
+			int useMacro = 1;
+			int useMacroInEnglishMode = 0;
 		int switchKeyStatus = 0x5A00025A; // Alt + Z
 		int fixRecommendBrowser = 1;
 		int sendKeyStepByStep = 1;

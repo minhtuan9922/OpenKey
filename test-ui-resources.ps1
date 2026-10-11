@@ -157,4 +157,35 @@ Test-UI 'Optional high contrast subscription cannot abort startup' {
     Assert-UI ($source -match '(?s)try\s*\{\s*m_contrastChanged\s*=\s*m_accessibility\.HighContrastChanged\(auto_revoke,.*?catch\s*\(hresult_error const&\)\s*\{\s*OutputDebugStringW\(L"[^"]*"\);\s*\}\s*ConfigureInitialWindow\(\);') 'Optional subscription lacks startup fallback'
     Assert-UI ($source.Contains('RootLayout().ActualThemeChanged') -and $source.Contains('m_systemSettings.ColorValuesChanged')) 'Fallback theme/color notifications missing'
 }
-Write-Output "UI resource structure: $passed/20 passed; $(@($documents['vi-VN'].root.data).Count) resource keys. Static XML/source checks only, no runtime/visual QA."
+Test-UI 'About links identify the Fluent fork and credit the original project' {
+    $buttons = @(Nodes $documents['AboutPage'] 'Button')
+    foreach ($pair in @(@('AboutLabel5','https://github.com/minhtuan9922/OpenKey'), @('AboutLabel6','https://github.com/minhtuan9922/OpenKey/releases'), @('AboutLabel7','https://github.com/tuyenvm/OpenKey'))) {
+        $button = @($buttons | Where-Object { $_.GetAttribute('Uid', $xamlNamespace) -eq $pair[0] })
+        Assert-UI ($button.Count -eq 1 -and $button[0].Tag -eq $pair[1]) 'Incorrect About destination'
+    }
+    foreach ($language in @('vi-VN','en-US')) {
+        $credit = ($documents[$language].root.data | Where-Object name -eq 'AboutLabel4.Text').value
+        Assert-UI ($credit -match 'minhtuan9922/OpenKey' -and $credit -match 'tuyenvm/OpenKey' -and $credit -match 'Mai V\u0169 Tuy\u00ean') 'Missing fork/upstream credit'
+        $copyright = ($documents[$language].root.data | Where-Object name -eq 'AboutLabel11.Text').value
+        Assert-UI ($copyright -match 'Copyright.*Mai V\u0169 Tuy\u00ean') 'Original copyright removed'
+    }
+}
+Test-UI 'Update controllers use shared fork download destination' {
+    $about = Get-Content -LiteralPath (Join-Path $uiRoot 'AboutPage.xaml.cpp') -Raw -Encoding UTF8
+    Assert-UI ($about.Contains('OpenKeyUpdateSource::SetupUrl(update.version)') -and -not $about.Contains('github.com/tuyenvm')) 'About update uses upstream release'
+    $engine = Get-Content -LiteralPath (Join-Path $uiRoot '../OpenKey/AppDelegate.cpp') -Raw -Encoding UTF8
+    Assert-UI ($engine.Contains('if (fluent) UpdateLaunchService::OpenSetupDownload(owner, outcome.version);')) 'Fluent engine does not open setup download'
+    $metadata = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'version.json') -Raw | ConvertFrom-Json
+    $versionText = [regex]::Match($about, 'OpenKeyVersion\[\] = L"([0-9.]+)"').Groups[1].Value
+    $version = [version]$versionText
+    $packed = $version.Major + ($version.Minor -shl 8) + ($version.Build -shl 16)
+    Assert-UI ($metadata.latestWinVersion.versionName -eq "v$versionText" -and $metadata.latestWinVersion.versionCode -eq $packed) 'Fork metadata differs from current version'
+    Assert-UI ($about -match ('OpenKeyVersionCode = 0x' + $packed.ToString('X8'))) 'UI packed version differs'
+    $installer = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Installer/OpenKey.iss') -Raw
+    Assert-UI ($installer -match ('(?m)^AppVersion=' + [regex]::Escape($versionText) + '\r?$')) 'Installer version differs'
+    foreach ($resource in @('../OpenKey/OpenKey.rc','../OpenKeyUpdate/OpenKeyUpdate.rc','AppResources.rc')) {
+        $rc = Get-Content -LiteralPath (Join-Path $uiRoot $resource) -Raw
+        Assert-UI ($rc.Contains("FILEVERSION $($version.Major),$($version.Minor),$($version.Build),0") -and $rc.Contains("PRODUCTVERSION $($version.Major),$($version.Minor),$($version.Build),0")) 'Executable resource version differs'
+    }
+}
+Write-Output "UI resource structure: $passed/22 passed; $(@($documents['vi-VN'].root.data).Count) resource keys. Static XML/source checks only, no runtime/visual QA."

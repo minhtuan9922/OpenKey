@@ -182,6 +182,8 @@
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="SystemTrayHelper.h" />
+    <ClInclude Include="TrayMenuTheme.h" />
+    <ClInclude Include="TrayPopup.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>

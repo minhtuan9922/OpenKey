@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <winhttp.h>
 #include <string>
+#include "UpdateSource.h"
 #pragma comment(lib, "winhttp.lib")
 
 namespace UpdateDownloadService {
@@ -10,9 +11,9 @@ struct NativeApi {
     HINTERNET open() { return WinHttpOpen(L"OpenKey update check", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
         WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0); }
     bool timeouts(HINTERNET session) { return WinHttpSetTimeouts(session, 3000, 5000, 5000, 5000) != FALSE; }
-    HINTERNET connect(HINTERNET session) { return WinHttpConnect(session, L"raw.githubusercontent.com", INTERNET_DEFAULT_HTTPS_PORT, 0); }
+    HINTERNET connect(HINTERNET session) { return WinHttpConnect(session, OpenKeyUpdateSource::MetadataHost, INTERNET_DEFAULT_HTTPS_PORT, 0); }
     HINTERNET request(HINTERNET connection) { return WinHttpOpenRequest(connection, L"GET",
-        L"/tuyenvm/OpenKey/master/version.json", nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE); }
+        OpenKeyUpdateSource::MetadataPath, nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE); }
     bool configure(HINTERNET request) {
         DWORD policy = WINHTTP_OPTION_REDIRECT_POLICY_NEVER;
         return WinHttpSetOption(request, WINHTTP_OPTION_REDIRECT_POLICY, &policy, sizeof(policy)) != FALSE;

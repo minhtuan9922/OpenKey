@@ -177,7 +177,7 @@ DWORD WINAPI UpdateThreadFunction(LPVOID lpParam) {
     const wstring versionName(metadata.version.begin(), metadata.version.end());
 	
 	//download zip file
-	const wstring updateUrl = L"https://github.com/tuyenvm/OpenKey/releases/download/" +
+	const wstring updateUrl = wstring(OpenKeyUpdateSource::ReleaseBase) +
 		versionName + L"/OpenKey" + versionName + L"-Windows.zip";
 	const wstring path = currentDir + L"\\_OpenKeyUpdate.zip";
 	const HRESULT res = URLDownloadToFileW(NULL, updateUrl.c_str(), path.c_str(), 0, NULL);

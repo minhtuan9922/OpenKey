@@ -33,4 +33,22 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Settings dependency test compilation failed.' }
     & (Join-Path $output 'SettingsDependencyTests.exe')
     if ($LASTEXITCODE -ne 0) { throw 'Settings dependency regression failed.' }
+    $routeSource = Join-Path $PSScriptRoot 'Tests\UiLaunchRouteTests.cpp'
+    $routeCommand = '"' + $vcvars + '" ' + $Platform + ' >nul && cl /nologo /EHsc /std:c++20 /utf-8 /W4 /Fe:UiLaunchRouteTests.exe "' + $routeSource + '"'
+    & $env:ComSpec /d /c $routeCommand
+    if ($LASTEXITCODE -ne 0) { throw 'Launch route test compilation failed.' }
+    & (Join-Path $output 'UiLaunchRouteTests.exe')
+    if ($LASTEXITCODE -ne 0) { throw 'Launch route regression failed.' }
+    $traySource = Join-Path $PSScriptRoot 'Tests\TrayMenuThemeTests.cpp'
+    $trayCommand = '"' + $vcvars + '" ' + $Platform + ' >nul && cl /nologo /EHsc /std:c++14 /utf-8 /W4 /DUNICODE /D_UNICODE /Fe:TrayMenuThemeTests.exe "' + $traySource + '"'
+    & $env:ComSpec /d /c $trayCommand
+    if ($LASTEXITCODE -ne 0) { throw 'Tray theme test compilation failed.' }
+    & (Join-Path $output 'TrayMenuThemeTests.exe')
+    if ($LASTEXITCODE -ne 0) { throw 'Tray theme regression failed.' }
+    $popupSource = Join-Path $PSScriptRoot 'Tests\TrayPopupTests.cpp'
+    $popupCommand = '"' + $vcvars + '" ' + $Platform + ' >nul && cl /nologo /EHsc /std:c++14 /utf-8 /W4 /DUNICODE /D_UNICODE /Fe:TrayPopupTests.exe "' + $popupSource + '"'
+    & $env:ComSpec /d /c $popupCommand
+    if ($LASTEXITCODE -ne 0) { throw 'Custom tray popup compilation failed.' }
+    & (Join-Path $output 'TrayPopupTests.exe') (Join-Path $PSScriptRoot "dist\tray-popup-dark-$Platform.bmp") (Join-Path $PSScriptRoot "dist\tray-popup-light-$Platform.bmp")
+    if ($LASTEXITCODE -ne 0) { throw 'Custom tray popup regression failed.' }
 } finally { Pop-Location }

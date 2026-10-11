@@ -4,7 +4,8 @@ param(
     [string]$Platform = 'x64',
     # Must be reviewed if the build toolset is upgraded; current v145 build uses 14.51.36231.
     [version]$MinimumVcRuntimeVersion = '14.51.36231.0',
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$PassThru
 )
 $ErrorActionPreference = 'Stop'
 if (-not $SkipBuild) {
@@ -14,8 +15,10 @@ if (-not $SkipBuild) {
 $projectRoot = Join-Path $PSScriptRoot 'Sources\OpenKey\win32\OpenKey'
 $prefix = if ($Platform -eq 'x64') { 'x64\Release' } else { 'Release' }
 $engineName = if ($Platform -eq 'x64') { 'OpenKey64.exe' } else { 'OpenKey32.exe' }
-$engine = Join-Path $projectRoot "OpenKey\$prefix\$engineName"
-$updater = Join-Path $projectRoot "OpenKeyUpdate\$prefix\OpenKeyUpdate.exe"
+# build.ps1 builds Legacy through the solution: its OutDir is under the solution,
+# not the project-local directory left by direct project/older builds.
+$engine = Join-Path $projectRoot "$prefix\$engineName"
+$updater = Join-Path $projectRoot "$prefix\OpenKeyUpdate.exe"
 $uiRoot = Join-Path $projectRoot "OpenKey.UI\$prefix\OpenKey.UI"
 $requiredUI = @('OpenKey.UI.exe', 'OpenKey.UI.pri', 'Microsoft.UI.Xaml.dll',
     'Microsoft.WindowsAppRuntime.dll', 'MainWindow.xbf', 'AboutPage.xbf')
@@ -36,6 +39,16 @@ function Assert-PEArchitecture([string]$Path) {
     } finally { $reader.Dispose() }
 }
 foreach ($path in @($engine, $updater, (Join-Path $uiRoot 'OpenKey.UI.exe'))) { Assert-PEArchitecture $path }
+$releaseMetadata = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'version.json') -Raw | ConvertFrom-Json
+$releaseVersion = [version]($releaseMetadata.latestWinVersion.versionName -replace '^v', '')
+foreach ($path in @($engine, $updater, (Join-Path $uiRoot 'OpenKey.UI.exe'))) {
+    $binaryVersion = (Get-Item -LiteralPath $path).VersionInfo
+    if ($binaryVersion.FileMajorPart -ne $releaseVersion.Major -or
+        $binaryVersion.FileMinorPart -ne $releaseVersion.Minor -or
+        $binaryVersion.FileBuildPart -ne $releaseVersion.Build) {
+        throw "Stale/mismatched Release binary: $path. Expected $releaseVersion; found $($binaryVersion.FileVersion)."
+    }
+}
 & (Join-Path $PSScriptRoot 'test-ui-binary.ps1') $Platform Release
 # Never overwrite a previous package or delete a build/source directory.
 $packageName = 'OpenKey-Fluent-beta-' + $Platform + '-' + [guid]::NewGuid().ToString('N')
@@ -72,6 +85,7 @@ $manifest = [ordered]@{
     channel = 'local-beta-not-for-stable-updater'
     architecture = $Platform
     configuration = 'Release'
+    version = $releaseVersion.ToString()
     skippedBuild = [bool]$SkipBuild
     windowsAppSdk = 'self-contained output copied; clean-machine test pending'
     vcRuntime = 'matching Microsoft Visual C++ Redistributable required; not bundled'
@@ -89,3 +103,6 @@ Write-Host "ZIP SHA-256: $((Get-FileHash -LiteralPath $zipPath -Algorithm SHA256
 Write-Host "Verified $($records.Count) payload files ($Platform)."
 Write-Host "Beta ZIP: $zipPath"
 Write-Host 'Clean-machine/runtime/UI tests are still pending. Do not publish as a stable update.'
+if ($PassThru) {
+    [pscustomobject]@{ Kind = 'OpenKeyBetaPackage'; Architecture = $Platform; ZipPath = $zipPath; Stage = $stage }
+}

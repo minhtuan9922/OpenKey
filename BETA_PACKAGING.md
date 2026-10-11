@@ -1,7 +1,68 @@
 # Gói beta Fluent UI — thử nghiệm nội bộ
 
+## Bộ cài offline một file — 2026-10-11
+
+Đã tạo `dist/setup-9c0099c69ee6441f8edd91f2ace73cbe/Output/OpenKey-Setup.exe`
+tự chọn x64/x86, 62.053.914 byte; SHA-256
+`ED88989112773AB4FB2F7DAC65FE91BE5E9394415280E7FFA89D2C4F27B2B567`.
+Chứa các thay đổi macro/theme/routes/popup tray và chống giật mới nhất.
+Start Menu, Desktop tùy chọn, runtime offline với consent/UAC trước app và gỡ
+cài giữ settings. Hướng dẫn build/verify và giới hạn ở [INSTALLER.md](INSTALLER.md).
+Chưa ký số/chạy cài thật/nghiệm thu máy sạch hoặc chốt quyền phân phối.
+
+Payload mới (Release All build sạch cả hai kiến trúc, 281 payload/ZIP):
+
+- x64: `dist/OpenKey-Fluent-beta-x64-d5327f761c924577aa0046e42aa4318b.zip`;
+  SHA-256 `160D2453D7E935C3F050B34039417F53643A697EB41D006C914185619DF7346D`.
+- x86: `dist/OpenKey-Fluent-beta-x86-aad2934fccec48298819cf8a349ae160.zip`;
+  SHA-256 `65DAB1F89BADCA77DC690B379D8D7A1CB14FCB797539D600C079CE2DF122FA11`.
+
+ZIP và các Sandbox session cũ giữ nguyên. Bộ cài chứa hai VC++ Redistributable
+14.51.36247.0 ký Microsoft, hash nguồn như mục runtime bên dưới; chỉ cài bản
+đúng kiến trúc nếu thiếu/cũ, không tự cài trong quá trình build trên host.
+Verifier PS7/5.1 đối chiếu compiler manifest 566 input trên một media slice,
+hai ZIP/staged payload/hash/PE setup/runtime. Đây là xác minh artifact/input,
+không chứng minh cài/gỡ hay shortcut hoạt động trong guest.
+
 Đọc [hướng dẫn sao lưu, thử beta và rollback](MIGRATION_FLUENT_BETA.md) trước khi chạy.
 Gói ở thư mục riêng vẫn dùng chung settings/macro với bản cũ của cùng tài khoản.
+
+## Runtime offline bổ sung cho Sandbox — 2026-10-11
+
+`prepare-sandbox.ps1` nay nhận cặp tùy chọn `-RuntimePath` và
+`-RuntimeExpectedSha256`: xác minh hash/chữ ký Microsoft/kiến trúc/phiên bản
+theo minimum của beta trước staging và sau sao chép. Không tự tải hoặc cài.
+Không truyền cặp này vẫn chuẩn bị Sandbox không kèm runtime như trước.
+
+Hai session mới tạo bằng tùy chọn này (cùng ZIP/hash và runtime bên dưới):
+
+- x64: `dist/sandbox-8f96c320e1f34788ab1ca4be75af0b53/OpenKey.wsb`.
+- x86: `dist/sandbox-7a2d1dd51c2947c59f5aa963c196cf5c/OpenKey.wsb`.
+
+Từng Input có `session.json` ghi metadata runtime và `OFFLINE_RUNTIME.md`
+hướng dẫn cài thủ công chỉ trong guest. Chưa mở Sandbox hoặc chạy installer;
+không thay ZIP hiện có, không đưa redistributable vào gói phát hành.
+
+Hai session của artifact bên dưới đã có bộ cài riêng trong Input read-only:
+
+- x64: `dist/sandbox-023a5ca909a447b182252a5bf5af43ab/Input/vc_redist.x64.exe`; SHA-256 `843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C`.
+- x86: `dist/sandbox-f83d8c38ba82403c8068ab1e14e864b5/Input/vc_redist.x86.exe`; SHA-256 `F0BAB33A302B3CDB2E11113760D016F54FD3D2632C65BA7834FAC4F0ABD7F1A3`.
+
+Cả hai FileVersion 14.51.36247.0, ProductName đúng kiến trúc và Authenticode
+Valid/Microsoft Corporation; kiểm tra lại trên PS7/PS5.1 và sau copy.
+Đáp ứng minimum beta 14.51.36231.0. x64 tái dùng bộ cài đã tải ở session cũ;
+x86 tải từ permalink chính thức ngày 2026-10-11, bản gốc giữ ở
+`dist/offline-runtime-03963ffb01ae434c95da5ef2723bf6b8/vc_redist.x86.exe`.
+Nguồn/phiên bản/hash và hướng dẫn cài thủ công chỉ trong guest được ghi trong
+`Input/OFFLINE_RUNTIME.md` của từng session. Không chạy bộ cài hoặc mở guest.
+
+ZIP beta và .wsb không đổi; kiểm tra lại staged beta hash, mạng/clipboard
+host tắt và Input read-only trên hai shell. Không thêm bộ cài vào ZIP beta,
+không tự cài runtime và không xác nhận quyền phân phối. prepare-sandbox.ps1
+vẫn không tự tải/copy runtime cho session mới. Máy sạch/UI/hook chưa nghiệm thu.
+Theo [Microsoft](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist/),
+runtime phải khớp kiến trúc ứng dụng và không cũ hơn build tools; quyền phân
+phối phải xét theo điều khoản Visual Studio, chưa được chốt ở bước này.
 
 ## Artifact mới nhất — About workflow và bộ Sandbox (2026-10-11)
 
@@ -28,8 +89,9 @@ Sandbox mới (chỉ chuẩn bị, chưa chạy guest):
 Input riêng read-only, Logs riêng có quyền ghi; mạng/clipboard host/mic/camera/
 printer redirection tắt. ZIP staged được đối chiếu SHA-256. 27/27 fixture
 Sandbox đạt PS7/PS5.1, logs dist/about-workflow-sandbox-tests*.log.
-Các phiên mới không kèm VC++ Redistributable; bootstrap dừng khi thiếu runtime,
-không tự tải/cài. Xem Sandbox/README.md, chưa nghiệm thu máy sạch/UI/hook.
+Khi chuẩn bị ban đầu, các phiên chưa kèm runtime; nay đã bổ sung bộ cài offline
+như mục trên. Bootstrap vẫn dừng khi thiếu runtime đã cài và không tự tải/cài.
+Xem Sandbox/README.md, chưa nghiệm thu máy sạch/UI/hook.
 Không mở/cài/ký/phát hành app hoặc thay settings/clipboard host. Gói và
 Sandbox input cũ được giữ nguyên. Hash manifest không chứng minh nhà phát hành.
 Tài liệu BETA_PACKAGING.md bên trong ZIP có trước khi ghi nhận hash gói này;

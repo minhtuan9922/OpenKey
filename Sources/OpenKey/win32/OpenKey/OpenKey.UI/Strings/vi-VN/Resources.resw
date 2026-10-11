@@ -167,7 +167,7 @@
   <data name="MacroSaveFileFailureTitle" xml:space="preserve"><value>Không thể lưu tệp</value></data>
   <data name="MacroOptionsSuccessTitle" xml:space="preserve"><value>Đã lưu tùy chọn gõ tắt</value></data>
   <data name="MacroOptionsFailureTitle" xml:space="preserve"><value>Không thể lưu tùy chọn gõ tắt</value></data>
-  <data name="MacroAutoCapsMessage" xml:space="preserve"><value>OpenKey sẽ tự điều chỉnh chữ hoa của nội dung thay thế theo từ khóa.</value></data>
+  <data name="MacroAutoCapsMessage" xml:space="preserve"><value>Đã lưu các tùy chọn gõ tắt. Engine đang chạy sẽ nạp lại cấu hình.</value></data>
   <data name="MacroAddTitle" xml:space="preserve"><value>Thêm mục gõ tắt</value></data>
   <data name="AddButtonText" xml:space="preserve"><value>Thêm</value></data>
   <data name="QuickShortcutDisabled" xml:space="preserve"><value>Tắt phím tắt</value></data>
@@ -193,8 +193,8 @@
   <data name="UpdateCheckFailureMessage" xml:space="preserve"><value>Hãy kiểm tra kết nối Internet rồi thử lại.</value></data>
   <data name="UpdateCurrentTitle" xml:space="preserve"><value>OpenKey đã được cập nhật</value></data>
   <data name="UpdateCurrentMessage" xml:space="preserve"><value>Bạn đang sử dụng phiên bản mới nhất.</value></data>
-  <data name="UpdateConfirmMessage" xml:space="preserve"><value>Bản Fluent beta chưa hỗ trợ cập nhật tự động toàn bộ engine, giao diện và runtime. Xem trang phát hành và hướng dẫn beta để cập nhật thủ công; ứng dụng sẽ không tự thay tệp hoặc thoát.</value></data>
-  <data name="UpdateButtonText" xml:space="preserve"><value>Xem bản phát hành</value></data>
+  <data name="UpdateConfirmMessage" xml:space="preserve"><value>Tải OpenKey-Setup.exe từ minhtuan9922/OpenKey qua trình duyệt để cập nhật đồng bộ engine, giao diện và runtime. Thoát OpenKey trước khi chạy bộ cài. Ứng dụng không tự chạy bộ cài, thay tệp hoặc thoát.</value></data>
+  <data name="UpdateButtonText" xml:space="preserve"><value>Tải bản cập nhật</value></data>
   <data name="UpdateLaterButtonText" xml:space="preserve"><value>Để sau</value></data>
   <data name="UpdaterMissingTitle" xml:space="preserve"><value>Không tìm thấy trình cập nhật</value></data>
   <data name="UpdaterMissingMessage" xml:space="preserve"><value>Hãy đặt OpenKeyUpdate.exe cùng thư mục với ứng dụng hoặc tải bản mới từ trang phát hành.</value></data>
@@ -309,18 +309,18 @@
   <data name="AboutCheckUpdateButton.Content" xml:space="preserve"><value>Kiểm tra cập nhật</value></data>
   <data name="AboutUpdateProgress.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Đang kiểm tra cập nhật</value></data>
   <data name="AboutLabel3.Text" xml:space="preserve"><value>Dự án</value></data>
-  <data name="AboutLabel4.Text" xml:space="preserve"><value>Xem mã nguồn, bản phát hành và theo dõi cộng đồng OpenKey.</value></data>
-  <data name="AboutLabel5.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Mở mã nguồn OpenKey trên GitHub</value></data>
-  <data name="AboutLabel5.Content" xml:space="preserve"><value>Mã nguồn trên GitHub</value></data>
+  <data name="AboutLabel4.Text" xml:space="preserve"><value>OpenKey Fluent được phát triển tại minhtuan9922/OpenKey, dựa trên OpenKey của Mai Vũ Tuyên (tuyenvm/OpenKey).</value></data>
+  <data name="AboutLabel5.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Mở mã nguồn OpenKey Fluent của minhtuan9922 trên GitHub</value></data>
+  <data name="AboutLabel5.Content" xml:space="preserve"><value>GitHub: minhtuan9922/OpenKey</value></data>
   <data name="AboutLabel6.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Mở trang các bản phát hành OpenKey</value></data>
   <data name="AboutLabel6.Content" xml:space="preserve"><value>Các bản phát hành</value></data>
-  <data name="AboutLabel7.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Mở cộng đồng OpenKey</value></data>
-  <data name="AboutLabel7.Content" xml:space="preserve"><value>Cộng đồng OpenKey</value></data>
+  <data name="AboutLabel7.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Mở mã nguồn OpenKey gốc của Mai Vũ Tuyên trên GitHub</value></data>
+  <data name="AboutLabel7.Content" xml:space="preserve"><value>Nguồn gốc: tuyenvm/OpenKey</value></data>
   <data name="AboutLabel8.Text" xml:space="preserve"><value>Giấy phép</value></data>
   <data name="AboutLabel9.Text" xml:space="preserve"><value>Bạn có quyền sử dụng, nghiên cứu, sửa đổi và phân phối OpenKey theo các điều khoản của GPLv3.</value></data>
   <data name="AboutLabel10.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Đọc giấy phép GPL phiên bản 3</value></data>
   <data name="AboutLabel10.Content" xml:space="preserve"><value>Đọc giấy phép GPLv3</value></data>
-  <data name="AboutLabel11.Text" xml:space="preserve"><value>Copyright © 2019–2026 Mai Vũ Tuyền và các cộng tác viên.</value></data>
+  <data name="AboutLabel11.Text" xml:space="preserve"><value>Copyright © 2019–2026 Mai Vũ Tuyên và các cộng tác viên. Bản Fluent: minhtuan9922/OpenKey.</value></data>
   <data name="AboutLinkStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Trạng thái liên kết và cập nhật</value></data>
   <data name="RootNavigation.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Dùng phím mũi tên để chọn một trang cài đặt.</value></data>
   <data name="RootNavigation.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Điều hướng OpenKey</value></data>
@@ -418,4 +418,12 @@
   <data name="SpellingDependencyWarning.Title" xml:space="preserve"><value>Tùy chọn chính tả nâng cao đang bị khóa</value></data>
   <data name="SpellingDependencyWarning.Message" xml:space="preserve"><value>Một số tùy chọn chính tả nâng cao vẫn được giữ, nhưng cần bật Kiểm tra chính tả để chỉnh sửa. OpenKey không tự tắt lựa chọn đã lưu.</value></data>
   <data name="SpellingDependencyWarning.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Cảnh báo tùy chọn chính tả</value></data>
+  <data name="UseMacroToggle.Header" xml:space="preserve"><value>Bật gõ tắt</value></data>
+  <data name="UseMacroToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="UseMacroToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="UseMacroToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Bật gõ tắt</value></data>
+  <data name="MacroInEnglishToggle.Header" xml:space="preserve"><value>Gõ tắt cả khi tắt gõ tiếng Việt</value></data>
+  <data name="MacroInEnglishToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
+  <data name="MacroInEnglishToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
+  <data name="MacroInEnglishToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Gõ tắt trong chế độ tiếng Anh</value></data>
 </root>

@@ -139,6 +139,8 @@ namespace winrt::OpenKeyUI::implementation
         m_preferences = SettingsService::readPreferences();
         m_savedPreferences = m_preferences;
         AutoCapsToggle().IsOn(m_preferences.autoCapsMacro != 0);
+        UseMacroToggle().IsOn(m_preferences.useMacro != 0);
+        MacroInEnglishToggle().IsOn(m_preferences.useMacroInEnglishMode != 0);
         m_loadingPreferences = false;
         const bool loaded = MacroService::tryReadEntries(m_entries);
         RefreshList();
@@ -205,6 +207,8 @@ namespace winrt::OpenKeyUI::implementation
         ShortcutBox().IsEnabled(enabled);
         ReplacementBox().IsEnabled(enabled);
         AutoCapsToggle().IsEnabled(enabled);
+        UseMacroToggle().IsEnabled(enabled);
+        MacroInEnglishToggle().IsEnabled(enabled);
     }
 
     Windows::Foundation::IAsyncOperation<bool> MacroPage::ConfirmDiscardAsync()
@@ -238,9 +242,10 @@ namespace winrt::OpenKeyUI::implementation
         m_preferences = SettingsService::readPreferences();
         m_savedPreferences = m_preferences;
         const bool enabled = m_preferences.autoCapsMacro != 0;
-        if (AutoCapsToggle().IsOn() == enabled) return;
         m_loadingPreferences = true;
         AutoCapsToggle().IsOn(enabled);
+        UseMacroToggle().IsOn(m_preferences.useMacro != 0);
+        MacroInEnglishToggle().IsOn(m_preferences.useMacroInEnglishMode != 0);
         m_loadingPreferences = false;
     }
 
@@ -601,6 +606,8 @@ namespace winrt::OpenKeyUI::implementation
         }
 
         m_preferences.autoCapsMacro = AutoCapsToggle().IsOn() ? 1 : 0;
+        m_preferences.useMacro = UseMacroToggle().IsOn() ? 1 : 0;
+        m_preferences.useMacroInEnglishMode = MacroInEnglishToggle().IsOn() ? 1 : 0;
         const bool saved = SettingsService::saveChangedPreferences(m_savedPreferences, m_preferences);
         m_saveFailed = !saved;
         ShowStatus(saved,

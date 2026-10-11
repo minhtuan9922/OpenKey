@@ -111,6 +111,17 @@ namespace winrt::OpenKeyUI::implementation
 
     void AdvancedSettingsPage::RefreshPreferences()
     {
+        if (!UiThemeCombo().IsDropDownOpen())
+        {
+            const auto theme = static_cast<int>(OpenKeyUITheme::Read());
+            if (m_selectedTheme != theme)
+            {
+                m_loadingPreferences = true;
+                UiThemeCombo().SelectedIndex(theme);
+                m_selectedTheme = theme;
+                m_loadingPreferences = false;
+            }
+        }
         const auto latest = SettingsService::readPreferences();
         if (m_saveFailed)
         {

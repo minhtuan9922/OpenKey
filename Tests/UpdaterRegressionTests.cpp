@@ -83,6 +83,33 @@ int TestSharedUpdateService() {
     UpdateRequestState state;
     uint64_t ticket = 0, duplicate = 0;
     auto require = [&](bool passed) { if (!passed) ++failures; ++checks; };
+    require(std::wstring(OpenKeyUpdateSource::MetadataHost) == L"raw.githubusercontent.com");
+    require(std::wstring(OpenKeyUpdateSource::MetadataPath) == L"/minhtuan9922/OpenKey/master/version.json");
+    const std::wstring expectedSetup = L"https://github.com/minhtuan9922/OpenKey/releases/download/2.0.6/OpenKey-Setup.exe";
+    require(OpenKeyUpdateSource::SetupUrl("2.0.6") == expectedSetup);
+    require(OpenKeyUpdateSource::SetupUrl("v2.0.6-beta").find(L"/v2.0.6-beta/OpenKey-Setup.exe") != std::wstring::npos);
+    for (const std::string tag : {"", ".", "..", "../evil", "https://evil", "2?x", "2#x", "2%2f", "2 x", "2\\x"})
+        require(OpenKeyUpdateSource::SetupUrl(tag).empty());
+    require(OpenKeyUpdateSource::SetupUrl(std::string(65, 'a')).empty());
+    int downloadLaunches = 0;
+    require(UpdateLaunchService::OpenSetupDownload(nullptr, "2.0.6", [&](HWND, LPCWSTR url) {
+        ++downloadLaunches; return std::wstring(url) == expectedSetup ? 33 : 0;
+    }));
+    require(downloadLaunches == 1);
+    require(!UpdateLaunchService::OpenSetupDownload(nullptr, "../evil", [&](HWND, LPCWSTR) { ++downloadLaunches; return 33; }));
+    require(downloadLaunches == 1);
+    require(!UpdateLaunchService::OpenSetupDownload(nullptr, "2.0.6", [](HWND, LPCWSTR) { return 32; }));
+    for (const auto& test : {
+        VersionCase{0x00050002, "v2.0.5", Result::UpToDate},
+        VersionCase{0x00000003, "v3.0.0", Result::UpToDate},
+        VersionCase{0x00010003, "v3.0.1", Result::Available},
+        VersionCase{0x00000103, "v3.1.0", Result::Available} }) {
+        FakeUpdateHttp api;
+        api.body = "{\"latestWinVersion\":{\"versionName\":\"" + std::string(test.name)
+            + "\",\"versionCode\":" + std::to_string(test.packed) + "}}";
+        const auto outcome = UpdateService::Check(3, api);
+        require(outcome.result == test.expected && outcome.version == test.name && api.opened == api.closed);
+    }
     require(!state.IsLoaded() && !state.Busy() && !state.Begin(ticket));
     state.Loaded();
     require(state.IsLoaded() && state.Begin(ticket) && state.Busy() && state.Current(ticket));

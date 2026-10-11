@@ -60,6 +60,14 @@
         <Border Style="{StaticResource OpenKeySettingsCardStyle}"
             Grid.Row="1"
             Padding="16,10">
+            <StackPanel Spacing="12">
+                <ToggleSwitch x:Uid="UseMacroToggle" x:Name="UseMacroToggle"
+                    Header="Bật gõ tắt" AutomationProperties.Name="Bật gõ tắt"
+                    OnContent="Bật" OffContent="Tắt" Toggled="OnAutoCapsToggled" />
+                <ToggleSwitch x:Uid="MacroInEnglishToggle" x:Name="MacroInEnglishToggle"
+                    Header="Gõ tắt cả khi tắt gõ tiếng Việt"
+                    AutomationProperties.Name="Gõ tắt trong chế độ tiếng Anh"
+                    OnContent="Bật" OffContent="Tắt" Toggled="OnAutoCapsToggled" />
             <Grid ColumnSpacing="16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -84,6 +92,7 @@
                     TabIndex="0"
                     Toggled="OnAutoCapsToggled" />
             </Grid>
+            </StackPanel>
         </Border>
 
         <Grid Grid.Row="2" ColumnSpacing="8" RowSpacing="8">

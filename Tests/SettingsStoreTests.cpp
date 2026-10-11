@@ -75,6 +75,7 @@ const Mapping mapping[] = {
     FIELD("vRememberCode", rememberCode), FIELD("vUseModernOrthography", useModernOrthography),
     FIELD("vQuickTelex", quickTelex), FIELD("vQuickStartConsonant", quickStartConsonant),
     FIELD("vQuickEndConsonant", quickEndConsonant), FIELD("vAutoCapsMacro", autoCapsMacro),
+    FIELD("vUseMacro", useMacro), FIELD("vUseMacroInEnglishMode", useMacroInEnglishMode),
     FIELD("vSwitchKeyStatus", switchKeyStatus), FIELD("vFixRecommendBrowser", fixRecommendBrowser),
     FIELD("vSendKeyStepByStep", sendKeyStepByStep), FIELD("vUseSmartSwitchKey", useSmartSwitchKey),
     FIELD("vSupportMetroApp", supportMetroApp), FIELD("vOtherLanguage", otherLanguage),

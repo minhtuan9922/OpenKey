@@ -19,8 +19,11 @@ redistribute your new version, it MUST be open source.
 static AppDelegate* _instance;
 static constexpr wchar_t updateCheckProperty[] = L"OpenKey.UpdateCheck.Owner";
 
+#include "../OpenKey.UI/UiThemeSettings.h"
+
 namespace {
-	bool launchModernControlPanel() {
+		bool launchModernControlPanel(const wchar_t* page = L"overview") {
+			const std::wstring arguments = std::wstring(L"--page ") + page;
 		std::vector<std::wstring> candidates;
 			constexpr DWORD pathCapacity = 32768;
 			std::wstring configuredPath(pathCapacity, L'\0');
@@ -73,7 +76,7 @@ namespace {
 			}
 
 			const auto result = reinterpret_cast<INT_PTR>(
-					ShellExecuteW(nullptr, L"open", fullPath.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
+						ShellExecuteW(nullptr, L"open", fullPath.c_str(), arguments.c_str(), nullptr, SW_SHOWNORMAL));
 			if (result > 32) {
 				return true;
 			}
@@ -183,10 +186,14 @@ void AppDelegate::pollUpdateCheck(UINT_PTR timer) {
 	stopUpdateCheck(); // Release request/timer before any modal/re-entrant UI.
 	if (manual && !validOwner) return;
 	if (outcome.result == UpdateCheckService::Result::Available) {
+		const bool fluent = !OpenKeyUpdatePolicy::CanUseLegacyUpdater();
 		const auto message = L"OpenKey có phiên bản mới (" + utf8ToWideString(outcome.version)
-			+ L"), bạn có muốn cập nhật không?";
-		if (MessageBoxW(owner, message.c_str(), L"OpenKey Update", MB_ICONEXCLAMATION | MB_YESNO) == IDYES
-			&& !exiting && UpdateLaunchService::StartOrNotify(owner)) onOpenKeyExit();
+			+ (fluent ? L"). Tải bộ cài từ minhtuan9922/OpenKey qua trình duyệt? Thoát OpenKey trước khi chạy bộ cài."
+				: L"), bạn có muốn cập nhật không?");
+		if (MessageBoxW(owner, message.c_str(), L"OpenKey Update", MB_ICONEXCLAMATION | MB_YESNO) == IDYES && !exiting) {
+			if (fluent) UpdateLaunchService::OpenSetupDownload(owner, outcome.version);
+			else if (UpdateLaunchService::StartOrNotify(owner)) onOpenKeyExit();
+		}
 	} else if (manual) {
 		const bool current = outcome.result == UpdateCheckService::Result::UpToDate;
 		MessageBoxW(owner, current ? L"Bạn đang dùng phiên bản mới nhất!"
@@ -352,6 +359,7 @@ void AppDelegate::onToggleUseMacro() {
 }
 
 void AppDelegate::onMacroTable() {
+	if (launchModernControlPanel(L"macro")) return;
 	if (macroDialog == NULL) {
 		macroDialog = new MacroDialog(hInstance, IDD_DIALOG_MACRO);
 		macroDialog->show();
@@ -361,6 +369,7 @@ void AppDelegate::onMacroTable() {
 }
 
 void AppDelegate::onConvertTool() {
+	if (launchModernControlPanel(L"convert")) return;
 	if (convertDialog == NULL) {
 		convertDialog = new ConvertToolDialog(hInstance, IDD_DIALOG_CONVERT_TOOL);
 		convertDialog->show();
@@ -405,11 +414,19 @@ void AppDelegate::onControlPanel() {
 }
 
 void AppDelegate::onOpenKeyAbout() {
+	if (launchModernControlPanel(L"about")) return;
 	if (aboutDialog == NULL) {
 		aboutDialog = new AboutDialog(hInstance, IDD_ABOUTBOX);
 		aboutDialog->show();
 	} else {
 		aboutDialog->bringOnTop();
+	}
+}
+
+void AppDelegate::onUiTheme(int theme) {
+	if (theme < 0 || theme > 2 ||
+		!OpenKeyUITheme::Save(static_cast<OpenKeyUITheme::Theme>(theme))) {
+		SystemTrayHelper::showNotification(L"OpenKey", L"Không thể lưu giao diện. Vui lòng thử lại.");
 	}
 }
 

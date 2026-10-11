@@ -14,8 +14,8 @@ using namespace Microsoft::UI::Xaml;
 
 namespace
 {
-    constexpr wchar_t OpenKeyVersion[] = L"2.0.5";
-    constexpr uint32_t OpenKeyVersionCode = 0x00050002; // Packed 2.0.5, low byte = major.
+    constexpr wchar_t OpenKeyVersion[] = L"3.0.0";
+    constexpr uint32_t OpenKeyVersionCode = 0x00000003; // Packed 3.0.0, low byte = major.
 
     hstring buildDate()
     {
@@ -176,7 +176,7 @@ namespace winrt::OpenKeyUI::implementation
         try
         {
             opened = co_await Windows::System::Launcher::LaunchUriAsync(
-                Windows::Foundation::Uri(L"https://github.com/tuyenvm/OpenKey/releases"));
+                Windows::Foundation::Uri(OpenKeyUpdateSource::SetupUrl(update.version)));
         }
         catch (hresult_error const&)
         {

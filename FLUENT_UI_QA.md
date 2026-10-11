@@ -1,5 +1,246 @@
 # Kiểm thử giao diện Fluent
 
+## Bộ cài offline duy nhất — 2026-10-11
+
+Artifact/hướng dẫn và checklist máy sạch ở INSTALLER.md; EXE tự chọn x64/x86
+chứa payload Release mới nhất, startup shortcut gọi engine, Desktop optional,
+VC++ offline có consent/UAC trước chép app, gỡ giữ settings/macro/runtime.
+Compile/verify PS7/5.1 đạt, bootstrap PE x86, 566 input nhúng theo compiler
+manifest/size/hash khớp. Không chạy setup OpenKey/runtime trên host.
+24 source guards và 38 native Pascal checks dùng chính RuntimePolicy.iss đạt;
+probe chỉ kiểm tra pure policy rồi hủy InitializeSetup, không cài ứng dụng.
+Full hồi quy 17/17 PS7: dist/regression-b8d2ecc791444c17806d5bc10072326b/summary.json.
+Full hồi quy 17/17 PS5.1: dist/regression-23444c3436e842c78e60caa74c296276/summary.json.
+Source contract/policy chạy lại sau compiler resolver, verifier hai shell chạy
+lại với manifest compiler cuối. Logs dist/test-setup.log,
+dist/verify-setup-{ps7|ps51}.log và dist/build-setup.log.
+User đã xác nhận popup ổn sau chống giật, không đánh dấu toàn ma trận tray đạt.
+GUI setup/consent/UAC/restart/shortcuts/gỡ/nâng cấp và giữ dữ liệu trên máy sạch
+vẫn chưa nghiệm thu; bộ cài beta chưa ký số, license review chưa hoàn tất.
+
+## Sửa giật khi chuyển menu tray — 2026-10-11
+
+WM_PAINT nay dùng back buffer cố định theo panel, render hoàn chỉnh rồi
+BitBlt vùng dirty một lần. Hover không đổi dòng không invalidate/rebuild
+MSAA locations; đổi dòng chỉ invalidate dòng cũ/mới, cuộn mới cập nhật locations.
+Submenu hover chờ 200 ms, giữ child trong khoảng chờ khi đi chéo qua dòng cha,
+hủy target cũ khi vào child/ra ngoài/đổi input. Click, keyboard và MSAA không chờ.
+WM_TIMER đã hủy không được khởi động lại hover từ message còn trong queue.
+
+297 popup checks/kiến trúc, gồm 300 frame buffer reuse/GDI không tăng,
+cleanup DC/bitmap/font qua lifetime panel sau warm-up GDI stock objects,
+hover deadline không reset khi cùng dòng, cancel và chuyển vào child.
+Các fixture không tạo HWND, không chạy engine/hook, không sửa registry.
+Đã xem bitmap dark x64 sau double-buffer: Unicode/hover/arrow/góc bo giữ nguyên;
+bitmap không chứng minh độ mượt popup thực tế.
+PS7 hồi quy 16/16 đạt:
+dist/regression-59726f1f1df941ab89a2fcde5a5a7834/summary.json.
+PowerShell 5.1 hồi quy 16/16 đạt:
+dist/regression-b3e548f29726431191df183d560a015d/summary.json.
+Build engine Debug/Release x64/x86 sạch 0 warning/0 error:
+dist/build-popup-smooth-{Debug|Release}-{x64|x86}.log.
+
+Cần người dùng xác nhận rê nhanh giữa “Bảng mã khác” và “Giao diện”, đưa chuột
+chéo vào submenu, click/keyboard không bị delay, DPI hỗn hợp và theme Sáng/Tối.
+ZIP/Sandbox chưa làm mới; chưa tự mở popup thực tế trên desktop.
+
+## Popup tray tùy biến bo góc — 2026-10-11
+
+TrayPopup.h giữ snapshot HMENU/21 command nhưng dùng WS_POPUP tùy biến:
+window region bo góc 12 DIP trên Windows 10/11, padding 10 DIP, hover bo góc,
+arrow/submenu tự vẽ đúng màu. CS_DROPSHADOW theo hỗ trợ/cài đặt Windows.
+Menu fit work area, submenu chọn phía theo chiều rộng đo được, cuộn khi thấp.
+Keyboard/mouse/capture/activation và WM_QUIT có cleanup riêng; không thêm hook.
+High Contrast dùng menu native; custom init/COM lỗi fallback HMENU owner-draw.
+Scope COM STA và thread DPI per-monitor cân bằng trước quay về engine.
+
+IAccessible qua [WM_GETOBJECT](https://learn.microsoft.com/en-us/windows/win32/winauto/wm-getobject)
+có tên tiếng Việt, role menu/item/separator, checked/disabled/haspopup/focus,
+location/navigation/selection/default action, và lifetime snapshot khi đóng.
+MSAA fixture kiểm tra object trực tiếp, chưa kiểm tra cross-process marshaling,
+UIA bridge hoặc Narrator thực tế. Popup không cần chạy Fluent để mở menu.
+
+169 checks popup/kiến trúc (model, MSAA, GDI bitmap offscreen, không tạo HWND),
+303 checks fallback renderer, settings tổng 750 checks/kiến trúc, source tray
+36/36. Đã xem bitmap dist/tray-popup-{dark|light}-{x64|x86}.bmp: góc bo, khoảng
+đệm, hover, dấu chọn, Unicode và arrow đúng màu. Bitmap là render fixture 96 DPI,
+không phải ảnh chụp popup chạy trên desktop.
+PS7 full regression 16/16 đạt:
+dist/regression-4318ba5d3ce44254bceaab118189f83e/summary.json;
+settings x64/x86 chạy lại sau chỉnh scope COM và click disabled không cuộn.
+Build engine bốn cấu hình sạch 0 cảnh báo/0 lỗi;
+log dist/build-rounded-popup-{Debug|Release}-{x64|x86}.log.
+PS5.1 full regression 16/16 đạt:
+dist/regression-b077cc23efbb4a30b554b20698c298f1/summary.json.
+
+QA thực tế còn mở: Windows 10/11, mở/đóng lặp, click ngoài/góc trống, keyboard/
+submenu/scroll, taskbar/monitor edges và mixed DPI, Narrator/UIA bridge, theme
+Windows/HC, message IPC/quit khi đang mở, fallback lỗi tạo window/focus/capture.
+Không tự mở engine/UI, đổi registry/Windows theme, installer hoặc Sandbox;
+ZIP beta hiện có chưa chứa popup mới.
+
+## Owner-draw Sáng/Tối cho menu tray — 2026-10-11
+
+Giai đoạn này hiện giữ làm fallback của popup tùy biến phía trên.
+
+Nội dung popup/submenu dùng nền/chữ/hover/checked/separator theo uiTheme chung.
+System dùng UISettings foreground bằng ABI WinRT công khai, không thêm registry;
+High Contrast hoặc lỗi khởi tạo dùng menu Windows native. Font menu/DPI và tên
+MSAA được giữ, native TrackPopupMenu tiếp tục quản lý navigation/submenu arrow/
+viền. Session khôi phục dữ liệu trước handler, không ModifyMenu khi popup mở.
+Không dùng dark-mode ordinal/private API.
+Tham khảo [owner-drawn menus](https://learn.microsoft.com/en-us/windows/win32/menurc/using-menus)
+và [tên MSAA cho menu](https://learn.microsoft.com/en-us/windows/win32/winauto/exposing-owner-drawn-menu-items).
+
+Tests/TrayMenuThemeTests.cpp chạy native HMENU và GDI offscreen, không gọi
+TrackPopupMenu, SystemDark, HighContrast, CursorDpi, registry hoặc engine thật.
+Kiểm tra Light/Dark x 96/144/192 DPI, disabled/default/checked, MSAA, mnemonic/
+chọn-cycle chữ đầu, khôi phục submenu/data/brush và số GDI ổn định sau warmup.
+Guard source bổ sung lifetime/restore/dispatch/nested-loop/shared theme.
+
+303 checks renderer trên mỗi kiến trúc, settings tổng 581 checks/kiến trúc;
+tray source 35/35. PS7 hồi quy 16/16 đạt tại
+dist/regression-9e59f804b2d34c188d9228a7d29383c1/summary.json.
+PS5.1 hồi quy 16/16 đạt tại
+dist/regression-98a1eab9dd4f4beea557dd74ee830f08/summary.json.
+Engine Debug/Release x64/x86 build lại sạch 0 cảnh báo/0 lỗi; log
+dist/build-tray-theme-{Debug|Release}-{x64|x86}.log. Không tự kill process.
+
+Chưa nghiệm thu trực quan: màu arrow/viền USER32 (vẫn là thành phần native),
+menu ở sát mép màn hình, Windows 10/11, DPI hỗn hợp, bàn phím, Narrator, HC,
+đổi theme hệ thống và refresh sau IPC trong lúc menu đang mở. Không tự mở app,
+đổi theme Windows, chạy hook/installer/Sandbox hoặc đóng gói lại beta.
+
+## Gõ tắt, theme và điều hướng Fluent từ tray — 2026-10-11
+
+Thêm hai trường useMacro/useMacroInEnglishMode vào model/store/mapping,
+giữ tên registry/default/reset legacy và lưu chọn lọc; MacroPage có ba toggle
+song ngữ, khóa cùng gate, refresh không đụng draft/danh sách. Inventory hiện
+37 shared DWORD + 2 legacy-only DWORD, tổng giá trị ứng dụng vẫn 46.
+Tray có 21 lệnh, thêm Giao diện/Theo hệ thống/Sáng/Tối dùng uiTheme chung;
+UI root refresh theme 500 ms, Nâng cao refresh combo khi không mở dropdown.
+Menu giữ native loop, đã có owner-draw nội dung như mục trên; không dùng API
+dark-mode undocumented.
+Giới thiệu/Gõ tắt/Chuyển mã truyền --page fixed allowlist, chọn navigation
+trong initial và redirected activation, dùng ILaunchActivatedEventArgs theo
+[hướng dẫn AppLifecycle](https://learn.microsoft.com/en-us/samples/microsoft/windowsappsdk-samples/applifecycle/).
+Fallback legacy còn khi launch thất bại; không suy ra phát hiện child crash.
+
+Hồi quy đạt 16/16 nhóm trên mỗi shell:
+dist/regression-4f8fc6bbf8784572bc5735ee7b47c6a0/summary.json (PS7),
+dist/regression-ef10b617e7704884ba6d7d9b690ee689/summary.json (PS5.1).
+Settings mỗi kiến trúc 278 checks gồm 16 pure route checks, store tăng 81→85;
+tray/source 34, registry 10, UI resources 20/422 keys. Build UI bốn cấu hình
+Debug/Release x64/x86 sạch; All Release x64/x86 và Debug x86 sạch.
+Sau khi người dùng thoát engine, All Debug x64 cũng build sạch, 0 cảnh báo/
+0 lỗi: dist/build-tray-fluent-final-Debug-x64.log. LNK1168 trước đó đã hết;
+không tự kill process/debugger. Cả bốn cấu hình All đã được build lại.
+Không chạy GUI/hook, thay registry/clipboard/startup thật, installer hoặc
+đóng gói lại beta; các ZIP/Sandbox cũ chưa chứa thay đổi này.
+
+QA còn mở: mở từng trang từ tray khi UI chưa mở/đang mở/minimize; kiểm tra
+selected item/draft và fallback khi thiếu UI. Chọn theme từ tray/Nâng cao,
+đổi theme Windows ở chế độ Theo hệ thống, High Contrast, lỗi lưu và mở lại;
+kiểm tra macro bật/tắt và gõ tắt trong chế độ Anh ở editor ngoài app.
+
+## Baseline màn hình chính — 2026-10-11
+
+MAIN_CONTROL_BASELINE.md kiểm kê control chung, bốn tab Win32, ID/registry/
+fallback/trang Fluent và hành vi phụ thuộc/lưu ngay. Ghi riêng khác biệt
+load/reset, clipboard đảo, kiểu gõ chỉ có ở Fluent, bốn trường legacy-only,
+dependency khôi phục từ sai, startup/admin/shortcut và giới hạn reset.
+Checklist thủ công đã được tạo; các ca GUI vẫn chưa đánh dấu đạt.
+Chạy lại test-settings.ps1 x64/x86: mỗi kiến trúc đạt 258/258 gồm store 81,
+locale 12, mapping 41, reset 38, geometry 50, theme 23, dependency 13.
+test-registry-inventory.ps1 đạt 10/10. git diff --check không lỗi whitespace.
+Không chạy UI/engine/hook/update, không truy cập registry hoặc sửa startup/
+shortcut thật, không sửa source C++ hoặc làm mới beta ZIP trong lượt này.
+
+## Baseline Gõ tắt và Chuyển mã — 2026-10-11
+
+MACRO_CONVERT_BASELINE.md kiểm kê dialog legacy, đối chiếu trang Fluent,
+ghi khác biệt có chủ đích và checklist nghiệm thu còn mở. Đã cập nhật hai
+hạng mục kiểm kê ở Giai đoạn 0; không đánh dấu GUI/engine/Sandbox đạt.
+Chạy lại test-macro.ps1 và test-convert.ps1 trên x64 và x86: mỗi kiến trúc
+đạt macro/editor/gate 71/71, engine 20/20, pure text 175/175 và clipboard
+giả 3575/3575. Fixture macro riêng:
+Sources/OpenKey/win32/OpenKey/OpenKey/Release/MacroTests-x64/fixture-2e527eab067c424fb0cdde8f3ba98ebc,
+Sources/OpenKey/win32/OpenKey/OpenKey/Release/MacroTests-x86/fixture-279276cb6ccd47c48c80d592bda87f18.
+Không chạy GUI/hook/installer hoặc thay registry/clipboard thật; không sửa
+C++ hay làm mới beta ZIP. git diff --check không có lỗi whitespace.
+
+## Baseline tray và lifecycle — 2026-10-11
+
+TRAY_LIFECYCLE_BASELINE.md và Tests/TrayContract.json ghi đủ 18 lệnh tray,
+click/IPC/Explorer recovery, startup/elevation/single-instance, tách UI/engine,
+fallback/cập nhật/cleanup. Ghi rõ entry tray còn mở dialog legacy, UI-only
+không tự cài hook, UI crash sau launch được chấp nhận không tự fallback và
+side effect Run/task ngay khi mở engine; cập nhật hướng dẫn rollback tương ứng.
+29 source guard đạt PS7/5.1; JSON tiếng Việt đọc UTF-8 để không phụ thuộc
+encoding script PS5.1. Hồi quy All đạt 16/16 nhóm mỗi shell:
+dist/regression-58d51e5a49b34d108767bfcb7943cfee/summary.json (PS7),
+dist/regression-9cb307eb9c8f475eb59f8b2cc5d27d98/summary.json (PS5.1).
+Không dispatch message, chạy GUI/hook/startup/updater hoặc sửa source C++;
+không coi source guard là nghiệm thu single-instance, tray, IPC hoặc UAC thật.
+
+## Kiểm kê registry phục vụ nâng cấp/rollback — 2026-10-11
+
+REGISTRY_INVENTORY.md và Tests/RegistryInventory.json ghi 46 giá trị ứng dụng
++ 1 Run startup; phân biệt legacy-only, Fluent-only, macro/smartSwitch binary,
+task/shortcut ngoài registry và prerequisite hệ thống. Ghi riêng khác biệt
+default vSwitchKeyStatus/vUseMacro/vSupportMetroApp, không thay hành vi cũ.
+test-registry-inventory.ps1 có 10 nhóm đối chiếu source, không mở registry;
+đạt PS7/5.1 và được thêm vào test-all. Hồi quy All đạt 15/15 mỗi shell:
+dist/regression-4ae0d89b1efa483686abd72ac5e64aed/summary.json (PS7),
+dist/regression-7753599a3d27479999454781c4f14ba4/summary.json (PS5.1).
+Không export/import, reset hoặc đọc dữ liệu cấu hình thật; chưa nghiệm thu
+nâng cấp/rollback, không sửa source C++ hoặc làm mới ZIP trong lượt này.
+
+## Hồi quy tích hợp chuẩn bị Sandbox — 2026-10-11
+
+test-packaging.ps1 gọi test-sandbox-staging.ps1 trên ZIP giả đã có: 10 ca
+từ chối trước staging (thiếu cặp runtime, hash sai định dạng/sai nội dung,
+ZIP sai kiến trúc/hỏng payload, runtime thiếu/là thư mục/không ký số), cùng
+3 lượt thành công x64/x86/lặp x64. Xác nhận GUID mới, nguồn không đổi,
+hash ZIP sao chép, metadata session, helper byte khớp nguồn, không kèm bộ cài,
+Input chỉ đọc/Logs riêng rỗng, mạng/clipboard tắt. 13/13 đạt PS7 và PS5.1.
+FixtureRoot bị giới hạn ở dist/package-tests-GUID; tạo runtime giả bằng
+CreateNew, không ghi đè. Không mở .wsb/installer hoặc chạy payload giả.
+Các .wsb fixture không phải phiên nghiệm thu và không thay hai session thật.
+Guard thư mục fixture và từ chối ghi đè đã được kiểm tra thực tế, hash file
+giả có sẵn giữ nguyên. Hồi quy All sau tích hợp đạt 14/14 nhóm mỗi shell:
+dist/regression-5b55335bd3104dd8b9e3208a4b66250e/summary.json (PS7) và
+dist/regression-663a6b3a4d774b15a9fcaa42911d797a/summary.json (PS5.1).
+
+## Chuẩn bị runtime offline bằng script — 2026-10-11
+
+Thêm cặp RuntimePath/RuntimeExpectedSha256 tùy chọn; chính sách kiểm tra
+metadata thuần và chữ ký/hash thực tế tách riêng, kiểm tra lại bản sao trước
+khi tạo .wsb. 54/54 kiểm tra Sandbox đạt PS7/5.1; 17/17 kiểm tra gói đạt,
+bao gồm minimum runtime trả về từ verifier. Bộ cài thật x64 trên PS7 và
+x86 trên PS5.1 tạo session đạt; sai kiến trúc bị từ chối trước tạo thư mục;
+không truyền runtime vẫn hoạt động. Session mới xem BETA_PACKAGING.md.
+Hồi quy All đạt 14/14 nhóm mỗi shell: dist/regression-22fefcba25c94cf7883dc4e4c413915b/summary.json
+(PS7) và dist/regression-8e21edadeba74b59ba955cc22756c93b/summary.json (PS5.1).
+Không chạy installer/UI/Sandbox, không nghiệm thu máy sạch hoặc hook.
+
+## Runtime offline cho hai session mới — 2026-10-11
+
+Đã bổ sung vc_redist đúng kiến trúc vào Input của hai session About workflow,
+không đổi beta ZIP/.wsb và không sửa bootstrap. x64 tái dùng bộ cài trước;
+x86 tải từ permalink Microsoft. Cả hai FileVersion 14.51.36247.0, cao hơn
+minimum 14.51.36231.0; ProductName đúng kiến trúc, Authenticode Valid với
+publisher Microsoft Corporation. Hash bản sao khớp nguồn; kiểm tra lại
+signature/version/product/hash, staged beta digest, Input read-only và
+network/clipboard disabled trên PS7/PS5.1 đều đạt.
+Tên/hash ở BETA_PACKAGING.md; từng Input có OFFLINE_RUNTIME.md hướng dẫn
+cài thủ công chỉ trong guest rồi chạy lại SandboxSmoke.ps1.
+
+Không chạy installer, tải/cài trên guest hoặc mở máy ảo; không thay registry/
+clipboard host. Không đánh dấu clean-machine/UI/hook đạt, không thêm runtime
+vào ZIP phát hành hoặc xác nhận quyền phân phối. Các ghi chú thiếu bộ cài ở
+bước chuẩn bị bên dưới mô tả trạng thái trước khi bổ sung trong lượt này.
+
 ## Beta và Sandbox mới sau About workflow — 2026-10-11
 
 Release All x64/x86 không SkipBuild sạch; mỗi ZIP 281 payload/hash/PE đạt
