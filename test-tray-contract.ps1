@@ -45,7 +45,15 @@ Test-Tray 'default action and encoding submenu' {
 Test-Tray 'mouse activation behavior' {
     Assert-SourcePattern $tray 'lParam == WM_LBUTTONDBLCLK\)\s*\{\s*AppDelegate::getInstance\(\)->onControlPanel\(\)' 'Double click changed'
     Assert-SourcePattern $tray 'lParam == WM_LBUTTONUP\)\s*\{\s*AppDelegate::getInstance\(\)->onToggleVietnamese\(\);\s*SystemTrayHelper::updateData\(\)' 'Left click changed'
-    Assert-SourcePattern $tray 'lParam == WM_RBUTTONDOWN.*?TrackPopupMenu\(\s*popupMenu,\s*TPM_RETURNCMD \| TPM_NONOTIFY' 'Right click changed'
+    Assert-SourcePattern $tray 'lParam == WM_RBUTTONUP.*?TrackPopupMenu\(\s*popupMenu,\s*TPM_RETURNCMD \| TPM_NONOTIFY' 'Right click must open on release'
+    Assert-Tray ($tray -notmatch 'lParam == WM_RBUTTONDOWN') 'Popup opened before Explorer finished the right click'
+}
+Test-Tray 'popup above notification overflow, including submenus' {
+    $popup = Get-Content -LiteralPath (Join-Path $engineRoot 'TrayPopup.h') -Raw -Encoding UTF8
+    Assert-SourcePattern $popup 'CreateWindowExW\(WS_EX_TOPMOST \| WS_EX_TOOLWINDOW \| \(m_panels.empty\(\) \? 0 : WS_EX_NOACTIVATE\)' 'All popup panels must be topmost'
+    Assert-SourcePattern $popup 'if \(!SetWindowPos\(window, HWND_TOPMOST, 0, 0, 0, 0,\s*SWP_NOMOVE \| SWP_NOSIZE \| SWP_NOACTIVATE \| SWP_SHOWWINDOW\)\) return false;' 'Popup must be raised when shown without stealing submenu focus'
+    Assert-SourcePattern $popup 'panel->bounds = Fit\(point, width, y \+ Px\(20\), work\)' 'Popup work-area clipping changed'
+    Assert-SourcePattern $popup 'while \(!m_panels.empty\(\)\) m_panels.pop_back\(\);' 'Popup windows must be destroyed after dismissal'
 }
 Test-Tray 'theme submenu and persistence' {
     Assert-SourcePattern $tray ('AppendMenu\(popupMenu,\s*MF_POPUP,\s*\(UINT_PTR\)themeMenu,\s*_T\("' + [regex]::Escape($contract.themeLabel) + '"\)\)') 'Theme submenu changed'

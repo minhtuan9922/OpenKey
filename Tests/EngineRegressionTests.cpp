@@ -1,5 +1,6 @@
 // Runs the real engine without installing hooks or changing user settings.
 #include "../Sources/OpenKey/engine/Engine.h"
+#include "../Sources/OpenKey/win32/OpenKey/OpenKey/KeyboardCaseState.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -26,17 +27,28 @@ int vRememberCode = 0;
 int vOtherLanguage = 0;
 int vTempOffOpenKey = 0;
 
-std::wstring type(const char* input, const int inputType, const int modern) {
+// '|' simulates Caps Lock down/up without inserting a visible character.
+std::wstring type(const char* input, const int inputType, const int modern, bool caps = false) {
     vInputType = inputType;
     vUseModernOrthography = modern;
     auto* state = static_cast<vKeyHookState*>(vKeyInit());
     startNewSession();
     std::wstring output;
     for (const char* key = input; *key; ++key) {
+        if (*key == '|') {
+            // Same routing policy as the Windows hook, after hotkey handling.
+            if (!OpenKeyKeyboardCase::IsCaseToggleKey(VK_CAPITAL)) {
+                vKeyHandleEvent(Keyboard, KeyDown, VK_CAPITAL, caps ? 2 : 0);
+            }
+            caps = !caps;
+            continue;
+        }
         const Uint16 code = *key >= 'a' && *key <= 'z' ? *key - 'a' + KEY_A : *key;
-        vKeyHandleEvent(Keyboard, KeyDown, code);
+        vKeyHandleEvent(Keyboard, KeyDown, code, caps ? 2 : 0);
+        const wchar_t visible = caps && *key >= 'a' && *key <= 'z'
+            ? static_cast<wchar_t>(*key - 'a' + 'A') : static_cast<wchar_t>(*key);
         if (state->code == vDoNothing) {
-            output.push_back(static_cast<wchar_t>(*key));
+            output.push_back(visible);
         } else if (state->code == vWillProcess || state->code == vRestore ||
                    state->code == vRestoreAndStartNewSession) {
             if (state->backspaceCount > output.size()) {
@@ -49,7 +61,7 @@ std::wstring type(const char* input, const int inputType, const int modern) {
                     ? character & 0xFFFF : keyCodeToCharacter(character)));
             }
             if (state->code == vRestore || state->code == vRestoreAndStartNewSession) {
-                output.push_back(static_cast<wchar_t>(*key));
+                output.push_back(visible);
             }
         } else {
             throw std::runtime_error("Unexpected engine action");
@@ -59,6 +71,15 @@ std::wstring type(const char* input, const int inputType, const int modern) {
 }
 
 int main() {
+    if (!OpenKeyKeyboardCase::IsCaseToggleKey(VK_CAPITAL) ||
+        OpenKeyKeyboardCase::IsCaseToggleKey(KEY_A) ||
+        OpenKeyKeyboardCase::IsCaseToggleKey(KEY_SPACE) ||
+        !OpenKeyKeyboardCase::CapsLockEnabled(1) ||
+        !OpenKeyKeyboardCase::CapsLockEnabled(static_cast<SHORT>(0x8001)) ||
+        OpenKeyKeyboardCase::CapsLockEnabled(0) ||
+        OpenKeyKeyboardCase::CapsLockEnabled(static_cast<SHORT>(0x8000))) {
+        throw std::runtime_error("Invalid Caps Lock routing/toggle state");
+    }
     vKeyHookState initialState;
     if (initialState.code != vDoNothing || initialState.backspaceCount != 0 ||
         initialState.newCharCount != 0 || initialState.extCode != 0 ||
@@ -95,5 +116,45 @@ int main() {
     }
     std::cout << "Engine regression: " << (sizeof(cases) / sizeof(cases[0]) - failures)
               << "/" << sizeof(cases) / sizeof(cases[0]) << " passed\n";
+    struct CapsCase { const char* input; const wchar_t* expected; int inputType; bool initialCaps; };
+    const CapsCase capsCases[] = {
+        { "|tieengs", L"TIẾNG", vTelex, false },
+        { "|tieengs", L"tiếng", vTelex, true },
+        { "tieeng|s", L"tiếng", vTelex, false },
+        { "tieeng|s", L"TIẾNG", vTelex, true },
+        { "ti|eengs", L"tiẾNG", vTelex, false },
+        { "ti|eengs", L"TIếng", vTelex, true },
+        { "tiee|ng|s", L"tiếNG", vTelex, false },
+        { "|tie6ng1", L"TIẾNG", vVNI, false },
+        { "|tie6ng1", L"tiếng", vVNI, true },
+        { "tie6ng|1", L"tiếng", vVNI, false },
+        { "tie6ng|1", L"TIẾNG", vVNI, true },
+        { "ti|e6ng1", L"tiẾNG", vVNI, false },
+        { "ti|e6ng1", L"TIếng", vVNI, true },
+        { "tie6|ng|1", L"tiếNG", vVNI, false },
+        { "tieengs |vieetj", L"tiếng VIỆT", vTelex, false },
+        { "tieengs |vieetj", L"TIẾNG việt", vTelex, true },
+        { "|tieengs", L"TIẾNG", vSimpleTelex1, false },
+        { "|tieengs", L"tiếng", vSimpleTelex1, true },
+        { "tieeng|s", L"tiếng", vSimpleTelex1, false },
+        { "tieeng|s", L"TIẾNG", vSimpleTelex1, true },
+        { "|tieengs", L"TIẾNG", vSimpleTelex2, false },
+        { "|tieengs", L"tiếng", vSimpleTelex2, true },
+        { "tieeng|s", L"tiếng", vSimpleTelex2, false },
+        { "tieeng|s", L"TIẾNG", vSimpleTelex2, true }
+    };
+    int capsFailures = 0;
+    for (const auto& item : capsCases) {
+        const auto actual = type(item.input, item.inputType, 1, item.initialCaps);
+        if (actual != item.expected) {
+            std::cerr << "FAIL Caps Lock: " << item.input << " type=" << item.inputType
+                      << " initialCaps=" << item.initialCaps << " got=" << wideStringToUtf8(actual)
+                      << " expected=" << wideStringToUtf8(item.expected) << '\n';
+            ++capsFailures;
+        }
+    }
+    std::cout << "Caps Lock regression: " << (sizeof(capsCases) / sizeof(capsCases[0]) - capsFailures)
+              << "/" << sizeof(capsCases) / sizeof(capsCases[0]) << " passed\n";
+    failures += capsFailures;
     return failures ? 1 : 0;
 }

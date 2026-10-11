@@ -304,7 +304,9 @@ namespace OpenKeyTrayPopup
             if (panel->viewport.bottom <= panel->viewport.top) return false;
             for (auto& row : panel->rows) row.right = panel->width;
             panel->accessible = new Accessible(panel->data);
-            HWND window = CreateWindowExW(WS_EX_TOOLWINDOW | (m_panels.empty() ? 0 : WS_EX_NOACTIVATE),
+            // The notification overflow flyout is topmost. Every menu panel
+            // must share that band, including no-activate submenus.
+            HWND window = CreateWindowExW(WS_EX_TOPMOST | WS_EX_TOOLWINDOW | (m_panels.empty() ? 0 : WS_EX_NOACTIVATE),
                 L"OpenKey.RoundedTrayPopup", L"OpenKey", WS_POPUP,
                 panel->bounds.left, panel->bounds.top, panel->width, panel->height,
                 owner, nullptr, GetModuleHandleW(nullptr), panel.get());
@@ -314,7 +316,8 @@ namespace OpenKeyTrayPopup
             { if (region) DeleteObject(region); return false; } // USER32 owns successful region.
             Locations(*panel);
             m_panels.push_back(std::move(panel));
-            ShowWindow(window, SW_SHOWNOACTIVATE);
+            if (!SetWindowPos(window, HWND_TOPMOST, 0, 0, 0, 0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW)) return false;
             NotifyWinEvent(EVENT_SYSTEM_MENUPOPUPSTART, window, OBJID_CLIENT, CHILDID_SELF);
             return true;
         }

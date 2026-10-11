@@ -1,5 +1,16 @@
 # TODO: Chuyển giao diện OpenKey Windows sang Fluent Design
 
+## Sửa menu tray bị bảng icon ẩn che (2026-10-11)
+
+- [x] Mở menu khi thả chuột phải (WM_RBUTTONUP), không mở giữa chuỗi nhấn/thả.
+- [x] Đặt menu chính và submenu tùy biến vào lớp topmost, đưa lên trên khi
+  hiển thị; submenu không lấy focus. Giữ giới hạn work area và hủy cửa sổ khi đóng.
+- [x] Thêm source guard cho thứ tự hiển thị/lifecycle; 37/37 tray contract đạt.
+- [x] Engine Debug x64, Release x64/x86 build 0 cảnh báo/0 lỗi; 18/18 bộ hồi quy
+  đạt, report `dist/regression-4cf41d23cfee40428053f32721ee5415/summary.json`.
+- [ ] Nghiệm thu thực tế từ icon trong bảng icon ẩn và icon trực tiếp trên taskbar,
+  submenu, click ngoài/Escape, DPI và nhiều màn hình; chưa xác nhận bằng GUI.
+
 ## Mục tiêu
 
 ### Bộ cài offline một file (2026-10-11)

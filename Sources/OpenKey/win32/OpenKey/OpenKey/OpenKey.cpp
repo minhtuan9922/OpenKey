@@ -14,6 +14,7 @@ redistribute your new version, it MUST be open source.
 #include "stdafx.h"
 #include "AppDelegate.h"
 #include "SettingsService.h"
+#include "KeyboardCaseState.h"
 
 #pragma comment(lib, "imm32")
 #define IMC_GETOPENSTATUS 0x0005
@@ -106,7 +107,7 @@ void OpenKeyInit() {
 	if (GetKeyState(VK_LMENU) < 0 || GetKeyState(VK_RMENU) < 0) _flag |= MASK_ALT;
 	if (GetKeyState(VK_LWIN) < 0 || GetKeyState(VK_RWIN) < 0) _flag |= MASK_WIN;
 	if (GetKeyState(VK_NUMLOCK) < 0) _flag |= MASK_NUMLOCK;
-	if (GetKeyState(VK_CAPITAL) == 1) _flag |= MASK_CAPITAL;
+	if (OpenKeyKeyboardCase::CapsLockEnabled(GetKeyState(VK_CAPITAL))) _flag |= MASK_CAPITAL;
 	if (GetKeyState(VK_SCROLL) < 0) _flag |= MASK_SCROLL;
 
 	//init and load macro data
@@ -414,7 +415,7 @@ static void handleMacro() {
 static bool SetModifierMask(const Uint16& vkCode) {
 	// For caps lock case, toggling the flag isn't enough. We need to check the actual state, which should be done before each key press.
 	// Example: the caps lock state can be changed without the key being pressed, or the key toggle is made with admin privilege, making the app not able to detect the change.
-	if (GetKeyState(VK_CAPITAL) == 1) _flag |= MASK_CAPITAL;
+	if (OpenKeyKeyboardCase::CapsLockEnabled(GetKeyState(VK_CAPITAL))) _flag |= MASK_CAPITAL;
 	else _flag &= ~MASK_CAPITAL;
 
 	if (vkCode == VK_LSHIFT || vkCode == VK_RSHIFT) _flag |= MASK_SHIFT;
@@ -514,6 +515,14 @@ LRESULT CALLBACK keyboardHookProcess(int nCode, WPARAM wParam, LPARAM lParam) {
 			_lastFlag = _flag;
 			_hasJustUsedHotKey = false;
 		}
+		_keycode = 0;
+		return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
+	}
+
+	// Caps Lock changes case, not text. Keep the current word/macro and
+	// double-code backspace tracking intact; Windows must receive the key.
+	// Shortcut handling above still gets first chance to consume it.
+	if (OpenKeyKeyboardCase::IsCaseToggleKey(keyboardData->vkCode)) {
 		_keycode = 0;
 		return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
 	}

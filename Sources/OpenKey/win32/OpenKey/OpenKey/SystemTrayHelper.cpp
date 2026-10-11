@@ -123,7 +123,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 		if (lParam == WM_LBUTTONUP) {
 			AppDelegate::getInstance()->onToggleVietnamese();
 			SystemTrayHelper::updateData();
-		} else if (lParam == WM_RBUTTONDOWN) {
+		} else if (lParam == WM_RBUTTONUP) {
 			if (trayPopupOpen) return 0; // Do not re-enter either popup loop.
 			POINT curPoint;
 			GetCursorPos(&curPoint);

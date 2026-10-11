@@ -179,6 +179,7 @@
     <ClInclude Include="OpenKeyHelper.h" />
     <ClInclude Include="OpenKeyManager.h" />
     <ClInclude Include="SettingsService.h" />
+    <ClInclude Include="KeyboardCaseState.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="SystemTrayHelper.h" />
