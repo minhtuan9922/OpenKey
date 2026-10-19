@@ -1,5 +1,13 @@
 # OpenKey Change Log
 
+## Windows Fluent 3.0.8 — 2026-10-19
+
+- Nâng đồng bộ phiên bản engine, updater, giao diện và cấu hình bộ cài lên 3.0.8;
+  metadata Windows `v3.0.8` / `524291` (`0x00080003`).
+- Workflow xuất bản bản chính thức và tự gắn nhãn **Latest** sau khi upload thành công.
+
+Chưa tạo bộ cài, tag hoặc phát hành GitHub cho bản 3.0.8 trong lượt này.
+
 ## Windows Fluent 3.0.7 — 2026-10-11
 
 - Nâng đồng bộ phiên bản engine, updater, giao diện và cấu hình bộ cài lên 3.0.7;

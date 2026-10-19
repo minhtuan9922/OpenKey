@@ -8,14 +8,14 @@ Commit mã nguồn, scripts và workflow đã sửa trước khi tạo tag; tag 
 commit chứa đúng phiên bản. Không tạo tag trên commit cũ chưa có workflow.
 
 ```powershell
-git tag v3.0.7
-git push origin v3.0.7
+git tag v3.0.8
+git push origin v3.0.8
 ```
 
 Xem GitHub → Actions → **Build offline setup on tag**.
-Ví dụ trên chỉ dùng nếu tag chưa tồn tại và source/metadata đều 3.0.7.
+Ví dụ trên chỉ dùng nếu tag chưa tồn tại và source/metadata đều 3.0.8.
 Nếu tag đã phát hành, tăng version đồng bộ và dùng tag mới, không ghi đè tag cũ.
-Hoặc chạy **Run workflow** với input `tag` là tag đã tồn tại (`v3.0.7`).
+Hoặc chạy **Run workflow** với input `tag` là tag đã tồn tại (`v3.0.8`).
 Để chạy thủ công, workflow phải có trên nhánh mặc định. Repo cần bật Actions
 và cho phép quyền `contents: write` của job publish. Không cần PAT riêng.
 
@@ -30,16 +30,16 @@ và cho phép quyền `contents: write` của job publish. Không cần PAT riê
 6. Upload artifact `offline-setup`, chuyển cho job publish riêng (không checkout
    hay thực thi source của repo với token ghi).
 7. Kiểm tra checksum, đính kèm `OpenKey-Setup.exe` và `SHA256SUMS.txt` vào Release.
-   Nếu chưa có Release, tạo draft pre-release, upload rồi mở draft thành pre-release.
-   Nếu đã có Release, chỉ thêm asset. Không ghi đè asset cùng tên; rerun có thể
-   dừng ở upload nếu file đã tồn tại. Draft do người dùng tạo sẵn vẫn giữ draft.
+   Nếu chưa có Release, tạo draft rồi upload. Sau khi upload thành công, xuất bản
+   Release thành bản chính thức và gắn nhãn **Latest**, kể cả Release đã tồn tại.
+   Không ghi đè asset cùng tên; rerun có thể dừng ở upload nếu file đã tồn tại.
 
 Nếu một bước lỗi, không publish setup. Log kiểm thử và manifest được giữ trong
 artifact `setup-diagnostics` 14 ngày. Phát hành tự động chỉ chạy ở
 `minhtuan9922/OpenKey`; fork vẫn có thể build artifact nhưng không publish.
-Workflow mặc định tạo **pre-release**, không stable. Bộ cài chưa ký số;
+Workflow tự xuất bản bản chính thức và gắn nhãn **Latest**. Bộ cài chưa ký số;
 người dùng đã nghiệm thu luồng bình thường trên Sandbox/máy thật, nhưng workflow
-không tự suy kết quả đó cho mọi artifact hoặc chuyển sang stable.
+không tự suy kết quả đó cho mọi artifact.
 
 ## Metadata cập nhật
 
@@ -59,7 +59,7 @@ script dừng khi hash/chữ ký/version không đúng, không tự chấp nhậ
 ```powershell
 .\test-ci-release.ps1
 .\prepare-ci.ps1 -DownloadOnly
-.\build-ci-release.ps1 -Tag v3.0.7
+.\build-ci-release.ps1 -Tag v3.0.8
 ```
 
 Lệnh cuối build và chạy các fixture; không publish, không chạy setup. Thư mục

@@ -78,7 +78,7 @@ CAPTION "About OpenKeyUpdate"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
     ICON            IDR_MAINFRAME,IDC_STATIC,14,14,21,20
-    LTEXT           "OpenKeyUpdate, Version 3.0.7",IDC_STATIC,42,14,114,8,SS_NOPREFIX
+    LTEXT           "OpenKeyUpdate, Version 3.0.8",IDC_STATIC,42,14,114,8,SS_NOPREFIX
     LTEXT           "Copyright (c) 2019",IDC_STATIC,42,26,114,8
     DEFPUSHBUTTON   "OK",IDOK,113,41,50,14,WS_GROUP
 END
@@ -157,8 +157,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 3,0,7,0
- PRODUCTVERSION 3,0,7,0
+ FILEVERSION 3,0,8,0
+ PRODUCTVERSION 3,0,8,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -175,12 +175,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "The OpenKey Project"
             VALUE "FileDescription", "Update Helper for OpenKey"
-            VALUE "FileVersion", "3.0.7.0"
+            VALUE "FileVersion", "3.0.8.0"
             VALUE "InternalName", "OpenKeyUpdate.exe"
             VALUE "LegalCopyright", "Copyright (C) 2019"
             VALUE "OriginalFilename", "OpenKeyUpdate.exe"
             VALUE "ProductName", "OpenKey Auto Update"
-            VALUE "ProductVersion", "3.0.7.0"
+            VALUE "ProductVersion", "3.0.8.0"
         END
     END
     BLOCK "VarFileInfo"

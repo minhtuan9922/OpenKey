@@ -31,7 +31,9 @@ $contracts = @(
     ($workflow -match 'gh release upload.*OpenKey-Setup.exe SHA256SUMS.txt'),
     ($workflow -notmatch '(?m)^\s+gh .*--clobber'),
     ($workflow -match '(?s)publish:.*contents: write'),
-    ($workflow -match 'gh release create.*--draft --prerelease')
+    ($workflow -match 'gh release create.*--draft'),
+    ($workflow -notmatch 'gh release create.*--prerelease'),
+    ($workflow -match 'gh release edit.*--draft=false --prerelease=false --latest')
 )
 foreach ($contract in $contracts) { if (-not $contract) { throw 'CI source contract failed.' }; $checks++ }
 $buildSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'build-ci-release.ps1') -Raw

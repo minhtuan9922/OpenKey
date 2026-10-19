@@ -7,8 +7,8 @@ Có workflow tự build theo tag và upload setup vào Release; xem `CI_RELEASES
 Nhánh mặc định của repo hiện là `master`. Không dùng metadata hay bản tải của
 `tuyenvm/OpenKey`; liên kết tác giả gốc trong Giới thiệu chỉ dùng ghi nguồn.
 
-Mã nguồn hiện là `3.0.7`; metadata trong workspace dùng `v3.0.7` / `458755`.
-Bộ cài local đã ghi nhận trong INSTALLER.md vẫn là 3.0.3, chưa build bộ cài 3.0.7
+Mã nguồn hiện là `3.0.8`; metadata trong workspace dùng `v3.0.8` / `524291`.
+Bộ cài local đã ghi nhận trong INSTALLER.md vẫn là 3.0.3, chưa build bộ cài 3.0.8
 trong lượt tăng version. Người dùng đã xác nhận cập nhật thực tế lên 3.0.3 hoạt động ổn.
 Tài liệu này không kiểm tra trạng thái Release/asset GitHub hiện tại.
 Các sửa lỗi local sau đó cần commit và phát hành bằng một phiên bản mới nếu
@@ -16,7 +16,7 @@ muốn ứng dụng 3.0.3 nhận thông báo cập nhật; build lại cùng ver
 
 ## Chuẩn bị một bản mới
 
-1. Tăng phiên bản ứng dụng, metadata và bộ cài đồng bộ. Source hiện là `3.0.7`.
+1. Tăng phiên bản ứng dụng, metadata và bộ cài đồng bộ. Source hiện là `3.0.8`.
 2. Build và đóng gói bằng `./build-setup.ps1 -Release`; giữ SHA-256 được in ra.
 3. Commit các thay đổi trước khi tạo tag `vX.Y.Z` trong `minhtuan9922/OpenKey`.
    Workflow build/publish theo tag được mô tả ở `CI_RELEASES.md`; dùng tag mới,
@@ -27,8 +27,8 @@ muốn ứng dụng 3.0.3 nhận thông báo cập nhật; build lại cùng ver
 
 ```json
 "latestWinVersion": {
-  "versionName": "v3.0.7",
-  "versionCode": 458755
+  "versionName": "v3.0.8",
+  "versionCode": 524291
 }
 ```
 
@@ -41,7 +41,7 @@ Không tăng metadata trước khi bộ cài của tag đã sẵn sàng. Đây l
 
 - Kiểm tra khi bấm nút hoặc khi engine khởi động nếu bật tùy chọn kiểm tra.
 - Phiên bản cao hơn: hỏi xác nhận, rồi tải trực tiếp asset của đúng tag:
-  `https://github.com/minhtuan9922/OpenKey/releases/download/v3.0.7/OpenKey-Setup.exe`.
+  `https://github.com/minhtuan9922/OpenKey/releases/download/v3.0.8/OpenKey-Setup.exe`.
 - Giao diện hiển thị tiến độ tải; ứng dụng kiểm tra SHA-256 từ `SHA256SUMS.txt`
   của cùng tag trước khi chạy bộ cài. OpenKey tự thoát khi khởi chạy bộ cài
   thành công. Nếu tải, xác minh hoặc khởi chạy thất bại thì vẫn tiếp tục chạy.
