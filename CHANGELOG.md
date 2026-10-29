@@ -1,5 +1,13 @@
 # OpenKey Change Log
 
+## Windows Fluent 3.0.9 — 2026-10-29
+
+- Chuyển kiểu gõ, bảng mã và ghi nhớ bảng mã theo ứng dụng lên trang Tổng quan.
+- Bỏ mục điều hướng “Kiểu gõ & bảng mã”; menu trái mặc định mở rộng.
+- Đồng bộ phiên bản engine, updater, giao diện và bộ cài lên 3.0.9;
+  metadata Windows `v3.0.9` / `589827` (`0x00090003`).
+- Push tag `v3.0.9` kích hoạt workflow build và phát hành bộ cài trên GitHub.
+
 ## Windows Fluent 3.0.8 — 2026-10-19
 
 - Nâng đồng bộ phiên bản engine, updater, giao diện và cấu hình bộ cài lên 3.0.8;

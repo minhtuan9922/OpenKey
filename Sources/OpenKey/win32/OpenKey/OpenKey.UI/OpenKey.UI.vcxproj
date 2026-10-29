@@ -133,9 +133,6 @@
     <ClInclude Include="OverviewPage.xaml.h">
       <DependentUpon>OverviewPage.xaml</DependentUpon>
     </ClInclude>
-    <ClInclude Include="InputSettingsPage.xaml.h">
-      <DependentUpon>InputSettingsPage.xaml</DependentUpon>
-    </ClInclude>
     <ClInclude Include="SpellingSettingsPage.xaml.h">
       <DependentUpon>SpellingSettingsPage.xaml</DependentUpon>
     </ClInclude>
@@ -176,7 +173,6 @@
     <Page Include="Styles\FluentResources.xaml" />
     <Page Include="MainWindow.xaml" />
     <Page Include="OverviewPage.xaml" />
-    <Page Include="InputSettingsPage.xaml" />
     <Page Include="SpellingSettingsPage.xaml" />
     <Page Include="HotkeySettingsPage.xaml" />
     <Page Include="CompatibilitySettingsPage.xaml" />
@@ -197,9 +193,6 @@
     </ClCompile>
     <ClCompile Include="OverviewPage.xaml.cpp">
       <DependentUpon>OverviewPage.xaml</DependentUpon>
-    </ClCompile>
-    <ClCompile Include="InputSettingsPage.xaml.cpp">
-      <DependentUpon>InputSettingsPage.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="SpellingSettingsPage.xaml.cpp">
       <DependentUpon>SpellingSettingsPage.xaml</DependentUpon>
@@ -251,10 +244,6 @@
     <Midl Include="OverviewPage.idl">
       <SubType>Code</SubType>
       <DependentUpon>OverviewPage.xaml</DependentUpon>
-    </Midl>
-    <Midl Include="InputSettingsPage.idl">
-      <SubType>Code</SubType>
-      <DependentUpon>InputSettingsPage.xaml</DependentUpon>
     </Midl>
     <Midl Include="SpellingSettingsPage.idl">
       <SubType>Code</SubType>

@@ -16,7 +16,7 @@ function Test-UI([string]$Name, [scriptblock]$Check) {
 function Nodes([xml]$Document, [string]$LocalName) {
     @($Document.SelectNodes('//*') | Where-Object LocalName -eq $LocalName)
 }
-$pageNames = @('OverviewPage', 'InputSettingsPage', 'SpellingSettingsPage', 'HotkeySettingsPage',
+$pageNames = @('OverviewPage', 'SpellingSettingsPage', 'HotkeySettingsPage',
     'CompatibilitySettingsPage', 'AdvancedSettingsPage', 'MacroPage', 'ConvertPage', 'AboutPage')
 Test-UI 'Parse source XAML, resource dictionaries and RESW' {
     foreach ($name in @('App', 'MainWindow') + $pageNames) {
@@ -101,9 +101,9 @@ Test-UI 'Adaptive setter targets exist in their page' {
         }
     }
 }
-Test-UI 'All nine navigation tags remain available' {
+Test-UI 'All eight navigation tags remain available' {
     $tags = @((Nodes $documents['MainWindow'] 'NavigationViewItem') | ForEach-Object { $_.GetAttribute('Tag') })
-    Assert-UI (@(Compare-Object $tags @('overview','input','spelling','hotkeys','compatibility','advanced','macro','convert','about')).Count -eq 0) 'Navigation tags changed'
+    Assert-UI (@(Compare-Object $tags @('overview','spelling','hotkeys','compatibility','advanced','macro','convert','about')).Count -eq 0) 'Navigation tags changed'
 }
 Test-UI 'Solid fallback covers title and content without hit-test controls' {
     $fallback = @((Nodes $documents['MainWindow'] 'Border') | Where-Object { $_.GetAttribute('Name', $xamlNamespace) -eq 'BackdropFallback' })

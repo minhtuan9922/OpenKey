@@ -4,7 +4,6 @@
     <ApplicationDefinition Include="App.xaml" />
     <Page Include="MainWindow.xaml" />
     <Page Include="OverviewPage.xaml" />
-    <Page Include="InputSettingsPage.xaml" />
     <Page Include="SpellingSettingsPage.xaml" />
     <Page Include="HotkeySettingsPage.xaml" />
     <Page Include="CompatibilitySettingsPage.xaml" />
@@ -14,7 +13,6 @@
     <Page Include="AboutPage.xaml" />
     <Midl Include="MainWindow.idl" />
     <Midl Include="OverviewPage.idl" />
-    <Midl Include="InputSettingsPage.idl" />
     <Midl Include="SpellingSettingsPage.idl" />
     <Midl Include="HotkeySettingsPage.idl" />
     <Midl Include="CompatibilitySettingsPage.idl" />
@@ -28,7 +26,6 @@
     <ClCompile Include="App.xaml.cpp" />
     <ClCompile Include="MainWindow.xaml.cpp" />
     <ClCompile Include="OverviewPage.xaml.cpp" />
-    <ClCompile Include="InputSettingsPage.xaml.cpp" />
     <ClCompile Include="SpellingSettingsPage.xaml.cpp" />
     <ClCompile Include="HotkeySettingsPage.xaml.cpp" />
     <ClCompile Include="CompatibilitySettingsPage.xaml.cpp" />
@@ -51,7 +48,6 @@
     <ClInclude Include="App.xaml.h" />
     <ClInclude Include="MainWindow.xaml.h" />
     <ClInclude Include="OverviewPage.xaml.h" />
-    <ClInclude Include="InputSettingsPage.xaml.h" />
     <ClInclude Include="SpellingSettingsPage.xaml.h" />
     <ClInclude Include="HotkeySettingsPage.xaml.h" />
     <ClInclude Include="CompatibilitySettingsPage.xaml.h" />

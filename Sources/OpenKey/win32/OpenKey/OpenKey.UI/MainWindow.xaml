@@ -38,7 +38,8 @@
         IsBackButtonVisible="Collapsed"
         IsPaneToggleButtonVisible="True"
         IsSettingsVisible="False"
-        PaneDisplayMode="LeftCompact"
+        PaneDisplayMode="Left"
+        IsPaneOpen="True"
         PaneTitle="OpenKey"
         SelectionChanged="OnNavigationSelectionChanged">
 
@@ -51,12 +52,6 @@
                 Icon="Home"
                 IsSelected="True"
                 Tag="overview" />
-            <NavigationViewItem
-                x:Uid="NavInput"
-                AutomationProperties.Name="Kiểu gõ và bảng mã"
-                Content="Kiểu gõ &amp; bảng mã"
-                Icon="Keyboard"
-                Tag="input" />
             <NavigationViewItem
                 x:Uid="NavSpelling"
                 AutomationProperties.Name="Chính tả và gõ nhanh"

@@ -30,7 +30,7 @@
                 <TextBlock
                     x:Uid="OverviewSubtitle"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Text="Bật hoặc tắt nhanh chế độ nhập tiếng Việt của OpenKey."
+                    Text="Bật hoặc tắt bộ gõ, chọn kiểu gõ và bảng mã tiếng Việt."
                     TextWrapping="Wrap" />
             </StackPanel>
 
@@ -62,6 +62,68 @@
                         TabIndex="0"
                         Toggled="OnLanguageToggled" />
                 </Grid>
+            </Border>
+
+            <Border Style="{StaticResource OpenKeySettingsCardStyle}">
+                <StackPanel Spacing="18">
+                    <StackPanel Spacing="8">
+                        <TextBlock TextWrapping="Wrap" x:Uid="InputMethodTitle" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Kiểu gõ" />
+                        <TextBlock
+                            x:Uid="InputMethodDescription"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="Telex dùng phím chữ để đặt dấu; VNI dùng các phím số."
+                            TextWrapping="Wrap" />
+                        <ComboBox
+                            x:Name="InputTypeCombo"
+                            x:Uid="InputTypeCombo"
+                            AutomationProperties.HelpText="Chọn phương thức đặt dấu tiếng Việt."
+                            AutomationProperties.Name="Kiểu gõ"
+                            HorizontalAlignment="Stretch"
+                            TabIndex="1"
+                            SelectionChanged="OnInputTypeChanged">
+                            <ComboBoxItem x:Uid="InputTypeTelex" Content="Telex" />
+                            <ComboBoxItem x:Uid="InputTypeVni" Content="VNI" />
+                            <ComboBoxItem x:Uid="InputTypeSimple1" Content="Simple Telex 1" />
+                            <ComboBoxItem x:Uid="InputTypeSimple2" Content="Simple Telex 2" />
+                        </ComboBox>
+                    </StackPanel>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock TextWrapping="Wrap" x:Uid="CodeTableTitle" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Bảng mã" />
+                        <TextBlock
+                            x:Uid="CodeTableDescription"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="Unicode phù hợp với hầu hết ứng dụng và được khuyến nghị."
+                            TextWrapping="Wrap" />
+                        <ComboBox
+                            x:Name="CodeTableCombo"
+                            x:Uid="CodeTableCombo"
+                            AutomationProperties.HelpText="Chọn bảng mã dùng để xuất ký tự tiếng Việt."
+                            AutomationProperties.Name="Bảng mã"
+                            HorizontalAlignment="Stretch"
+                            TabIndex="2"
+                            SelectionChanged="OnCodeTableChanged">
+                            <ComboBoxItem x:Uid="CodeUnicode" Content="Unicode" />
+                            <ComboBoxItem x:Uid="CodeTcvn3" Content="TCVN3 (ABC)" />
+                            <ComboBoxItem x:Uid="CodeVniWindows" Content="VNI Windows" />
+                            <ComboBoxItem x:Uid="CodeUnicodeComposite" Content="Unicode tổ hợp" />
+                            <ComboBoxItem x:Uid="CodeVietnameseLocale" Content="Vietnamese locale CP 1258" />
+                        </ComboBox>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource OpenKeySettingsCardStyle}">
+                <ToggleSwitch
+                    x:Name="RememberCodeToggle"
+                    x:Uid="RememberCodeToggle"
+                    AutomationProperties.HelpText="Ghi nhớ bảng mã riêng cho từng ứng dụng."
+                    AutomationProperties.Name="Ghi nhớ bảng mã theo ứng dụng"
+                    Header="Ghi nhớ bảng mã theo ứng dụng"
+                    OffContent="Tắt"
+                    OnContent="Bật"
+                    TabIndex="3"
+                    Toggled="OnRememberCodeToggled" />
             </Border>
 
             <InfoBar

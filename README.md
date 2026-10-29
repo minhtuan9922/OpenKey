@@ -4,7 +4,7 @@
 ## Windows Fluent UI beta trong nhánh này
 
 Nhánh Windows này bổ sung giao diện WinUI/Fluent, tiếng Việt mặc định, tùy chọn
-English, theme Sáng/Tối/Theo hệ thống và menu tray bo góc. Mã nguồn hiện là 3.0.8;
+English, theme Sáng/Tối/Theo hệ thống và menu tray bo góc. Mã nguồn hiện là 3.0.9;
 engine và giao diện Win32 dự phòng vẫn được giữ.
 
 Tải bộ cài Windows tại [Releases của bản fork](https://github.com/minhtuan9922/OpenKey/releases).

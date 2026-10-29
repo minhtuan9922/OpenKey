@@ -1,5 +1,11 @@
 # TODO: Chuyển giao diện OpenKey Windows sang Fluent Design
 
+## Phiên bản mã nguồn 3.0.9 (2026-10-29)
+
+- [x] Đồng bộ engine/updater/UI 3.0.9.0, trang Giới thiệu 3.0.9, setup 3.0.9 và metadata `v3.0.9` / `589827` (`0x00090003`).
+- [x] Chuyển các cài đặt kiểu gõ và bảng mã lên Tổng quan, bỏ mục menu riêng và mở rộng menu trái mặc định.
+- Phát hành bộ cài qua workflow GitHub khi push tag `v3.0.9`; kết quả phụ thuộc lần chạy CI.
+
 ## Phiên bản mã nguồn 3.0.8 (2026-10-19)
 
 - [x] Nâng đồng bộ version Windows: engine/updater/UI 3.0.8.0, trang Giới thiệu 3.0.8, setup 3.0.8 và metadata `v3.0.8` / `524291` (`0x00080003`). Không thay phiên bản macOS.

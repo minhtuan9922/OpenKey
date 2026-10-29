@@ -6,7 +6,6 @@
   <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
   <data name="RootNavigation.PaneTitle" xml:space="preserve"><value>OpenKey</value></data>
   <data name="NavOverview.Content" xml:space="preserve"><value>Tổng quan</value></data>
-  <data name="NavInput.Content" xml:space="preserve"><value>Kiểu gõ &amp; bảng mã</value></data>
   <data name="NavSpelling.Content" xml:space="preserve"><value>Chính tả &amp; gõ nhanh</value></data>
   <data name="NavHotkeys.Content" xml:space="preserve"><value>Phím tắt</value></data>
   <data name="NavCompatibility.Content" xml:space="preserve"><value>Ứng dụng &amp; tương thích</value></data>
@@ -15,14 +14,12 @@
   <data name="NavConvert.Content" xml:space="preserve"><value>Chuyển mã</value></data>
   <data name="NavAbout.Content" xml:space="preserve"><value>Giới thiệu</value></data>
   <data name="OverviewTitle.Text" xml:space="preserve"><value>Bộ gõ tiếng Việt</value></data>
-  <data name="OverviewSubtitle.Text" xml:space="preserve"><value>Bật hoặc tắt nhanh chế độ nhập tiếng Việt của OpenKey.</value></data>
+  <data name="OverviewSubtitle.Text" xml:space="preserve"><value>Bật hoặc tắt bộ gõ, chọn kiểu gõ và bảng mã tiếng Việt.</value></data>
   <data name="OverviewStatusTitle.Text" xml:space="preserve"><value>Trạng thái bộ gõ</value></data>
   <data name="LanguageToggle.OffContent" xml:space="preserve"><value>Tiếng Anh</value></data>
   <data name="LanguageToggle.OnContent" xml:space="preserve"><value>Tiếng Việt</value></data>
   <data name="OverviewStatus.Title" xml:space="preserve"><value>Cấu hình tương thích</value></data>
   <data name="OverviewStatus.Message" xml:space="preserve"><value>Các trang cài đặt dùng chung dữ liệu với OpenKey Win32.</value></data>
-  <data name="InputTitle.Text" xml:space="preserve"><value>Kiểu gõ &amp; bảng mã</value></data>
-  <data name="InputSubtitle.Text" xml:space="preserve"><value>Chọn cách nhập dấu và định dạng ký tự tiếng Việt phù hợp với ứng dụng.</value></data>
   <data name="InputMethodTitle.Text" xml:space="preserve"><value>Kiểu gõ</value></data>
   <data name="InputMethodDescription.Text" xml:space="preserve"><value>Telex dùng phím chữ để đặt dấu; VNI dùng các phím số.</value></data>
   <data name="InputTypeTelex.Content" xml:space="preserve"><value>Telex</value></data>
@@ -329,7 +326,6 @@
   <data name="RootNavigation.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Dùng phím mũi tên để chọn một trang cài đặt.</value></data>
   <data name="RootNavigation.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Điều hướng OpenKey</value></data>
   <data name="NavOverview.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Tổng quan</value></data>
-  <data name="NavInput.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Kiểu gõ và bảng mã</value></data>
   <data name="NavSpelling.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Chính tả và gõ nhanh</value></data>
   <data name="NavHotkeys.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Phím tắt</value></data>
   <data name="NavCompatibility.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Ứng dụng và tương thích</value></data>
@@ -346,7 +342,6 @@
   <data name="CodeTableCombo.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Bảng mã</value></data>
   <data name="RememberCodeToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.HelpText" xml:space="preserve"><value>Ghi nhớ bảng mã riêng cho từng ứng dụng.</value></data>
   <data name="RememberCodeToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Ghi nhớ bảng mã theo ứng dụng</value></data>
-  <data name="InputSettingsStatus.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Trạng thái lưu cấu hình</value></data>
   <data name="CheckSpellingToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Kiểm tra chính tả</value></data>
   <data name="RestoreWrongSpellingToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Khôi phục phím với từ sai</value></data>
   <data name="ModernOrthographyToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Dùng quy tắc đặt dấu kiểu mới</value></data>

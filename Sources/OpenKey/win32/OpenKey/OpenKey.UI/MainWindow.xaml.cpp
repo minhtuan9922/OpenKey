@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "MainWindow.xaml.h"
 #include <chrono>
-#include "InputSettingsPage.xaml.h"
 #include "OverviewPage.xaml.h"
 #include "SpellingSettingsPage.xaml.h"
 #include "HotkeySettingsPage.xaml.h"
@@ -330,10 +329,6 @@ namespace winrt::OpenKeyUI::implementation
         if (tag == L"overview")
         {
             NavigateTo(L"OpenKeyUI.OverviewPage");
-        }
-        else if (tag == L"input")
-        {
-            NavigateTo(L"OpenKeyUI.InputSettingsPage");
         }
         else if (tag == L"spelling")
         {
