@@ -42,7 +42,7 @@ Tần suất: luôn xảy ra / thỉnh thoảng / chỉ lần mở đầu:
 
 ## Thông tin hỗ trợ (không bắt buộc)
 
-<!-- Có thể xuất support-report.json theo DIAGNOSTICS.md, kiểm tra trước khi đính kèm. Công cụ không tự gửi dữ liệu. Không dán toàn bộ log nếu chưa đọc/che thông tin nhạy cảm. -->
+<!-- Có thể xuất support-report.json theo docs/DIAGNOSTICS.md, kiểm tra trước khi đính kèm. Công cụ không tự gửi dữ liệu. Không dán toàn bộ log nếu chưa đọc/che thông tin nhạy cảm. -->
 
 - Ảnh hoặc video đã che dữ liệu nhạy cảm:
 - Mã lỗi / đoạn log liên quan đã kiểm tra:

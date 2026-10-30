@@ -1,6 +1,10 @@
 
 # [OpenKey](http://open-key.org)
 
+Mã nguồn nằm trong `Sources/`, kiểm thử C++ trong `Tests/`, tài liệu trong
+[`docs/`](docs/README.md) và công cụ PowerShell trong [`scripts/`](scripts/README.md).
+Chạy build bằng `./build.ps1`, hồi quy bằng `./test-all.ps1 All` từ thư mục gốc.
+
 ## Windows Fluent UI beta trong nhánh này
 
 Nhánh Windows này bổ sung giao diện WinUI/Fluent, tiếng Việt mặc định, tùy chọn
@@ -23,20 +27,20 @@ hoạt động ổn. Điều này không thay thế toàn bộ ma trận Windows
 Các mục trợ năng/hiệu năng được chốt theo yêu cầu người dùng, không coi là đã có
 đầy đủ phép đo hoặc nghiệm thu Narrator/High Contrast riêng.
 Xem [hướng dẫn Windows](Sources/OpenKey/win32/README.md#fluent-ui-beta),
-[bộ cài offline](INSTALLER.md), [build/đóng gói beta](BETA_PACKAGING.md),
-[sao lưu/nâng cấp/rollback](MIGRATION_FLUENT_BETA.md),
-[checklist](TODO_FLUENT_UI.md) và [ghi chú QA](FLUENT_UI_QA.md).
+[bộ cài offline](docs/INSTALLER.md), [build/đóng gói beta](docs/BETA_PACKAGING.md),
+[sao lưu/nâng cấp/rollback](docs/MIGRATION_FLUENT_BETA.md),
+[checklist](docs/TODO_FLUENT_UI.md) và [ghi chú QA](docs/FLUENT_UI_QA.md).
 
 Bản fork phát triển từ [OpenKey của Mai Vũ Tuyên](https://github.com/tuyenvm/OpenKey).
 Thông tin và ảnh macOS/legacy bên dưới được giữ để ghi nguồn, không phải ảnh UI Fluent mới.
 
-Khi cần đối chiếu phiên bản/hash để báo lỗi beta, xem [hướng dẫn chẩn đoán](DIAGNOSTICS.md). Công cụ chỉ xuất metadata cục bộ, không thu nội dung gõ/cấu hình và không upload.
+Khi cần đối chiếu phiên bản/hash để báo lỗi beta, xem [hướng dẫn chẩn đoán](docs/DIAGNOSTICS.md). Công cụ chỉ xuất metadata cục bộ, không thu nội dung gõ/cấu hình và không upload.
 
 Chạy regression tự động bằng `./test-all.ps1 All` tại root repository;
 log từng bộ và báo cáo JSON nằm trong `dist`. Đây không thay thế kiểm thử giao diện,
 keyboard hook hoặc chạy bản beta trên máy sạch.
 
-Chuẩn bị môi trường kiểm thử cô lập bằng `./prepare-sandbox.ps1 -ZipPath <file.zip>
+Chuẩn bị môi trường kiểm thử cô lập bằng `./scripts/prepare-sandbox.ps1 -ZipPath <file.zip>
 -ExpectedSha256 <hash> -Platform x64`. Script chỉ tạo cấu hình, không mở máy ảo
 hoặc cài runtime. Xem [hướng dẫn Windows Sandbox](Sandbox/README.md).
 

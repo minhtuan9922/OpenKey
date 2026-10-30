@@ -21,7 +21,7 @@ $taskResults = [System.Collections.Generic.List[object]]::new()
 $taskFailed = $false
 foreach ($taskSuite in $taskSuites) {
     $taskScriptName = if ($taskSuite.Script) { $taskSuite.Script } else { $taskSuite.Name }
-    $taskScript = Join-Path $PSScriptRoot "test-$taskScriptName.ps1"
+    $taskScript = Join-Path $PSScriptRoot "scripts\test-$taskScriptName.ps1"
     $taskLog = Join-Path $taskReportRoot ($taskSuite.Name + '.log')
     $taskStarted = [DateTime]::UtcNow
     $taskArguments = @($taskSuite.Arguments)

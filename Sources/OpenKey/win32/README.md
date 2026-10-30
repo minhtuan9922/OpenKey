@@ -20,28 +20,28 @@ Chạy từ PowerShell tại root repository:
 
 ```powershell
 .\build.ps1 Debug x64 All
-.\run-debug.ps1 x64       # build/chạy engine Debug
-.\run-ui-debug.ps1 x64    # build/chạy UI Debug; engine phải chạy để kiểm thử gõ
+.\scripts\run-debug.ps1 x64       # build/chạy engine Debug
+.\scripts\run-ui-debug.ps1 x64    # build/chạy UI Debug; engine phải chạy để kiểm thử gõ
 .\build.ps1 Release x64 All
 .\build.ps1 Debug x64 UI -Analyze
-.\test-engine.ps1 x64
-.\test-settings.ps1 x64    # 258 ca cấu hình/window/theme/phụ thuộc; API giả, không đổi cấu hình
-.\test-macro.ps1 x64       # 71 ca macro/editor/gate/export; registry giả và file fixture riêng
-.\test-ui-binary.ps1 x64 Release # 4 ca PE/icon/manifest; can output da build, khong chay GUI
-.\test-convert.ps1 x64     # 175 text + 17 clipboard giả + 20 engine; không chạm clipboard thật
-.\benchmark-engine.ps1 x64 # chỉ đo handler; không phải độ trễ gõ end-to-end
-.\measure-runtime.ps1 -ProcessId 1234 -Seconds 15 # thay PID; chỉ đọc CPU/bộ nhớ
-.\test-runtime-performance.ps1 # fixture phép tính, không chạy app
-.\test-updater.ps1 x64
-.\test-prerequisites.ps1
-.\test-packaging.ps1
-.\test-third-party.ps1
-.\test-ui-resources.ps1  # 19 kiểm tra XML/style/bản dịch; không thay visual QA
-.\test-sandbox.ps1       # 27 ca cấu hình/guard; không mở Sandbox hoặc chạy GUI
-.\test-debug-launcher.ps1 # 15 ca launcher/preflight giả; không build/chạy app
+.\scripts\test-engine.ps1 x64
+.\scripts\test-settings.ps1 x64    # 258 ca cấu hình/window/theme/phụ thuộc; API giả, không đổi cấu hình
+.\scripts\test-macro.ps1 x64       # 71 ca macro/editor/gate/export; registry giả và file fixture riêng
+.\scripts\test-ui-binary.ps1 x64 Release # 4 ca PE/icon/manifest; can output da build, khong chay GUI
+.\scripts\test-convert.ps1 x64     # 175 text + 17 clipboard giả + 20 engine; không chạm clipboard thật
+.\scripts\benchmark-engine.ps1 x64 # chỉ đo handler; không phải độ trễ gõ end-to-end
+.\scripts\measure-runtime.ps1 -ProcessId 1234 -Seconds 15 # thay PID; chỉ đọc CPU/bộ nhớ
+.\scripts\test-runtime-performance.ps1 # fixture phép tính, không chạy app
+.\scripts\test-updater.ps1 x64
+.\scripts\test-prerequisites.ps1
+.\scripts\test-packaging.ps1
+.\scripts\test-third-party.ps1
+.\scripts\test-ui-resources.ps1  # 19 kiểm tra XML/style/bản dịch; không thay visual QA
+.\scripts\test-sandbox.ps1       # 27 ca cấu hình/guard; không mở Sandbox hoặc chạy GUI
+.\scripts\test-debug-launcher.ps1 # 15 ca launcher/preflight giả; không build/chạy app
 .\test-all.ps1 All       # toàn bộ test x64/x86, log và JSON riêng trong dist
-.\package-beta.ps1 x64
-.\build-setup.ps1 -Release # build mới cả x64/x86 và tạo một setup offline
+.\scripts\package-beta.ps1 x64
+.\scripts\build-setup.ps1 -Release # build mới cả x64/x86 và tạo một setup offline
 ```
 
 Thay x64 bằng x86 ở các script nhận Platform. ZIP nằm trong dist và bị Git bỏ qua.
@@ -56,8 +56,8 @@ cũ. Sau chạy đợi 3 giây: process lỗi báo exit code dạng hex; code 0 
 năng single-instance redirect, không xác nhận cửa sổ đã hiện. Process còn chạy cũng
 không phải nghiệm thu GUI và không được script gắn debugger.
 
-Đọc [hướng dẫn beta](../../../BETA_PACKAGING.md) và
-[migration/rollback](../../../MIGRATION_FLUENT_BETA.md) trước khi chạy.
+Đọc [hướng dẫn beta](../../../docs/BETA_PACKAGING.md) và
+[migration/rollback](../../../docs/MIGRATION_FLUENT_BETA.md) trước khi chạy.
 Beta và legacy dùng chung registry settings/macro: thư mục riêng không cô lập dữ liệu.
 Không dùng updater stable để nâng cấp bundle Fluent. Chưa có ảnh Fluent mới được
 xác nhận; các ảnh bên dưới là giao diện legacy, không phải ảnh nghiệm thu beta.
