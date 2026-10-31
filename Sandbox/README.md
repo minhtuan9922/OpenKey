@@ -1,5 +1,29 @@
 # Kiem thu OpenKey trong Windows Sandbox
 
+## Installer smoke thực tế — 2026-10-31
+
+Đã chạy `InstallerSmoke.ps1` trong Windows Sandbox 10.0.26100.0 (x64),
+WDAGUtilityAccount có token admin. Bộ cài 3.0.9 có SHA-256
+`4CDFB3A9697CA94D0E3AC87F3CB9ABE72D081E4076D4A7A7B219C4972F0C9714`.
+Kết quả **25/25** kiểm tra đạt: cài silent theo tài khoản, payload và shortcut,
+silent bỏ qua đăng ký tùy chọn, helper đăng ký/gỡ TSF cả hai registry view,
+cài lại giữ giá trị cấu hình thử, UI sống sau 5 giây, gỡ app giữ cấu hình.
+Không xác minh nội dung giao diện hoặc gõ tiếng Việt bằng kiểm tra process.
+
+Log: `dist/sandbox-installer-fbfb50dd664147eeb92c0ca3d9ac2ff3/Logs/installer-result.json`,
+cùng `install.log`, `reinstall.log`, `uninstall.log`, runtime logs.
+Lượt đầu timeout runtime sau 3 phút; runtime tiếp tục và hoàn tất trong guest.
+Lượt chạy lại tăng giới hạn từng tiến trình lên 10 phút và đạt. Không coi đây
+là nghiệm thu runtime cold-install trong giới hạn 3 phút. Sandbox đã được dừng.
+
+Runner chỉ chạy dưới tài khoản/mapping Sandbox, kiểm tra hash trước cài,
+chỉ dùng Input read-only và Logs writable, không bật mạng hoặc cài trên host.
+Session fixture riêng dùng `installer-session.json` với `setupSha256` và
+`runtimeSha256`, kèm `OpenKey-Setup.exe`, `vc_redist.x64.exe` và runner trong Input.
+Không thay bootstrap ZIP chỉ đọc của `prepare-sandbox.ps1`.
+Chưa kiểm tra tương tác UAC đồng ý/từ chối, nút bật/tắt trên Tổng quan hoặc
+gõ/sửa dấu trên editor. Computer Use không kết nối được native pipe trong lượt này.
+
 Hoi quy staging: test-packaging.ps1 tu goi test-sandbox-staging.ps1 voi ZIP
 gia, bao gom 10 dau vao loi khong tao session va 3 phien hop le khong runtime
 (x64/x86/lap x64). Kiem tra hash/helper/metadata/mapping va cach ly host.

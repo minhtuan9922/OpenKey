@@ -2,7 +2,8 @@
 # Reject unexpected edits before building; actual upgrade acceptance stays separate.
 function Assert-OpenKeyDataPreservation {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$RuntimePolicy)
+    param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$RuntimePolicy, [string]$CaretPolicy)
+    if (-not $CaretPolicy) { $CaretPolicy = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'CaretPolicy.iss') -Raw }
     $allowedSections = @('Setup','Languages','CustomMessages','Tasks','Files','Icons','Run','Code')
     $sections = @([regex]::Matches($Source, '(?im)^\s*\[([^\]\r\n]+)\]\s*$') | ForEach-Object { $_.Groups[1].Value })
     if ($sections.Count -ne $allowedSections.Count -or
@@ -18,11 +19,12 @@ function Assert-OpenKeyDataPreservation {
         }
     }
     $includes = @([regex]::Matches($Source, '(?im)^\s*#include\s+(.+)$') | ForEach-Object { $_.Groups[1].Value.Trim() })
-    if ($includes.Count -ne 1 -or $includes[0] -cne '"RuntimePolicy.iss"' -or $RuntimePolicy -match '(?im)^\s*#include\b') {
+    if ($includes.Count -ne 2 -or @(Compare-Object $includes @('"RuntimePolicy.iss"','"CaretPolicy.iss"') -CaseSensitive).Count -or
+        ($RuntimePolicy + "`n" + $CaretPolicy) -match '(?im)^\s*#include\b') {
         throw 'Data preservation: unexpected included installer code.'
     }
     # Intentionally conservative: even a mention in a comment requires review.
-    if (($Source + "`n" + $RuntimePolicy) -match '(?i)\b(RegWrite\w*|RegDelete\w*|RegCreate\w*|DeleteFile|DelTree|RenameFile|FileCopy|SaveStringToFile|SaveStringsToFile|CreateDir)\s*\(') {
+    if (($Source + "`n" + $RuntimePolicy + "`n" + $CaretPolicy) -match '(?i)\b(RegWrite\w*|RegDelete\w*|RegCreate\w*|DeleteFile|DelTree|RenameFile|FileCopy|SaveStringToFile|SaveStringsToFile|CreateDir)\s*\(') {
         throw 'Data preservation: explicit registry/file mutation requires review.'
     }
     $filesBlock = [regex]::Match($Source, '(?ims)^\[Files\]\s*$(.*?)^\[').Groups[1].Value

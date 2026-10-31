@@ -50,5 +50,13 @@
       "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
       "groups": [{"scope": "startup", "type": "REG_SZ", "names": ["OpenKey"]}]
     }
-  ]
+  ],
+  "experimentalTextServiceRegistration": {
+    "clsid": "{727F9E3B-0491-4D5C-B33D-64D59BE28A70}",
+    "profileGuid": "{03ED9FC5-956E-4F7E-A4A7-F4A3053960AB}",
+    "comHive": "HKEY_LOCAL_MACHINE",
+    "comPath": "SOFTWARE\\Classes\\CLSID\\{727F9E3B-0491-4D5C-B33D-64D59BE28A70}",
+    "profileStorage": "Managed by ITfInputProcessorProfiles and ITfCategoryMgr registration APIs",
+    "activation": "Explicit user selection; no default profile change"
+  }
 }

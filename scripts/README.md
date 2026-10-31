@@ -7,6 +7,10 @@ file, không phụ thuộc thư mục làm việc hiện tại.
 ./build.ps1 -Configuration Debug -Platform x64 -Target All
 ./test-all.ps1 All
 ./scripts/run-ui-debug.ps1 x64
+./scripts/test-caret-tone-edit.ps1 x64
+./scripts/build-text-service.ps1 All
+./scripts/test-text-service.ps1 x64
+./scripts/test-caret-deployment.ps1
 ./scripts/build-setup.ps1 -Release
 ```
 
@@ -19,6 +23,10 @@ file, không phụ thuộc thư mục làm việc hiện tại.
 
 `check-prerequisites.ps1` và `verify-beta.ps1` vẫn được sao chép vào thư mục
 gốc của gói beta để sử dụng độc lập với repository.
+
+TSF là component thử nghiệm riêng, chưa nằm trong gói phát hành. Xem
+[`docs/TEXT_SERVICE.md`](../docs/TEXT_SERVICE.md) trước khi chạy
+`register-text-service.ps1` (cần Administrator) hoặc probe UI Automation.
 
 ## Dọn output sinh tự động
 

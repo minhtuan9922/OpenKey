@@ -1,5 +1,19 @@
 # Bộ cài OpenKey Fluent offline
 
+## Thành phần Caret Editing tùy chọn — 2026-10-31
+
+Setup vẫn chạy theo tài khoản, không cần nâng quyền toàn bộ. Tùy chọn
+OpenKey Caret Editing gọi helper với UAC để đăng ký DLL TSF x64/x86 vào máy.
+Nếu hủy UAC hoặc đăng ký thất bại, cài đặt OpenKey vẫn hoàn tất và thông báo
+có thể bật lại từ trang Tổng quan. Cài silent không tự hiện yêu cầu này.
+Điều kiện cài runtime VC++ trước ứng dụng vẫn giữ nguyên.
+
+Helper có manifest `asInvoker`; chỉ thao tác cài/gỡ mới được gọi bằng `runas`.
+DLL nằm trong thư mục phiên bản theo hash dưới Program Files, chỉ admin/SYSTEM
+có quyền ghi. Gỡ ứng dụng chỉ xin quyền bỏ đăng ký thành phần đúng phiên bản
+đang sở hữu; hủy UAC vẫn gỡ ứng dụng chính. Không xóa settings hoặc DLL phiên
+bản được editor giữ. Luồng UAC/cài/gỡ trên máy sạch còn cần nghiệm thu thực tế.
+
 ## Guard bảo toàn dữ liệu khi đóng gói
 
 `build-setup.ps1` kiểm tra source cài/gỡ trước khi xử lý compiler, runtime, build hoặc staging. Guard giữ AppId/thư mục cài theo tài khoản, chỉ cho payload vào `{app}`, runtime dạng `dontcopy` và chạy engine sau cài theo lựa chọn (bỏ qua khi silent). Chặn section registry/delete, các API ghi/xóa dữ liệu đã liệt kê và include ngoài policy đã kiểm tra.

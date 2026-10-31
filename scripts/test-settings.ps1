@@ -54,3 +54,5 @@ try {
     & (Join-Path $output 'TrayPopupTests.exe') (Join-Path $OpenKeyRepositoryRoot "dist\tray-popup-dark-$Platform.bmp") (Join-Path $OpenKeyRepositoryRoot "dist\tray-popup-light-$Platform.bmp")
     if ($LASTEXITCODE -ne 0) { throw 'Custom tray popup regression failed.' }
 } finally { Pop-Location }
+& (Join-Path $OpenKeyRepositoryRoot 'scripts\test-caret-tone-edit.ps1') -Platform $Platform
+& (Join-Path $OpenKeyRepositoryRoot 'scripts\test-text-service.ps1') -Platform $Platform

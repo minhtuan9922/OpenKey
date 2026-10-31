@@ -12,6 +12,9 @@ You can fork, modify, improve this program. If you
 redistribute your new version, it MUST be open source.
 -----------------------------------------------------------*/
 #include "SystemTrayHelper.h"
+#include "CaretSettingsProtocol.h"
+#include "TsfTyping.h"
+extern LRESULT HandleTsfTypingMessage(unsigned part, WPARAM wParam, LPARAM lParam);
 #include "AppDelegate.h"
 #include <strsafe.h>
 #include "../OpenKey.UI/UiThemeSettings.h"
@@ -92,6 +95,29 @@ map<UINT, LPCTSTR> menuData = {
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 	static UINT taskbarCreated;
+	if (message == OpenKeyCaretRuntime::Message()) {
+		if (reinterpret_cast<HWND>(wParam) != GetForegroundWindow()) return 0;
+		return static_cast<LRESULT>(OpenKeyCaretRuntime::Encode(vLanguage != 0 && vCodeTable == 0,
+			vInputType, vUseModernOrthography != 0, OpenKeyCaretRuntime::State().intent.Editing(GetForegroundWindow()),
+			OpenKeyCaretRuntime::State().profile.Active(GetForegroundWindow())));
+	}
+	for (unsigned part = 0; part < 5; ++part) if (message == OpenKeyTsfTyping::Message(part))
+		return HandleTsfTypingMessage(part, wParam, lParam);
+	for (unsigned kind = 0; kind < 9; ++kind) if (message == OpenKeyCaretRuntime::PresenceMessage(kind)) {
+		const HWND target = reinterpret_cast<HWND>(wParam);
+		if (kind == OpenKeyCaretRuntime::CaretAccepted || kind == OpenKeyCaretRuntime::CaretRejected) {
+			auto& runtime = OpenKeyCaretRuntime::State();
+			if (target == GetForegroundWindow() && runtime.profile.Active(target) && runtime.profile.owner == static_cast<DWORD>(lParam)) {
+				if (kind == OpenKeyCaretRuntime::CaretAccepted) { startNewSession(); HandleTsfTypingMessage(3, wParam, 0); }
+				else runtime.intent.Clear();
+			}
+			return 1;
+		}
+		if ((kind != OpenKeyCaretRuntime::Activate && kind != OpenKeyCaretRuntime::Ready &&
+				kind != OpenKeyCaretRuntime::ActiveReady && kind != OpenKeyCaretRuntime::ActiveUnready && kind != OpenKeyCaretRuntime::RangeTyping) || target == GetForegroundWindow())
+			OpenKeyCaretRuntime::State().profile.Notify(kind, target, static_cast<DWORD>(lParam));
+		return 1;
+	}
 
 	switch (message) {
 	case WM_MEASUREITEM:
@@ -106,6 +132,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 		return DefWindowProc(hWnd, message, wParam, lParam);
 	case WM_CREATE:
 		taskbarCreated = RegisterWindowMessage(_T("TaskbarCreated"));
+		// Read-only runtime settings must also work when the engine is elevated
+		// and the editor uses a normal integrity token.
+		ChangeWindowMessageFilterEx(hWnd, OpenKeyCaretRuntime::Message(), MSGFLT_ALLOW, nullptr);
+			for (unsigned kind = 0; kind < 9; ++kind)
+			ChangeWindowMessageFilterEx(hWnd, OpenKeyCaretRuntime::PresenceMessage(kind), MSGFLT_ALLOW, nullptr);
+			for (unsigned part = 0; part < 5; ++part)
+				ChangeWindowMessageFilterEx(hWnd, OpenKeyTsfTyping::Message(part), MSGFLT_ALLOW, nullptr);
 		break;
 	case WM_USER+2019:
 		AppDelegate::getInstance()->onControlPanel();

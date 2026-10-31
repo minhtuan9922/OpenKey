@@ -126,6 +126,18 @@
                     Toggled="OnRememberCodeToggled" />
             </Border>
 
+            <Border Style="{StaticResource OpenKeySettingsCardStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock x:Uid="CaretEditingTitle" Text="Sửa dấu tại con trỏ" TextWrapping="Wrap" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <TextBlock x:Uid="CaretEditingDescription" Text="Đặt con trỏ cuối từ đã gõ để thêm hoặc bỏ dấu. Dùng bảng mã Unicode dựng sẵn." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button x:Name="CaretEnableButton" x:Uid="CaretEnableButton" Content="Bật và sử dụng" Click="OnEnableCaretEditing" Style="{StaticResource AccentButtonStyle}" />
+                        <Button x:Name="CaretDisableButton" x:Uid="CaretDisableButton" Content="Tắt" Click="OnDisableCaretEditing" />
+                    </StackPanel>
+                    <InfoBar x:Name="CaretStatus" IsOpen="True" IsClosable="False" Severity="Informational" Title="OpenKey Caret Editing" AutomationProperties.LiveSetting="Polite" />
+                </StackPanel>
+            </Border>
+
             <InfoBar
                 x:Name="SettingsStatus"
                 x:Uid="OverviewStatus"

@@ -155,6 +155,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\engine\ConvertTool.h" />
+    <ClInclude Include="..\..\..\engine\CaretToneEdit.h" />
+    <ClInclude Include="CaretToneEdit.h" />
+    <ClInclude Include="CaretSettingsProtocol.h" />
+    <ClInclude Include="TsfTyping.h" />
     <ClInclude Include="..\..\..\engine\DataType.h" />
     <ClInclude Include="..\..\..\engine\Engine.h" />
     <ClInclude Include="..\..\..\engine\Macro.h" />

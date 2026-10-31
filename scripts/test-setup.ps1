@@ -70,6 +70,7 @@ New-Item -ItemType Directory -Path $taskProbeRoot | Out-Null
 $taskCode = ($taskSource -split '(?m)^\[Code\]\s*', 2)[1]
 $taskPolicyPath = Join-Path $OpenKeyRepositoryRoot 'Installer\RuntimePolicy.iss'
 $taskCode = $taskCode.Replace('#include "RuntimePolicy.iss"', ('#include "' + $taskPolicyPath + '"'))
+$taskCode = $taskCode.Replace('#include "CaretPolicy.iss"', ('#include "' + (Join-Path $OpenKeyRepositoryRoot 'Installer\CaretPolicy.iss') + '"'))
 $taskCompileSource = @"
 [Setup]
 AppId=OpenKeyAppCloseCompileFixtureOnly

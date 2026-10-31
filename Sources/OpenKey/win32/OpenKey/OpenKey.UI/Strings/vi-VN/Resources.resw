@@ -425,4 +425,17 @@
   <data name="MacroInEnglishToggle.OnContent" xml:space="preserve"><value>Bật</value></data>
   <data name="MacroInEnglishToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
   <data name="MacroInEnglishToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Gõ tắt trong chế độ tiếng Anh</value></data>
+  <data name="CaretEditingTitle.Text" xml:space="preserve"><value>Sửa dấu tại con trỏ</value></data>
+  <data name="CaretEditingDescription.Text" xml:space="preserve"><value>Đặt con trỏ cuối từ đã gõ để thêm hoặc bỏ dấu. Dùng bảng mã Unicode dựng sẵn.</value></data>
+  <data name="CaretEnableButton.Content" xml:space="preserve"><value>Bật và sử dụng</value></data>
+  <data name="CaretDisableButton.Content" xml:space="preserve"><value>Tắt</value></data>
+  <data name="CaretActive" xml:space="preserve"><value>Đang dùng OpenKey Caret Editing. Mở lại trình soạn thảo nếu vừa cài hoặc cập nhật thành phần.</value></data>
+  <data name="CaretReady" xml:space="preserve"><value>Thành phần đã được cài. Nhấn Bật và sử dụng để chọn OpenKey Caret Editing.</value></data>
+  <data name="CaretNotInstalled" xml:space="preserve"><value>Thành phần tùy chọn chưa được cài. Khi bật, Windows sẽ yêu cầu quyền quản trị. Từ chối vẫn dùng OpenKey bình thường.</value></data>
+  <data name="CaretInstalling" xml:space="preserve"><value>Đang chuẩn bị thành phần sửa dấu. Vui lòng phản hồi yêu cầu quyền quản trị của Windows nếu có.</value></data>
+  <data name="CaretActivated" xml:space="preserve"><value>Đã bật OpenKey Caret Editing. Mở lại trình soạn thảo nếu cần; có thể chọn bàn phím này bằng Win+Space.</value></data>
+  <data name="CaretCanceled" xml:space="preserve"><value>Đã bỏ qua cài thành phần vì chưa cấp quyền quản trị. OpenKey vẫn hoạt động bình thường; bạn có thể bật lại sau.</value></data>
+  <data name="CaretMissingPayload" xml:space="preserve"><value>Cần cài lại OpenKey để bổ sung thành phần sửa dấu tại con trỏ.</value></data>
+  <data name="CaretActivationFailed" xml:space="preserve"><value>Chưa thể bật thành phần. Thử lại hoặc chọn OpenKey Caret Editing bằng Win+Space nếu đã cài. OpenKey vẫn hoạt động bình thường.</value></data>
+  <data name="CaretDisabled" xml:space="preserve"><value>Đã tắt OpenKey Caret Editing cho người dùng hiện tại.</value></data>
 </root>

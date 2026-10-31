@@ -83,14 +83,40 @@ Test-Inventory 'Fluent binary keys and types covered' {
 }
 Test-Inventory 'registry provider files stay explicit' {
     $providers = @($sourceFiles | Where-Object {
-        (Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8) -match '\bReg(?:OpenKey|CreateKey|QueryValue|SetValue|DeleteValue)'
+        (Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8) -match '\bReg(?:OpenKey|GetValue|CreateKey|QueryValue|SetValue|DeleteValue)'
     } | ForEach-Object { $_.FullName.Substring($win32.Length + 1).Replace('\','/') })
     Compare-InventoryNames $providers @('OpenKey/OpenKey/OpenKeyHelper.cpp','OpenKey/OpenKey/MacroService.cpp','OpenKey/OpenKey/SettingsServiceStore.cpp',
-        'OpenKey/OpenKey.UI/UiLanguageSettings.h','OpenKey/OpenKey.UI/UiThemeSettings.h','OpenKey/OpenKey.UI/UiWindowSizeSettings.h') 'providers'
+        'OpenKey/OpenKey.UI/UiLanguageSettings.h','OpenKey/OpenKey.UI/UiThemeSettings.h','OpenKey/OpenKey.UI/UiWindowSizeSettings.h',
+        'OpenKey/OpenKey.TextService/CaretTextService.cpp','OpenKey/OpenKey.TextService/Registration.cpp',
+        'OpenKey/OpenKey.TextService/CaretDeployment.h','OpenKey/OpenKey.TextService/CaretSetup.cpp') 'providers'
     foreach ($file in $providers) {
         $text = Get-Content -LiteralPath (Join-Path $win32 $file) -Raw -Encoding UTF8
+        if ($file -eq 'OpenKey/OpenKey.TextService/CaretSetup.cpp') {
+            Assert-Inventory ($text.Contains('SOFTWARE\\Microsoft\\Windows\\CurrentVersion') -and $text.Contains('ProgramFilesDir') -and
+                $text.Contains('RRF_SUBKEY_WOW6464KEY') -and $text -notmatch '\bReg(?:CreateKey|SetValue|Delete)') 'Caret helper may only read native Program Files metadata directly'
+            continue
+        }
+        if ($file -eq 'OpenKey/OpenKey.TextService/CaretDeployment.h') {
+            $expectedPath = $inventory.experimentalTextServiceRegistration.comPath.Replace('\','\\')
+            Assert-Inventory ($text.Contains($expectedPath) -and $text.Contains('HKEY_LOCAL_MACHINE') -and
+                $text -notmatch '\bReg(?:CreateKey|SetValue|Delete)') 'Caret deployment must only read its own machine COM registration'
+            continue
+        }
+        if ($file -eq 'OpenKey/OpenKey.TextService/Registration.cpp') {
+            $expectedPath = $inventory.experimentalTextServiceRegistration.comPath.Replace('\','\\')
+            Assert-Inventory ($text.Contains($expectedPath) -and $text.Contains('HKEY_LOCAL_MACHINE') -and
+                $text.Contains('RegDeleteTreeW(HKEY_LOCAL_MACHINE, ClassPath)')) 'TSF COM registration scope changed'
+            continue
+        }
         Assert-Inventory ($text.Contains('SOFTWARE\\TuyenMai\\OpenKey') -and $text.Contains('HKEY_CURRENT_USER')) "Provider root changed: $file"
     }
+}
+Test-Inventory 'experimental TSF registration stays separate from application data' {
+    $service = Get-Content -LiteralPath (Join-Path $win32 'OpenKey/OpenKey.TextService/CaretTextService.cpp') -Raw -Encoding UTF8
+    Assert-Inventory ($service -notmatch '\bReg(?:CreateKey|SetValue|Delete)') 'Text service writes application preferences'
+    $registration = Get-Content -LiteralPath (Join-Path $win32 'OpenKey/OpenKey.TextService/Registration.cpp') -Raw -Encoding UTF8
+    Assert-Inventory ($registration -notmatch 'SetDefaultLanguageProfile|ActivateLanguageProfile' -and
+        $registration.Contains('SubstituteKeyboardLayout') -and $registration.Contains('GUID_TFCAT_TIP_KEYBOARD')) 'TSF activation or keyboard category changed'
 }
 Test-Inventory 'startup Run value and type covered' {
     $text = Get-Content -LiteralPath (Join-Path $engineRoot 'OpenKeyHelper.cpp') -Raw -Encoding UTF8

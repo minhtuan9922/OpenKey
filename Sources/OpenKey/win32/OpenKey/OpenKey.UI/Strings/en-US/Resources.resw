@@ -425,4 +425,17 @@
   <data name="MacroInEnglishToggle.OnContent" xml:space="preserve"><value>On</value></data>
   <data name="MacroInEnglishToggle.OffContent" xml:space="preserve"><value>Off</value></data>
   <data name="MacroInEnglishToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Text expansion in English input mode</value></data>
+  <data name="CaretEditingTitle.Text" xml:space="preserve"><value>Edit Vietnamese marks at the caret</value></data>
+  <data name="CaretEditingDescription.Text" xml:space="preserve"><value>Place the caret at the end of an existing word to add or remove marks. Requires precomposed Unicode.</value></data>
+  <data name="CaretEnableButton.Content" xml:space="preserve"><value>Enable and use</value></data>
+  <data name="CaretDisableButton.Content" xml:space="preserve"><value>Disable</value></data>
+  <data name="CaretActive" xml:space="preserve"><value>OpenKey Caret Editing is active. Reopen your editor if the component was just installed or updated.</value></data>
+  <data name="CaretReady" xml:space="preserve"><value>The component is installed. Select Enable and use to activate OpenKey Caret Editing.</value></data>
+  <data name="CaretNotInstalled" xml:space="preserve"><value>This optional component is not installed. Enabling it requests administrator permission. OpenKey still works if permission is declined.</value></data>
+  <data name="CaretInstalling" xml:space="preserve"><value>Preparing caret editing. Respond to the Windows administrator prompt if one appears.</value></data>
+  <data name="CaretActivated" xml:space="preserve"><value>OpenKey Caret Editing is enabled. Reopen your editor if needed; you can select this keyboard using Win+Space.</value></data>
+  <data name="CaretCanceled" xml:space="preserve"><value>Component installation was skipped because administrator permission was declined. OpenKey still works; you can enable it later.</value></data>
+  <data name="CaretMissingPayload" xml:space="preserve"><value>Reinstall OpenKey to add the caret editing component.</value></data>
+  <data name="CaretActivationFailed" xml:space="preserve"><value>Unable to activate the component. Retry, or select OpenKey Caret Editing using Win+Space if installed. OpenKey still works.</value></data>
+  <data name="CaretDisabled" xml:space="preserve"><value>OpenKey Caret Editing is disabled for the current user.</value></data>
 </root>

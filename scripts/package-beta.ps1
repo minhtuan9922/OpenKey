@@ -21,13 +21,15 @@ $engineName = if ($Platform -eq 'x64') { 'OpenKey64.exe' } else { 'OpenKey32.exe
 # not the project-local directory left by direct project/older builds.
 $engine = Join-Path $projectRoot "$prefix\$engineName"
 $updater = Join-Path $projectRoot "$prefix\OpenKeyUpdate.exe"
+$caretRoot = Join-Path $projectRoot "$prefix\CaretEditing"
+$caretFiles = @('OpenKey.CaretSetup.exe', 'x64\OpenKey.TextService.dll', 'x86\OpenKey.TextService.dll')
 $uiRoot = Join-Path $projectRoot "OpenKey.UI\$prefix\OpenKey.UI"
 $requiredUI = @('OpenKey.UI.exe', 'OpenKey.UI.pri', 'Microsoft.UI.Xaml.dll',
     'Microsoft.WindowsAppRuntime.dll', 'MainWindow.xbf', 'AboutPage.xbf')
-foreach ($path in @($engine, $updater) + ($requiredUI | ForEach-Object { Join-Path $uiRoot $_ })) {
+foreach ($path in @($engine, $updater) + ($requiredUI | ForEach-Object { Join-Path $uiRoot $_ }) + ($caretFiles | ForEach-Object { Join-Path $caretRoot $_ })) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing Release output: $path" }
 }
-function Assert-PEArchitecture([string]$Path) {
+function Assert-PEArchitecture([string]$Path, [string]$Architecture = $Platform) {
     $stream = [IO.File]::OpenRead($Path)
     $reader = New-Object IO.BinaryReader($stream)
     try {
@@ -36,11 +38,13 @@ function Assert-PEArchitecture([string]$Path) {
         $peOffset = $reader.ReadInt32()
         $stream.Position = $peOffset
         if ($reader.ReadUInt32() -ne 0x4550) { throw "Invalid PE signature: $Path" }
-        $expected = if ($Platform -eq 'x64') { 0x8664 } else { 0x14c }
+        $expected = if ($Architecture -eq 'x64') { 0x8664 } else { 0x14c }
         if ($reader.ReadUInt16() -ne $expected) { throw "Wrong architecture: $Path" }
     } finally { $reader.Dispose() }
 }
 foreach ($path in @($engine, $updater, (Join-Path $uiRoot 'OpenKey.UI.exe'))) { Assert-PEArchitecture $path }
+Assert-PEArchitecture (Join-Path $caretRoot 'OpenKey.CaretSetup.exe')
+foreach ($arch in @('x64','x86')) { Assert-PEArchitecture (Join-Path $caretRoot "$arch\OpenKey.TextService.dll") $arch }
 $releaseMetadata = Get-Content -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'version.json') -Raw | ConvertFrom-Json
 $releaseVersion = [version]($releaseMetadata.latestWinVersion.versionName -replace '^v', '')
 foreach ($path in @($engine, $updater, (Join-Path $uiRoot 'OpenKey.UI.exe'))) {
@@ -67,9 +71,15 @@ $excludedExtensions = @('.pdb', '.exp', '.lib', '.obj', '.pch', '.ilk', '.log', 
 foreach ($file in Get-ChildItem -LiteralPath $uiRoot -File -Recurse) {
     if ($file.Extension.ToLowerInvariant() -in $excludedExtensions) { continue }
     $relative = $file.FullName.Substring($uiRoot.Length + 1)
+    if ($relative.StartsWith('CaretEditing\', [StringComparison]::OrdinalIgnoreCase)) { continue }
     $destination = Join-Path $uiDestination $relative
     New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
     Copy-Item -LiteralPath $file.FullName -Destination $destination
+}
+foreach ($relative in $caretFiles) {
+    $destination = Join-Path $stage "CaretEditing\$relative"
+    New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $caretRoot $relative) -Destination $destination
 }
 Copy-Item -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'LICENSE'), (Join-Path $OpenKeyRepositoryRoot 'docs\BETA_PACKAGING.md'), (Join-Path $OpenKeyRepositoryRoot 'docs\HTML_ENTITIES_NOTICE.md') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'scripts\check-prerequisites.ps1') -Destination $stage

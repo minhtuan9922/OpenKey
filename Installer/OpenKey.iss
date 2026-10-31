@@ -62,9 +62,18 @@ vietnamese.FailedRuntime=Cài runtime không đạt kiểm tra phiên bản. Ope
 english.FailedRuntime=Required runtime installation failed verification. OpenKey was not installed.
 vietnamese.UninstallRunning=Thoát OpenKey ở tray và đóng giao diện trước khi gỡ. Cấu hình và dữ liệu gõ tắt được giữ lại.
 english.UninstallRunning=Exit OpenKey from the tray and close its UI before uninstalling. Settings and text expansions will be preserved.
+vietnamese.CaretTask=Cài OpenKey Caret Editing (tùy chọn, yêu cầu quyền quản trị; từ chối vẫn cài OpenKey)
+english.CaretTask=Install OpenKey Caret Editing (optional, administrator permission; declining still installs OpenKey)
+vietnamese.CaretSkipped=OpenKey đã được cài. Thành phần Caret Editing được bỏ qua do chưa cấp quyền hoặc cài chưa thành công. Có thể bật lại trong trang Tổng quan.
+english.CaretSkipped=OpenKey was installed. Caret Editing was skipped because permission was declined or registration did not complete. Enable it later on the Overview page.
+vietnamese.CaretInstalled=Đã cài thành phần Caret Editing. Mở OpenKey, vào Tổng quan và chọn Bật và sử dụng. Mở lại trình soạn thảo nếu cần.
+english.CaretInstalled=Caret Editing was installed. Open Overview in OpenKey and select Enable and use. Reopen editors if needed.
+vietnamese.CaretUninstallSkipped=OpenKey đã được gỡ. Thành phần Caret Editing dùng chung chưa được gỡ do thiếu quyền hoặc đang thuộc bản cài khác.
+english.CaretUninstallSkipped=OpenKey was removed. The shared Caret Editing component was retained because permission was declined or another installation owns it.
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"; Flags: unchecked
+Name: "caretediting"; Description: "{cm:CaretTask}"
 
 [Files]
 Source: "{#PayloadX64}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: UseX64
@@ -82,6 +91,7 @@ Filename: "{app}\{code:EngineName}"; Description: "{cm:StartApp}"; WorkingDir: "
 
 [Code]
 #include "RuntimePolicy.iss"
+#include "CaretPolicy.iss"
 
 var
   RuntimePage: TInputOptionWizardPage;
@@ -89,6 +99,7 @@ var
   CloseHandles: array of THandle;
   CloseKinds: array of Integer;
   CloseProcessIDs: array of Cardinal;
+  CaretAttempted, CaretInstalled: Boolean;
 
 #if VER >= EncodeVer(7, 0, 0)
 function AppEnumWindows(Callback: NativeInt; Param: LPARAM): Boolean;
@@ -304,6 +315,47 @@ begin
   Result := not EngineRunning;
   if not Result and not UninstallSilent then
     MsgBox(CustomMessage('UninstallRunning'), mbError, MB_OK);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Helper: String;
+  ExitCode: Integer;
+  Started: Boolean;
+begin
+  if (CurStep <> ssPostInstall) or not WizardIsTaskSelected('caretediting') then Exit;
+  CaretAttempted := True;
+  Helper := ExpandConstant('{app}\CaretEditing\OpenKey.CaretSetup.exe');
+  if not FileExists(Helper) then Exit;
+  Started := Exec(Helper, '--status', '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
+  CaretInstalled := CaretRegistrationSucceeded(Started, ExitCode);
+  if CaretNextAction(True, CaretInstalled, WizardSilent) <> 1 then Exit;
+  { Optional elevation: cancellation/failure never fails the main install. }
+  Started := ShellExec('runas', Helper, '--install', '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
+  CaretInstalled := CaretRegistrationSucceeded(Started, ExitCode);
+  Log(Format('Optional Caret Editing result: %d', [ExitCode]));
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if (CurPageID = wpFinished) and CaretAttempted then begin
+    if CaretInstalled then WizardForm.FinishedLabel.Caption := WizardForm.FinishedLabel.Caption + #13#10#13#10 + CustomMessage('CaretInstalled')
+    else WizardForm.FinishedLabel.Caption := WizardForm.FinishedLabel.Caption + #13#10#13#10 + CustomMessage('CaretSkipped');
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Helper: String;
+  ExitCode: Integer;
+  Removed: Boolean;
+begin
+  if (CurUninstallStep <> usUninstall) or UninstallSilent then Exit;
+  Helper := ExpandConstant('{app}\CaretEditing\OpenKey.CaretSetup.exe');
+  if not FileExists(Helper) then Exit;
+  if not Exec(Helper, '--owns', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) or (ExitCode <> 0) then Exit;
+  Removed := ShellExec('runas', Helper, '--uninstall', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) and (ExitCode = 0);
+  if not Removed then MsgBox(CustomMessage('CaretUninstallSkipped'), mbInformation, MB_OK);
 end;
 
 // No app settings/Run registry writes or recursive deletion: preserve user data.

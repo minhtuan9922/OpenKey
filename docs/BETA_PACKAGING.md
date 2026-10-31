@@ -1,5 +1,17 @@
 # Gói beta Fluent UI — thử nghiệm nội bộ
 
+## OpenKey Caret Editing — 2026-10-31
+
+Build thông thường và ZIP nay kèm `CaretEditing/OpenKey.CaretSetup.exe` cùng
+`x64/OpenKey.TextService.dll` và `x86/OpenKey.TextService.dll`. Helper phù hợp
+kiến trúc gói chứa sẵn cả hai DLL; manifest/hash kiểm tra cả ba file.
+
+Bộ cài theo tài khoản giữ nguyên. Tùy chọn OpenKey Caret Editing yêu cầu UAC
+riêng để đăng ký TSF; từ chối yêu cầu này vẫn hoàn tất cài ứng dụng. Có thể bật
+sau tại **Tổng quan → Sửa dấu tại con trỏ → Bật và sử dụng**, hoặc tắt profile
+bằng nút **Tắt**. Xem [TEXT_SERVICE.md](TEXT_SERVICE.md) để biết phạm vi thử nghiệm.
+Yêu cầu runtime VC++ sẵn có của bộ cài vẫn áp dụng độc lập.
+
 ## Artifact 3.0.3 hiện tại — 2026-10-11
 
 Bộ cài chung: `dist/setup-b95a532783d34c8eb3d7d1dfd53ab70d/Output/OpenKey-Setup.exe`,

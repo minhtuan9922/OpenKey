@@ -24,6 +24,10 @@
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CaretToneEdit.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="CaretSettingsProtocol.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="TsfTyping.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\..\..\engine\CaretToneEdit.h"><Filter>engine</Filter></ClInclude>
     <ClInclude Include="targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>

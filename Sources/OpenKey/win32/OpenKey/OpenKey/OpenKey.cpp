@@ -15,6 +15,9 @@ redistribute your new version, it MUST be open source.
 #include "AppDelegate.h"
 #include "SettingsService.h"
 #include "KeyboardCaseState.h"
+#include "CaretToneEdit.h"
+#include "CaretSettingsProtocol.h"
+#include "TsfTyping.h"
 
 #pragma comment(lib, "imm32")
 #define IMC_GETOPENSTATUS 0x0005
@@ -41,11 +44,20 @@ extern int vShowOnStartUp;
 extern int vRunWithWindows;
 
 static HHOOK hKeyboardHook;
+static OpenKeyCaretTone::Routing caretToneRouting;
+static vKeyHookState* pData;
+static OpenKeyTsfTyping::Bridge tsfTyping;
+
+LRESULT HandleTsfTypingMessage(unsigned part, WPARAM wParam, LPARAM lParam) {
+	const HWND target = reinterpret_cast<HWND>(wParam);
+	const auto& profile = OpenKeyCaretRuntime::State().profile;
+	if (target != GetForegroundWindow() || !profile.Active(target) || !profile.rangeTyping || !vLanguage || vCodeTable != 0) return 0;
+	return tsfTyping.Handle(part, target, lParam, pData);
+}
 static HHOOK hMouseHook;
 static HWINEVENTHOOK hSystemEvent;
 static KBDLLHOOKSTRUCT* keyboardData;
 static MSLLHOOKSTRUCT* mouseData;
-static vKeyHookState* pData;
 static vector<Uint16> _syncKey;
 static Uint32 _flag = 0, _lastFlag = 0, _privateFlag;
 static bool _flagChanged = false, _isFlagKey;
@@ -448,17 +460,22 @@ static bool UnsetModifierMask(const Uint16& vkCode) {
 }
 
 LRESULT CALLBACK keyboardHookProcess(int nCode, WPARAM wParam, LPARAM lParam) {
+	if (nCode < 0) return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
 	keyboardData = (KBDLLHOOKSTRUCT *)lParam;
 	//ignore my event
 	if (keyboardData->dwExtraInfo != 0) {
 		return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
 	}
+	const bool physicalDown = wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN;
+	OpenKeyCaretRuntime::State().intent.BeginKey(keyboardData->vkCode, physicalDown, GetForegroundWindow());
 	
 	//ignore if IME pad is open when typing Japanese/Chinese...
 	HWND hWnd = GetForegroundWindow();
 	HWND hIME = ImmGetDefaultIMEWnd(hWnd);
 	LRESULT isImeON = SendMessage(hIME, WM_IME_CONTROL, IMC_GETOPENSTATUS, 0);
-	if (isImeON) {
+	if (isImeON && !OpenKeyCaretRuntime::State().profile.Active(hWnd) && !GetPropW(hWnd, L"OpenKey.TSF.Active")) {
+		caretToneRouting.Clear();
+		OpenKeyCaretRuntime::State().intent.PassKey(keyboardData->vkCode, physicalDown);
 		return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
 	}
 	
@@ -524,6 +541,36 @@ LRESULT CALLBACK keyboardHookProcess(int nCode, WPARAM wParam, LPARAM lParam) {
 	// Shortcut handling above still gets first chance to consume it.
 	if (OpenKeyKeyboardCase::IsCaseToggleKey(keyboardData->vkCode)) {
 		_keycode = 0;
+		return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
+	}
+
+	//if is in english mode
+	const bool caretKeyDown = wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN;
+	const bool caretEligible = vLanguage != 0 && vCodeTable == 0 && !(_flag & (MASK_CONTROL | MASK_ALT | MASK_WIN));
+	if (caretKeyDown && OpenKeyCaretRuntime::State().Delegate(GetForegroundWindow(), keyboardData->vkCode, vInputType, caretEligible)) {
+		caretToneRouting.Clear();
+		startNewSession();
+		return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
+	}
+	const bool caretProbe = OpenKeyCaretRuntime::State().Probe(GetForegroundWindow(), keyboardData->vkCode, vInputType, caretEligible);
+	if (!caretProbe) OpenKeyCaretRuntime::State().intent.PassKey(keyboardData->vkCode, caretKeyDown);
+	if (caretEligible && OpenKeyCaretRuntime::State().profile.Active(GetForegroundWindow()) &&
+		OpenKeyCaretRuntime::State().profile.rangeTyping && OpenKeyTsfTyping::Key(keyboardData->vkCode)) {
+		if (caretKeyDown) {
+			tsfTyping.Forward(GetForegroundWindow(), keyboardData->vkCode,
+				(_flag & MASK_SHIFT && _flag & MASK_CAPITAL) ? 0u : (_flag & MASK_SHIFT ? 1u : (_flag & MASK_CAPITAL ? 2u : 0u)));
+		}
+		return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
+	}
+	bool caretChanged = false;
+	if (caretToneRouting.Key(keyboardData->vkCode, caretKeyDown, caretEligible, vInputType,
+		vUseModernOrthography != 0, GetForegroundWindow(), OpenKeyCaretTone::TryNative, caretChanged)) {
+		if (caretChanged) startNewSession();
+		return -1;
+	}
+	if (caretKeyDown && caretEligible && OpenKeyCaretTone::EditKey(keyboardData->vkCode, vInputType) >= 0 &&
+		GetPropW(GetForegroundWindow(), OpenKeyCaretTone::OwnedEditorProperty)) {
+		startNewSession();
 		return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
 	}
 
@@ -614,6 +661,7 @@ LRESULT CALLBACK keyboardHookProcess(int nCode, WPARAM wParam, LPARAM lParam) {
 }
 
 LRESULT CALLBACK mouseHookProcess(int nCode, WPARAM wParam, LPARAM lParam) {
+	if (nCode < 0) return CallNextHookEx(hMouseHook, nCode, wParam, lParam);
 	mouseData = (MSLLHOOKSTRUCT *)lParam;
 	switch (wParam) {
 	case WM_LBUTTONDOWN:
@@ -628,6 +676,14 @@ LRESULT CALLBACK mouseHookProcess(int nCode, WPARAM wParam, LPARAM lParam) {
 	case WM_XBUTTONUP:
 	case WM_NCXBUTTONUP:
 		//send event signal to Engine
+		tsfTyping.Reset();
+		if (wParam == WM_LBUTTONDOWN) {
+			const HWND clicked = WindowFromPoint(mouseData->pt);
+			OpenKeyCaretRuntime::State().intent.Move(clicked ? GetAncestor(clicked, GA_ROOT) : GetForegroundWindow());
+		} else if (wParam == WM_LBUTTONUP) OpenKeyCaretRuntime::State().intent.Move(GetForegroundWindow());
+		else OpenKeyCaretRuntime::State().intent.Clear();
+		if (wParam == WM_LBUTTONUP) caretToneRouting.Move(GetForegroundWindow());
+		else caretToneRouting.Clear();
 		vKeyHandleEvent(vKeyEvent::Mouse, vKeyEventState::MouseDown, 0);
 		if (IS_DOUBLE_CODE(vCodeTable)) { //VNI
 			_syncKey.clear();

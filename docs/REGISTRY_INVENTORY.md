@@ -79,15 +79,24 @@ riêng sau rollback; trạng thái DWORD không chứng minh đích startup đú
 
 Checker prerequisite chỉ đọc `HKLM\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64`
 hoặc `x86`, các giá trị `Installed` và `Version`, trên Registry32/Registry64.
-Đây là dữ liệu runtime hệ thống, không thuộc 47 giá trị ứng dụng trong JSON,
+Đây là dữ liệu runtime hệ thống, không thuộc 46 giá trị ứng dụng trong JSON,
 không sao lưu/import chúng để rollback OpenKey. Inventory không bao phủ
 registry do Windows/COM/SDK/bộ cài tự dùng ngoài các lời gọi source ứng dụng.
+
+Component TSF thử nghiệm có namespace đăng ký riêng, ghi trong
+`experimentalTextServiceRegistration` của JSON: COM CLSID
+`{727F9E3B-0491-4D5C-B33D-64D59BE28A70}` ở HKLM Software/Classes/CLSID;
+profile/category do API TSF đăng ký. Không thuộc dữ liệu cấu hình/macro HKCU.
+`CaretTextService.cpp` chỉ đọc các thiết lập đang có, không thêm giá trị ứng
+dụng; `Registration.cpp` chỉ ghi/xóa đăng ký COM/TSF của chính component.
+Chạy script đăng ký cần Administrator, không tự đổi default input profile.
+Xem [thiết lập và gỡ TSF](TEXT_SERVICE.md).
 
 ## Kiểm tra tự động và nghiệm thu còn lại
 
 `test-registry-inventory.ps1` đối chiếu tên đọc/ghi, kiểu của helper Fluent,
 hai đường dẫn HKCU và danh sách provider với source do git ls-files liệt kê
-(tracked và untracked, trừ ignored build/generated files). Có 10 nhóm kiểm
+(tracked và untracked, trừ ignored build/generated files). Có 11 nhóm kiểm
 tra, chạy trong test-all; không mở registry, chạy engine hoặc khôi phục dữ liệu.
 Scanner nhận các dạng literal/macro hiện tại, không phải parser C++ hoàn chỉnh;
 khi thay cách truy cập registry cần cập nhật kiểm kê và kiểm tra coverage.
@@ -104,5 +113,10 @@ Theo [MIGRATION_FLUENT_BETA.md](MIGRATION_FLUENT_BETA.md), trên VM/tài khoản
 - [ ] Kiểm tra khóa thiếu, kiểu sai và các default khác nhau nêu trên;
   không tự reset/import dữ liệu khi thấy lỗi.
 - [ ] Kiểm tra startup thường/admin và shortcut sau rollback, cùng x64/x86.
+
+Caret deployment bổ sung đọc HKLM cho CLSID TSF riêng ở cả hai registry view,
+và đọc `ProgramFilesDir` của Windows để xác định thư mục Program Files native.
+Đây là đọc metadata triển khai, không thêm giá trị settings ứng dụng. Đăng ký/gỡ
+TSF chỉ qua helper nâng quyền; kiểm tra trạng thái không ghi registry.
 
 Chưa đánh dấu nâng cấp hoặc bảo toàn registry thực tế đạt chỉ vì source test pass.

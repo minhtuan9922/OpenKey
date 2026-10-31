@@ -66,6 +66,7 @@ foreach ($taskArch in @('x64','x86')) {
 $taskSources = @{
     'Installer\OpenKey.iss' = $taskReport.installerSourceSha256
     'Installer\RuntimePolicy.iss' = $taskReport.policySourceSha256
+    'Installer\CaretPolicy.iss' = $taskReport.caretPolicySourceSha256
     'Installer\Vietnamese.isl' = $taskReport.translationSha256
 }
 foreach ($taskRelative in $taskSources.Keys) {

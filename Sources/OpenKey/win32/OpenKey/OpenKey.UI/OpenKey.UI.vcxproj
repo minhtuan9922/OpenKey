@@ -116,6 +116,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="AppResources.h" />
     <ClInclude Include="Localization.h" />
+    <ClInclude Include="CaretEditingUI.h" />
     <ClInclude Include="UiLanguageSettings.h" />
     <ClInclude Include="UiThemeSettings.h" />
     <ClInclude Include="UiTheme.h" />

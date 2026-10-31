@@ -60,7 +60,7 @@ Test-UI 'Unique app design resource keys' {
     $keys = @($documents['Fluent'].SelectNodes('//*') | ForEach-Object { $_.GetAttribute('Key', $xamlNamespace) } | Where-Object { $_ })
     Assert-UI ($keys.Count -gt 0 -and @($keys | Group-Object | Where-Object Count -gt 1).Count -eq 0) 'Duplicate design token/style'
 }
-Test-UI 'All 21 settings cards use shared style' {
+Test-UI 'All 22 settings cards use shared style' {
     $count = 0
     foreach ($name in $pageNames) {
         foreach ($card in (Nodes $documents[$name] 'Border')) {
@@ -68,7 +68,7 @@ Test-UI 'All 21 settings cards use shared style' {
             Assert-UI (-not $card.GetAttribute('Background').Contains('CardBackgroundFillColorDefaultBrush')) "Local card color: $name"
         }
     }
-    Assert-UI ($count -eq 21) "Expected 21 cards; got $count"
+    Assert-UI ($count -eq 22) "Expected 22 cards; got $count"
 }
 Test-UI 'Every page uses shared title and container style' {
     foreach ($name in $pageNames) {

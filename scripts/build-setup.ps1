@@ -117,6 +117,7 @@ $taskHash = (Get-FileHash -LiteralPath $taskSetup -Algorithm SHA256).Hash
     compiler = $IsccPath; compilerSha256 = (Get-FileHash -LiteralPath $IsccPath).Hash
     installerSourceSha256 = (Get-FileHash -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer\OpenKey.iss')).Hash
     policySourceSha256 = (Get-FileHash -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer\RuntimePolicy.iss')).Hash
+    caretPolicySourceSha256 = (Get-FileHash -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer\CaretPolicy.iss')).Hash
     translationSha256 = (Get-FileHash -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer\Vietnamese.isl')).Hash
     compilerManifest = (Join-Path $taskStage 'compiler-manifest.txt')
     compilerManifestSha256 = (Get-FileHash -LiteralPath (Join-Path $taskStage 'compiler-manifest.txt')).Hash

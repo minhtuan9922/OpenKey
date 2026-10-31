@@ -44,6 +44,7 @@
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="Localization.h" />
+    <ClInclude Include="CaretEditingUI.h" />
     <ClInclude Include="UiWindowSizeSettings.h" />
     <ClInclude Include="App.xaml.h" />
     <ClInclude Include="MainWindow.xaml.h" />

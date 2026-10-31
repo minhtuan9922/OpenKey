@@ -54,3 +54,18 @@ if ($Target -in @('Legacy', 'All')) {
 if ($Target -in @('UI', 'All')) {
     Invoke-MSBuild $uiProject
 }
+
+$componentOutput = Join-Path $PSScriptRoot "dist\caret-component\$Configuration"
+& (Join-Path $PSScriptRoot 'scripts\build-text-service.ps1') All -OutputRoot $componentOutput
+$legacyRoot = Join-Path $PSScriptRoot 'Sources\OpenKey\win32\OpenKey'
+$outputPrefix = if ($Platform -eq 'x64') { "x64\$Configuration" } else { $Configuration }
+$componentDestinations = @()
+if ($Target -in @('Legacy','All')) { $componentDestinations += Join-Path $legacyRoot "$outputPrefix\CaretEditing" }
+if ($Target -in @('UI','All')) { $componentDestinations += Join-Path $legacyRoot "OpenKey.UI\$outputPrefix\OpenKey.UI\CaretEditing" }
+foreach ($destination in $componentDestinations) {
+    foreach ($arch in @('x64','x86')) {
+        New-Item -ItemType Directory -Path (Join-Path $destination $arch) -Force | Out-Null
+        Copy-Item -LiteralPath (Join-Path $componentOutput "$arch\OpenKey.TextService.dll") -Destination (Join-Path $destination $arch) -Force
+    }
+    Copy-Item -LiteralPath (Join-Path $componentOutput "helper\$Platform\OpenKey.CaretSetup.exe") -Destination $destination -Force
+}
