@@ -12,17 +12,19 @@ namespace OpenKeyCaretTrace {
         SettingsDisabled, IntentMissing, Unmapped, ReadLock, Status, Composition,
         Selection, Scope, Clone, LeftShift, RightShift, LeftRead, RightRead,
         ContextReady, WordBoundary, EditRules, ForwardUnsupported, Ready,
-        WriteLock, WriteRejected, Applied, Held, CompositionStart, CompositionDenied, CompositionEnd };
+        WriteLock, WriteRejected, Applied, Held, CompositionStart, CompositionDenied, CompositionEnd,
+        SessionRegister, SessionSelection, SessionLock, SessionUnlock, SessionRetry, SessionDone, SessionIgnored };
     inline const char* Label(unsigned stage) {
         static const char* labels[] = {"begin", "inactive", "context-mismatch", "disabled", "modifier",
             "settings-disabled", "intent-missing", "unmapped", "read-lock", "status", "composition",
             "selection", "input-scope", "clone", "left-shift", "right-shift", "left-read", "right-read",
             "context-ready", "word-boundary", "edit-rules", "forward-unsupported", "ready",
-            "write-lock", "write-rejected", "applied", "held", "composition-start", "composition-denied", "composition-end"};
+            "write-lock", "write-rejected", "applied", "held", "composition-start", "composition-denied", "composition-end",
+            "session-register", "session-selection", "session-lock", "session-unlock", "session-retry", "session-done", "session-ignored"};
         return stage < sizeof(labels) / sizeof(*labels) ? labels[stage] : "unknown";
     }
     struct Record {
-        unsigned build = 8, process = 0, thread = 0, kind = 0, stage = Begin;
+        unsigned build = 10, process = 0, thread = 0, kind = 0, stage = Begin;
         std::int32_t hr = 0, before = -1, after = -1, word = -1, mode = -1;
         unsigned flags = 0, eaten = 0, beforeClass = 0, afterClass = 0;
     };

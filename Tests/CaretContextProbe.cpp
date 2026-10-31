@@ -30,7 +30,7 @@ int CaptureTrace(unsigned seconds) {
             if (InterlockedCompareExchange(&slot.committed, 0, 0) != serial) break;
             last = serial; ++events;
             std::cout << "{\"event\":" << events << ",\"build\":" << record.build
-                << ",\"kind\":\"" << (record.kind ? "key" : "test") << "\",\"stage\":\"" << Label(record.stage)
+                << ",\"kind\":\"" << (record.kind == 2 ? "session" : record.kind ? "key" : "test") << "\",\"stage\":\"" << Label(record.stage)
                 << "\",\"hresult\":\"0x" << std::hex << std::setw(8) << std::setfill('0') << static_cast<std::uint32_t>(record.hr) << std::dec
                 << "\",\"before\":" << record.before << ",\"after\":" << record.after << ",\"word\":" << record.word
                 << ",\"mode\":" << record.mode << ",\"flags\":" << record.flags << ",\"eaten\":" << record.eaten

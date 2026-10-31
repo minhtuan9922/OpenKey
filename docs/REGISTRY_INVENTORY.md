@@ -3,7 +3,7 @@
 Baseline mã nguồn ngày 2026-10-11, phục vụ giữ dữ liệu khi thử Fluent/nâng cấp/
 rollback. Không phải bản xuất registry hoặc công cụ khôi phục. Danh sách đầy đủ
 tên, kiểu và nhóm nằm ở [Tests/RegistryInventory.json](../Tests/RegistryInventory.json).
-Có 46 giá trị trong khóa ứng dụng và 1 giá trị Run startup; không truy cập dữ
+Có 47 giá trị trong khóa ứng dụng và 1 giá trị Run startup; không truy cập dữ
 liệu thực tế của người dùng để lập tài liệu này.
 
 ## Khóa ứng dụng dùng chung
@@ -20,6 +20,11 @@ Fluent của cùng tài khoản, kể cả chạy từ thư mục khác. Không 
   có toggle ở MacroPage, giữ nguyên tên/default/reset. Hai trường legacy-only
   còn lại chưa thuộc model Preferences Fluent;
   vẫn được legacy load/ghi, không được bỏ khi sao lưu hoặc thay executable.
+- 1 `REG_DWORD` nhóm `caret-profile`: `caretProfileSelected` do
+  `CaretSelectionSettings.h` đọc/ghi, 1=khôi phục OpenKey Caret Editing khi
+  engine chạy lại, 0=không tự chọn profile. Thiếu/sai kiểu/kích thước/giá trị
+  ngoài 0/1 thì không tự khôi phục. Không đặt default input method Windows,
+  không lưu nội dung gõ, không thay `vLanguage`. UI và engine dùng cùng giá trị.
 - 2 `REG_BINARY` nhóm `shared-data`: `macroData` chứa danh sách gõ tắt;
   `smartSwitchKey` chứa trạng thái theo ứng dụng. Giữ nguyên byte khi sao lưu;
   không tự sửa/giải mã/import để kiểm kê. MacroService và engine/legacy dùng
@@ -79,7 +84,7 @@ riêng sau rollback; trạng thái DWORD không chứng minh đích startup đú
 
 Checker prerequisite chỉ đọc `HKLM\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64`
 hoặc `x86`, các giá trị `Installed` và `Version`, trên Registry32/Registry64.
-Đây là dữ liệu runtime hệ thống, không thuộc 46 giá trị ứng dụng trong JSON,
+Đây là dữ liệu runtime hệ thống, không thuộc 47 giá trị ứng dụng trong JSON,
 không sao lưu/import chúng để rollback OpenKey. Inventory không bao phủ
 registry do Windows/COM/SDK/bộ cài tự dùng ngoài các lời gọi source ứng dụng.
 
@@ -96,7 +101,7 @@ Xem [thiết lập và gỡ TSF](TEXT_SERVICE.md).
 
 `test-registry-inventory.ps1` đối chiếu tên đọc/ghi, kiểu của helper Fluent,
 hai đường dẫn HKCU và danh sách provider với source do git ls-files liệt kê
-(tracked và untracked, trừ ignored build/generated files). Có 11 nhóm kiểm
+(tracked và untracked, trừ ignored build/generated files). Có 12 nhóm kiểm
 tra, chạy trong test-all; không mở registry, chạy engine hoặc khôi phục dữ liệu.
 Scanner nhận các dạng literal/macro hiện tại, không phải parser C++ hoàn chỉnh;
 khi thay cách truy cập registry cần cập nhật kiểm kê và kiểm tra coverage.

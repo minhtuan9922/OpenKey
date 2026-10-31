@@ -159,6 +159,9 @@
     <ClInclude Include="CaretToneEdit.h" />
     <ClInclude Include="CaretSettingsProtocol.h" />
     <ClInclude Include="TsfTyping.h" />
+    <ClInclude Include="CaretSessionRestore.h" />
+    <ClInclude Include="CaretSelectionProtocol.h" />
+    <ClInclude Include="CaretSelectionSettings.h" />
     <ClInclude Include="..\..\..\engine\DataType.h" />
     <ClInclude Include="..\..\..\engine\Engine.h" />
     <ClInclude Include="..\..\..\engine\Macro.h" />

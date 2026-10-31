@@ -2,6 +2,7 @@
 #include <shellapi.h>
 #include "../OpenKey.TextService/CaretTextService.h"
 #include "../OpenKey.TextService/CaretDeployment.h"
+#include "../OpenKey/CaretSelectionSettings.h"
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "uuid.lib")
 #pragma comment(lib, "shell32.lib")
@@ -65,8 +66,10 @@ namespace OpenKeyUICaret {
             if (result != S_OK) return FAILED(result) ? result : E_FAIL;
             result = profiles->ChangeCurrentLanguage(OpenKeyTextService::Language);
             if (FAILED(result)) return result;
-            return manager->ActivateProfile(TF_PROFILETYPE_INPUTPROCESSOR, OpenKeyTextService::Language,
+            result = manager->ActivateProfile(TF_PROFILETYPE_INPUTPROCESSOR, OpenKeyTextService::Language,
                 OpenKeyTextService::ServiceId, OpenKeyTextService::ProfileId, nullptr, TF_IPPMF_FORSESSION | TF_IPPMF_ENABLEPROFILE);
+            if (result == S_OK && !OpenKeyCaretSettings::Save(true)) return HRESULT_FROM_WIN32(ERROR_WRITE_FAULT);
+            return result;
         }
         if (Read().active) {
             TF_INPUTPROCESSORPROFILE restore = previous;
@@ -81,6 +84,8 @@ namespace OpenKeyUICaret {
             result = manager->ActivateProfile(restore.dwProfileType, restore.langid, restore.clsid, restore.guidProfile, restore.hkl, TF_IPPMF_FORSESSION);
             if (result != S_OK) return FAILED(result) ? result : E_FAIL;
         }
-        return profiles->EnableLanguageProfile(OpenKeyTextService::ServiceId, OpenKeyTextService::Language, OpenKeyTextService::ProfileId, FALSE);
+        result = profiles->EnableLanguageProfile(OpenKeyTextService::ServiceId, OpenKeyTextService::Language, OpenKeyTextService::ProfileId, FALSE);
+        if (result == S_OK && !OpenKeyCaretSettings::Save(false)) return HRESULT_FROM_WIN32(ERROR_WRITE_FAULT);
+        return result;
     }
 }

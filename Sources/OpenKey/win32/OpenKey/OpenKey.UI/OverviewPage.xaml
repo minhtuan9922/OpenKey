@@ -129,7 +129,7 @@
             <Border Style="{StaticResource OpenKeySettingsCardStyle}">
                 <StackPanel Spacing="12">
                     <TextBlock x:Uid="CaretEditingTitle" Text="Sửa dấu tại con trỏ" TextWrapping="Wrap" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                    <TextBlock x:Uid="CaretEditingDescription" Text="Đặt con trỏ cuối từ đã gõ để thêm hoặc bỏ dấu. Dùng bảng mã Unicode dựng sẵn." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock x:Uid="CaretEditingDescription" Text="Đặt con trỏ cuối từ đã gõ để thêm hoặc bỏ dấu. Dùng Unicode dựng sẵn. Lựa chọn được ghi nhớ qua lần đăng nhập; bật Khởi động OpenKey cùng Windows để tự khôi phục." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <Button x:Name="CaretEnableButton" x:Uid="CaretEnableButton" Content="Bật và sử dụng" Click="OnEnableCaretEditing" Style="{StaticResource AccentButtonStyle}" />
                         <Button x:Name="CaretDisableButton" x:Uid="CaretDisableButton" Content="Tắt" Click="OnDisableCaretEditing" />

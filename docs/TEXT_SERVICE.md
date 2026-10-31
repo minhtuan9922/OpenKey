@@ -20,6 +20,55 @@ helper; thư mục DLL cũ giữ lại vì editor có thể đang nạp. Không 
 OpenKey. Hủy quyền admin có thể bật lại sau từ giao diện. Luồng UAC và kích
 hoạt trên máy sạch vẫn cần nghiệm thu, không suy ra từ kiểm thử tự động.
 
+### Khóa và mở khóa Windows
+
+Engine nhận checkpoint chọn/bỏ chọn từ chính DLL TSF trong editor trên desktop
+người dùng và theo dõi WTS_SESSION_LOCK/UNLOCK của chính phiên đăng nhập.
+Checkpoint được đóng băng khi khóa; không hỏi lại profile của luồng nền tại
+thời điểm đó vì nó có thể đã chuyển sang ENG. Bản trace 9 bổ sung cơ chế này
+sau khi probe trên máy thật xác nhận WTS lock đến sau khi desktop đã đổi.
+Nếu profile OpenKey Caret Editing đang bật và được chọn trước lúc khóa, khi trở lại desktop
+engine khôi phục profile này nếu Windows chuyển về layout bàn phím. Nếu trước
+khi khóa đang chọn ENG, không tự chuyển sang VIE. Không đặt ngôn ngữ mặc định
+hay bật lại một profile đã bị tắt. Không áp dụng VIE của editor trước cho cửa
+sổ mới chưa có checkpoint; bỏ qua khi foreground dùng ngôn ngữ khác VIE/English.
+Khôi phục chỉ chạy sau unlock, tối đa 10 lần cách nhau 500 ms; dừng khi thành
+công. Chờ trên desktop người dùng, không kích hoạt trên desktop Winlogon/UAC.
+Không có timer thường trực. Cần engine
+mới đang chạy; khóa/mở máy thật vẫn cần người dùng nghiệm thu.
+Sau khi cập nhật, cần đóng/mở editor để nạp DLL trace 9 và chọn lại OpenKey
+Caret Editing. Trace opt-in `probe-caret-context.ps1 -Trace` có các event
+`session-selection`, `session-lock`, `session-unlock`, `session-retry`,
+`session-done`. Với kind `session`, flags: 1=biết trạng thái, 2=chọn OpenKey,
+4=profile bật, 8=ngôn ngữ khác, 16=đang chờ khôi phục, 32=desktop người dùng.
+Không ghi tài liệu, phím, tiêu đề hoặc dữ liệu đăng nhập.
+
+### Logout, khởi động lại và bật máy
+
+Lựa chọn được lưu ngay dưới `HKCU\SOFTWARE\TuyenMai\OpenKey`, DWORD
+`caretProfileSelected`: 1 khi chọn OpenKey Caret Editing, 0 khi bỏ chọn/tắt.
+Khi engine chạy lại, giá trị 1 khởi động việc khôi phục tối đa 60 lần cách 500 ms,
+chờ desktop người dùng và TSF sẵn sàng. Giá trị 0 hoặc dữ liệu thiếu/sai giữ
+lựa chọn Windows, không tự bật VIE. Không tự cài/đăng ký, xin admin hoặc bật
+một profile đã bị tắt. Để tự khôi phục sau đăng nhập, bật **Khởi động OpenKey
+cùng Windows**; nếu không, khôi phục khi người dùng mở OpenKey.
+
+WM_QUERYENDSESSION đóng băng checkpoint trước bước kết thúc phiên; thông báo
+bỏ chọn khi các editor bị đóng không ghi đè giá trị đã lưu. Nếu logout bị hủy,
+WM_ENDSESSION(FALSE) cho phép ghi lựa chọn mới. Không đọc/ghi profile của màn
+hình nhập mật khẩu, không đặt Windows default input method. Lựa chọn mới trong
+UI cũng được ghi để nút Tắt ngăn tự khôi phục ở lần đăng nhập sau.
+Kiểm thử hiện dùng registry giả và mô phỏng vòng đời; logout/reboot/shutdown
+thực tế còn cần nghiệm thu trên máy người dùng.
+
+Trace build 10 bỏ qua profile tạm của Start, Search và taskbar khi ghi nhớ
+lựa chọn. Engine bắt đầu bảo vệ từ phím Windows xuống, kể cả khi thông báo
+ENG đến trước sự kiện Start lấy foreground hoặc sau khi đã nhả phím. Vì vậy
+mở Start để shutdown/logout không ghi đè VIE của editor. Win+Space vẫn là thao
+tác chọn bàn phím chủ động và có thể ghi nhớ ENG. Bộ lọc không chặn phím hoặc
+ép ngôn ngữ của giao diện Start; `session-ignored` cho biết checkpoint đã bị
+bỏ qua. Không đánh đồng cửa sổ thư mục Explorer với Start/taskbar.
+
 ### Bản sửa kẹt phím — trace build 8
 
 Service phân biệt lần nhấn mới với autorepeat bằng previous-state bit 30 của

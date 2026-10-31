@@ -467,6 +467,8 @@ LRESULT CALLBACK keyboardHookProcess(int nCode, WPARAM wParam, LPARAM lParam) {
 		return CallNextHookEx(hKeyboardHook, nCode, wParam, lParam);
 	}
 	const bool physicalDown = wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN;
+	extern void ObserveCaretSessionKey(UINT key, bool down);
+	ObserveCaretSessionKey(keyboardData->vkCode, physicalDown);
 	OpenKeyCaretRuntime::State().intent.BeginKey(keyboardData->vkCode, physicalDown, GetForegroundWindow());
 	
 	//ignore if IME pad is open when typing Japanese/Chinese...
@@ -694,6 +696,8 @@ LRESULT CALLBACK mouseHookProcess(int nCode, WPARAM wParam, LPARAM lParam) {
 }
 
 VOID CALLBACK winEventProcCallback(HWINEVENTHOOK hWinEventHook, DWORD dwEvent, HWND hwnd, LONG idObject, LONG idChild, DWORD dwEventThread, DWORD dwmsEventTime) {
+	extern void ObserveCaretSessionForeground(HWND window);
+	ObserveCaretSessionForeground(hwnd);
 	//smart switch key
 	if (vUseSmartSwitchKey || vRememberCode) {
 		string& exe = OpenKeyHelper::getFrontMostAppExecuteName();

@@ -1,4 +1,5 @@
 #include "CaretTextService.h"
+#include "../OpenKey/CaretSelectionProtocol.h"
 #include <initguid.h>
 #include <inputscope.h>
 #include <atomic>
@@ -265,6 +266,25 @@ namespace OpenKeyTextService {
         bool (*typing)(unsigned, UINT, OpenKeyTsfTyping::Result&) = TypingRpc;
         bool swallowed[256]{};
         bool typingKeyUp[256]{};
+        HWND selectionTarget = nullptr, selectionEngine = nullptr;
+        void NotifySelection(bool selected, bool force = false, bool fromKey = false) {
+            const HWND target = selected ? GetForegroundWindow() : selectionTarget;
+            const HWND engine = FindWindowW(L"OpenKeyVietnameseInputMethod", nullptr);
+            if (secure || !manager || !target || target != GetForegroundWindow() || !OpenKeyCaretSelection::OnUserDesktop()) return;
+            DWORD targetProcess = 0;
+            if (!GetWindowThreadProcessId(target, &targetProcess) || targetProcess != GetCurrentProcessId()) return;
+            if (selected && !fromKey) {
+                BOOL focused = FALSE;
+                if (FAILED(manager->IsThreadFocus(&focused)) || !focused) return;
+            }
+            if (selected && !force && target == selectionTarget && engine == selectionEngine) return;
+            selectionTarget = target; selectionEngine = engine;
+            if (!engine) return;
+            DWORD_PTR ignored = 0;
+            if (!SendMessageTimeoutW(engine, OpenKeyCaretSelection::Message(selected), reinterpret_cast<WPARAM>(target),
+                GetCurrentThreadId(), SMTO_ABORTIFHUNG | SMTO_BLOCK, 30, &ignored))
+                PostMessageW(engine, OpenKeyCaretSelection::Message(selected), reinterpret_cast<WPARAM>(target), GetCurrentThreadId());
+        }
         bool Signal(unsigned kind, HWND target, HWND engine) {
             if (!target || !engine) return false;
             DWORD_PTR acknowledged = 0;
@@ -486,6 +506,7 @@ namespace OpenKeyTextService {
             if (key < 256 && !(flags & (1LL << 30))) swallowed[key] = typingKeyUp[key] = false;
             if (manager && target && context.Get() != target) Bind(nullptr, target);
             RefreshActive(true);
+            NotifySelection(true, false, true);
         }
         void ReportCorrectionIntent(WPARAM key, bool correction) {
             if (OpenKeyCaretTone::EditKey(static_cast<unsigned>(key), 0) < 0 && OpenKeyCaretTone::EditKey(static_cast<unsigned>(key), 1) < 0) return;
@@ -544,9 +565,12 @@ namespace OpenKeyTextService {
                 FAILED(manager.As(&source)) || FAILED(source->AdviseSink(IID_ITfThreadMgrEventSink,
                     static_cast<ITfThreadMgrEventSink*>(this), &managerCookie))) { Deactivate(); return E_FAIL; }
             ComPtr<ITfDocumentMgr> focus; if (SUCCEEDED(manager->GetFocus(&focus))) Bind(focus.Get());
+            NotifySelection(true, true);
             return S_OK;
         }
         HRESULT STDMETHODCALLTYPE Deactivate() override {
+            NotifySelection(false);
+            selectionTarget = selectionEngine = nullptr;
             foregroundKeys = false;
             Bind(nullptr);
             if (manager) {
@@ -559,6 +583,7 @@ namespace OpenKeyTextService {
         }
         HRESULT STDMETHODCALLTYPE OnSetFocus(BOOL foreground) override {
             foregroundKeys = foreground != FALSE;
+            if (foreground) NotifySelection(true, true);
             Publish(foreground && armed); if (!foreground) ClearActive(); return S_OK;
         }
         HRESULT STDMETHODCALLTYPE OnTestKeyDown(ITfContext* target, WPARAM key, LPARAM flags, BOOL* eaten) override {

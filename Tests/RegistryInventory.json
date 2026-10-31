@@ -24,6 +24,11 @@
           ]
         },
         {
+          "scope": "caret-profile",
+          "type": "REG_DWORD",
+          "names": ["caretProfileSelected"]
+        },
+        {
           "scope": "legacy-only",
           "type": "REG_DWORD",
           "names": ["vRunAsAdmin", "vCreateDesktopShortcut"]

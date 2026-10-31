@@ -426,7 +426,7 @@
   <data name="MacroInEnglishToggle.OffContent" xml:space="preserve"><value>Tắt</value></data>
   <data name="MacroInEnglishToggle.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Gõ tắt trong chế độ tiếng Anh</value></data>
   <data name="CaretEditingTitle.Text" xml:space="preserve"><value>Sửa dấu tại con trỏ</value></data>
-  <data name="CaretEditingDescription.Text" xml:space="preserve"><value>Đặt con trỏ cuối từ đã gõ để thêm hoặc bỏ dấu. Dùng bảng mã Unicode dựng sẵn.</value></data>
+  <data name="CaretEditingDescription.Text" xml:space="preserve"><value>Đặt con trỏ cuối từ đã gõ để thêm hoặc bỏ dấu. Dùng Unicode dựng sẵn. Lựa chọn được ghi nhớ qua lần đăng nhập; bật Khởi động OpenKey cùng Windows để tự khôi phục.</value></data>
   <data name="CaretEnableButton.Content" xml:space="preserve"><value>Bật và sử dụng</value></data>
   <data name="CaretDisableButton.Content" xml:space="preserve"><value>Tắt</value></data>
   <data name="CaretActive" xml:space="preserve"><value>Đang dùng OpenKey Caret Editing. Mở lại trình soạn thảo nếu vừa cài hoặc cập nhật thành phần.</value></data>

@@ -17,6 +17,18 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Settings test compilation failed.' }
     & (Join-Path $output 'SettingsMappingTests.exe')
     if ($LASTEXITCODE -ne 0) { throw 'Settings store regression failed.' }
+    $sessionSource = Join-Path $OpenKeyRepositoryRoot 'Tests\CaretSessionRestoreTests.cpp'
+    $sessionCommand = '"' + $vcvars + '" ' + $Platform + ' >nul && cl /nologo /EHsc /std:c++17 /utf-8 /W4 /DUNICODE /D_UNICODE /Fe:CaretSessionRestoreTests.exe "' + $sessionSource + '" /link user32.lib'
+    & $env:ComSpec /d /c $sessionCommand
+    if ($LASTEXITCODE -ne 0) { throw 'Caret session test compilation failed.' }
+    & (Join-Path $output 'CaretSessionRestoreTests.exe')
+    if ($LASTEXITCODE -ne 0) { throw 'Caret session regression failed.' }
+    $caretStoreSource = Join-Path $OpenKeyRepositoryRoot 'Tests\CaretSelectionSettingsTests.cpp'
+    $caretStoreCommand = '"' + $vcvars + '" ' + $Platform + ' >nul && cl /nologo /EHsc /std:c++17 /utf-8 /W4 /DUNICODE /D_UNICODE /Fe:CaretSelectionSettingsTests.exe "' + $caretStoreSource + '"'
+    & $env:ComSpec /d /c $caretStoreCommand
+    if ($LASTEXITCODE -ne 0) { throw 'Caret profile storage compilation failed.' }
+    & (Join-Path $output 'CaretSelectionSettingsTests.exe')
+    if ($LASTEXITCODE -ne 0) { throw 'Caret profile storage regression failed.' }
     $windowSource = Join-Path $OpenKeyRepositoryRoot 'Tests\UiWindowSizeTests.cpp'
     $windowCommand = '"' + $vcvars + '" ' + $Platform + ' >nul && cl /nologo /EHsc /std:c++20 /utf-8 /W4 /DUNICODE /D_UNICODE /Fe:UiWindowSizeTests.exe "' + $windowSource + '"'
     & $env:ComSpec /d /c $windowCommand
