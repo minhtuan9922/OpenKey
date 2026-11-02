@@ -1,8 +1,91 @@
-# Bộ cài OpenKey Fluent offline
+# Bộ cài OpenKey Fluent online và offline
+
+## Bộ cài online — 2026-11-02
+
+Mặc định build và phát hành duy nhất `OpenKey-Setup.exe` ở chế độ online.
+File chứa ứng dụng x64/x86 và Fluent UI dùng Windows App Runtime chung,
+không nhúng Visual C++ Redistributable hoặc các DLL WinUI/Windows App SDK lớn. Máy đã có runtime đúng
+kiến trúc và đủ phiên bản sẽ không tải gì thêm. Nếu thiếu/cũ, sau khi người dùng
+đồng ý, Setup tải duy nhất runtime của kiến trúc đang cài từ URL HTTPS Microsoft
+đã ghim trong `Installer/OfflineInputs.json` và `Installer/AppRuntimeInputs.json`, hiển thị tiến độ và cho phép hủy.
+SHA-256 được kiểm tra khi tải và kiểm tra lại trước khi chạy runtime.
+VC++ có thể xin UAC; Windows App Runtime chạy không nâng quyền để đăng ký cho
+đúng tài khoản đang cài, sau đó được kiểm tra lại bằng native probe. Runtime
+Windows App SDK ghim ở 2.5.1, mỗi installer Microsoft khoảng 120 MB. Máy đã có
+framework 2.x đúng kiến trúc, phiên bản tối thiểu 2.5.1.0 và trạng thái OK sẽ bỏ qua tải.
+Tải lỗi, sai hash hoặc hủy tải sẽ dừng trước khi chép ứng dụng; có thể thử lại
+hoặc dùng bản offline. Silent vẫn chỉ tiếp tục khi runtime đã có sẵn.
+
+Build mới:
+
+```powershell
+.\scripts\build-setup.ps1 -Release
+```
+
+Lệnh dùng hai ZIP Release đã xác minh cũng mặc định online. Chỉ khi cần build
+offline thủ công mới thêm `-Offline`; tên file vẫn là `OpenKey-Setup.exe` trong
+staging riêng. Script vẫn cần
+bốn runtime cục bộ đã ghim (VC++ và Windows App Runtime x64/x86) để kiểm tra chữ ký Microsoft và metadata
+trước build; chúng được giữ làm đầu vào kiểm chứng trong staging, không nhúng
+vào EXE online. Không dùng runtime/hash tùy chỉnh khác pin cho chế độ online.
+`setup-build.json` ghi mode, URL/hash và hash file pin. Verifier kiểm tra inventory
+compiler loại cả bốn runtime cho online và giữ chúng cho offline.
+
+Release UI build vào thư mục `OpenKey.UI/{x64|Win32}/Release/FrameworkDependent/OpenKey.UI`,
+tách khỏi output self-contained cũ để tránh đóng gói DLL tồn dư. Debug vẫn
+self-contained. ZIP ghi rõ deployment mode và minimum Windows App Runtime;
+verifier kiểm tra bootstrap DLL/probe đúng kiến trúc và chặn runtime app-local.
+
+Khi nâng cấp từ bản self-contained, `[InstallDelete]` chỉ dọn 227 đường dẫn file
+SDK cũ đã liệt kê trong `Installer/LegacyUiRuntimeCleanup.iss`, sau khi runtime
+đã sẵn sàng và ứng dụng đã đóng. Không dùng wildcard, không xóa thư mục hoặc
+settings/macro. Guard bảo toàn dữ liệu kiểm tra riêng danh sách này. Các thư viện
+đang được dùng chung trong Windows được giữ nguyên khi gỡ OpenKey.
+
+CI build một lần, ghi một dòng `OpenKey-Setup.exe` vào `SHA256SUMS.txt` và đính kèm
+một EXE online khi workflow phát hành chạy. Updater tiếp tục dùng URL và tên
+`OpenKey-Setup.exe` hiện có, nay nhận bộ cài online. Không tạo file có hậu tố
+`-Online`. Thay đổi này không tự phát hành bản mới.
+
+Kiểm tra source, compile hai nhánh online/offline và policy:
+
+```powershell
+.\scripts\test-setup.ps1
+.\scripts\test-runtime-check.ps1 -Bootstrap # thử bootstrap/XAML nếu runtime đã có trên host
+```
+
+Probe mạng chủ động (không nằm trong regression mặc định):
+
+```powershell
+.\scripts\test-online-download.ps1
+```
+
+Probe dùng bộ tải Inno thật và URL x86 đã ghim để kiểm tra hủy, thử lại thành công
+và từ chối SHA-256 sai. Không chạy runtime hoặc cài ứng dụng. Luồng giao diện,
+mất mạng/proxy, UAC, cài/nâng cấp/gỡ trên máy sạch vẫn cần nghiệm thu thực tế.
+
+Build thử 3.0.9 dùng runtime chung: bộ cài khoảng 5,85 MB, UI x64 khoảng 2,99 MB,
+toàn payload x64 khoảng 6,89 MB. Đây là dung lượng riêng của OpenKey, không tính
+runtime Microsoft dùng chung. Phép thử bootstrap/XAML x64/x86 đạt trên host có
+SDK; cài/nâng cấp/gỡ trên máy sạch và mất mạng vẫn cần nghiệm thu.
+
+## Thành phần Caret Editing tùy chọn — 2026-10-31
+
+Setup vẫn chạy theo tài khoản, không cần nâng quyền toàn bộ. Tùy chọn
+OpenKey Caret Editing gọi helper với UAC để đăng ký DLL TSF x64/x86 vào máy.
+Nếu hủy UAC hoặc đăng ký thất bại, cài đặt OpenKey vẫn hoàn tất và thông báo
+có thể bật lại từ trang Tổng quan. Cài silent không tự hiện yêu cầu này.
+Điều kiện cài runtime VC++ trước ứng dụng vẫn giữ nguyên.
+
+Helper có manifest `asInvoker`; chỉ thao tác cài/gỡ mới được gọi bằng `runas`.
+DLL nằm trong thư mục phiên bản theo hash dưới Program Files, chỉ admin/SYSTEM
+có quyền ghi. Gỡ ứng dụng chỉ xin quyền bỏ đăng ký thành phần đúng phiên bản
+đang sở hữu; hủy UAC vẫn gỡ ứng dụng chính. Không xóa settings hoặc DLL phiên
+bản được editor giữ. Luồng UAC/cài/gỡ trên máy sạch còn cần nghiệm thu thực tế.
 
 ## Guard bảo toàn dữ liệu khi đóng gói
 
-`build-setup.ps1` kiểm tra source cài/gỡ trước khi xử lý compiler, runtime, build hoặc staging. Guard giữ AppId/thư mục cài theo tài khoản, chỉ cho payload vào `{app}`, runtime dạng `dontcopy` và chạy engine sau cài theo lựa chọn (bỏ qua khi silent). Chặn section registry/delete, các API ghi/xóa dữ liệu đã liệt kê và include ngoài policy đã kiểm tra.
+`build-setup.ps1` kiểm tra source cài/gỡ trước khi xử lý compiler, runtime, build hoặc staging. Guard giữ AppId/thư mục cài theo tài khoản, chỉ cho payload vào `{app}`, runtime dạng `dontcopy` và chạy engine sau cài theo lựa chọn (bỏ qua khi silent). Chặn registry, xóa diện rộng và include ngoài policy đã kiểm tra; chỉ cho phép danh sách file SDK cũ được nêu ở trên.
 
 Chạy riêng `./scripts/test-setup-preservation.ps1`: 17 kiểm tra source/fixture, không truy cập registry hoặc cài app; cũng được gọi trong `test-setup.ps1`. Khi cố ý thay layout/actions, phải rà và cập nhật policy cùng fixture. Đây là guard bảo thủ, không phải parser/sandbox bảo mật, không chứng minh nâng cấp thật giữ mọi byte dữ liệu hoặc mọi side effect của runtime/engine. Bộ cài đã build trước đó không bị sửa; guard áp dụng cho lần đóng gói tiếp theo.
 
@@ -68,8 +151,9 @@ hash và nguồn trước khi chạy, không tắt các cơ chế bảo vệ Win
 - Có tiếng Việt/Anh; các trang thông dụng và thông báo riêng đã dịch.
   Thông báo lỗi hiếm của Inno có thể dùng tiếng Anh từ Default.isl.
 - Kiểm tra VC++ Runtime đúng kiến trúc, tối thiểu `14.51.36231.0`.
-  Nếu thiếu/cũ, yêu cầu đồng ý và UAC để cài runtime Microsoft offline
-  `14.51.36247.0` trước khi chép file OpenKey. Không tải mạng.
+  Nếu thiếu/cũ, yêu cầu đồng ý rồi tải và xác minh runtime Microsoft trước khi
+  xin UAC để cài, trước khi chép file OpenKey. Bản build thủ công với `-Offline`
+  dùng runtime nhúng `14.51.36247.0`, không tải mạng.
 - Hủy UAC, cài runtime lỗi hoặc không đạt kiểm tra phiên bản: không cài OpenKey.
   Runtime trả 3010/1641: yêu cầu khởi động lại rồi chạy lại setup, không tự reboot.
 - Cài silent chỉ tiếp tục khi runtime đã đủ; không tự đồng ý cài runtime.

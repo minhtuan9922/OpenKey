@@ -1,5 +1,64 @@
 # Kiem thu OpenKey trong Windows Sandbox
 
+## Bộ cài online dùng Windows App Runtime chung — 2026-11-02
+
+Đã kiểm tra artifact `OpenKey-Setup.exe` 5.849.227 byte, SHA-256
+`7AF824D7B8A44B9819A2AC497B3CE3D5973BECDFA3D41A84E694633E6558613B`
+trong Sandbox x64 10.0.26100.0, tài khoản WDAGUtilityAccount có token admin.
+Phiên thử bật mạng để tải runtime thật; Input read-only, Logs writable, không
+chia sẻ repository/profile, không cài lên host. Sandbox đã dừng sau kiểm thử.
+
+- Cài mới từ máy chưa có Windows App Runtime 2: yêu cầu đồng ý được hiển thị;
+  không chọn đồng ý thì Next bị chặn. Sau đồng ý, tải VC++ và Windows App Runtime
+  từ Microsoft, xác minh SHA-256, cả hai trả 0; không yêu cầu khởi động lại.
+- UI Tổng quan/Chuyển mã hiển thị đúng; thư mục UI mới 2.991.002 byte.
+- Phím vật lý `tieengs` giữ nguyên khi engine chưa chạy; bật engine rồi gõ cùng
+  chuỗi cho `tiếng`. Kết quả lưu vào `typing-engine-off.txt` / `typing-engine-on.txt`.
+- Cài lại không tải lại runtime, giữ marker cấu hình thử.
+- Cài lại artifact self-contained cũ rồi nâng cấp sang bản mới: UI giảm từ
+  61.439.609 xuống 3.104.453 byte, DLL XAML cũ bị dọn; file riêng của người dùng
+  và marker registry được giữ. UI sau nâng cấp vẫn hiển thị và chạy.
+- Gỡ app thành công, executable ứng dụng bị xóa; giữ marker cấu hình và runtime
+  dùng chung. Thư mục còn file thử của người dùng nên không bị xóa rỗng cưỡng bức.
+
+14 kiểm tra luồng cài/cài lại/gỡ và 10 kiểm tra nâng cấp đạt, cùng quan sát UI
+và phép thử bàn phím đối chứng. Log nằm tại
+`dist/sandbox-online-03a366b7f20d4b128863b41c355c4bb9/Logs/`, gồm
+`sandbox-summary.json`, `online-result.json`, `upgrade-result.json` và log Inno.
+
+Image Sandbox không có Notepad; runner được tiếp tục với editor Win32 EDIT tối
+giản từ `Tests/SandboxTypingEditor.cpp`, chỉ lưu text giả vào mapping Logs.
+`OnlineInstallerSmoke.ps1` và `SharedRuntimeUpgradeSmoke.ps1` từ chối chạy ngoài
+guest/mapping kiểm thử. Không chạy các script này trực tiếp trên host.
+
+Chưa bao gồm guest x86/Windows 10, tài khoản thường/UAC đồng ý-từ chối,
+mất mạng/hủy download hoặc đầy đủ ma trận TSF/editor. Cài và gỡ trong lượt này
+không chứng minh mọi luồng đó đều đạt.
+
+## Installer smoke thực tế — 2026-10-31
+
+Đã chạy `InstallerSmoke.ps1` trong Windows Sandbox 10.0.26100.0 (x64),
+WDAGUtilityAccount có token admin. Bộ cài 3.0.9 có SHA-256
+`4CDFB3A9697CA94D0E3AC87F3CB9ABE72D081E4076D4A7A7B219C4972F0C9714`.
+Kết quả **25/25** kiểm tra đạt: cài silent theo tài khoản, payload và shortcut,
+silent bỏ qua đăng ký tùy chọn, helper đăng ký/gỡ TSF cả hai registry view,
+cài lại giữ giá trị cấu hình thử, UI sống sau 5 giây, gỡ app giữ cấu hình.
+Không xác minh nội dung giao diện hoặc gõ tiếng Việt bằng kiểm tra process.
+
+Log: `dist/sandbox-installer-fbfb50dd664147eeb92c0ca3d9ac2ff3/Logs/installer-result.json`,
+cùng `install.log`, `reinstall.log`, `uninstall.log`, runtime logs.
+Lượt đầu timeout runtime sau 3 phút; runtime tiếp tục và hoàn tất trong guest.
+Lượt chạy lại tăng giới hạn từng tiến trình lên 10 phút và đạt. Không coi đây
+là nghiệm thu runtime cold-install trong giới hạn 3 phút. Sandbox đã được dừng.
+
+Runner chỉ chạy dưới tài khoản/mapping Sandbox, kiểm tra hash trước cài,
+chỉ dùng Input read-only và Logs writable, không bật mạng hoặc cài trên host.
+Session fixture riêng dùng `installer-session.json` với `setupSha256` và
+`runtimeSha256`, kèm `OpenKey-Setup.exe`, `vc_redist.x64.exe` và runner trong Input.
+Không thay bootstrap ZIP chỉ đọc của `prepare-sandbox.ps1`.
+Chưa kiểm tra tương tác UAC đồng ý/từ chối, nút bật/tắt trên Tổng quan hoặc
+gõ/sửa dấu trên editor. Computer Use không kết nối được native pipe trong lượt này.
+
 Hoi quy staging: test-packaging.ps1 tu goi test-sandbox-staging.ps1 voi ZIP
 gia, bao gom 10 dau vao loi khong tao session va 3 phien hop le khong runtime
 (x64/x86/lap x64). Kiem tra hash/helper/metadata/mapping va cach ly host.

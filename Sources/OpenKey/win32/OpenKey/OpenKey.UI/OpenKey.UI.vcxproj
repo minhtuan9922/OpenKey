@@ -13,7 +13,8 @@
     <AppContainerApplication>false</AppContainerApplication>
     <AppxPackage>false</AppxPackage>
     <WindowsPackageType>None</WindowsPackageType>
-    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <WindowsAppSDKSelfContained Condition="'$(Configuration)'!='Release'">true</WindowsAppSDKSelfContained>
+    <WindowsAppSDKSelfContained Condition="'$(Configuration)'=='Release'">false</WindowsAppSDKSelfContained>
     <ApplicationType>Windows Store</ApplicationType>
     <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
@@ -74,6 +75,10 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <!-- Separate output prevents old app-local runtime DLLs entering a new package. -->
+    <OutDir>$(ProjectDir)$(Platform)\Release\FrameworkDependent\OpenKey.UI\</OutDir>
+  </PropertyGroup>
 
   <ItemDefinitionGroup>
     <ClCompile>
@@ -116,6 +121,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="AppResources.h" />
     <ClInclude Include="Localization.h" />
+    <ClInclude Include="CaretEditingUI.h" />
     <ClInclude Include="UiLanguageSettings.h" />
     <ClInclude Include="UiThemeSettings.h" />
     <ClInclude Include="UiTheme.h" />
@@ -275,6 +281,7 @@
     </Midl>
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="2.5.1" />
     <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.3.9" />
     <PackageReference Include="Microsoft.WindowsAppSDK.InteractiveExperiences" Version="2.1.9" />
     <PackageReference Include="Microsoft.Windows.CppWinRT" Version="3.0.260818.1" />

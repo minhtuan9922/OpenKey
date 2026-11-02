@@ -12,7 +12,7 @@ English, theme Sáng/Tối/Theo hệ thống và menu tray bo góc. Mã nguồn 
 engine và giao diện Win32 dự phòng vẫn được giữ.
 
 Tải bộ cài Windows tại [Releases của bản fork](https://github.com/minhtuan9922/OpenKey/releases).
-Chọn asset `OpenKey-Setup.exe`: một bộ cài offline tự chọn x64/x86, có runtime,
+Chọn asset `OpenKey-Setup.exe`: một bộ cài online tự chọn x64/x86, tải runtime khi thiếu,
 Start Menu và tùy chọn icon Desktop. Yêu cầu Windows 10 1809 trở lên hoặc Windows 11;
 không hỗ trợ ARM. Bộ cài chưa ký số; đối chiếu checksum đi kèm trước khi chạy.
 
@@ -27,9 +27,13 @@ hoạt động ổn. Điều này không thay thế toàn bộ ma trận Windows
 Các mục trợ năng/hiệu năng được chốt theo yêu cầu người dùng, không coi là đã có
 đầy đủ phép đo hoặc nghiệm thu Narrator/High Contrast riêng.
 Xem [hướng dẫn Windows](Sources/OpenKey/win32/README.md#fluent-ui-beta),
-[bộ cài offline](docs/INSTALLER.md), [build/đóng gói beta](docs/BETA_PACKAGING.md),
+[bộ cài online/offline](docs/INSTALLER.md), [build/đóng gói beta](docs/BETA_PACKAGING.md),
 [sao lưu/nâng cấp/rollback](docs/MIGRATION_FLUENT_BETA.md),
 [checklist](docs/TODO_FLUENT_UI.md) và [ghi chú QA](docs/FLUENT_UI_QA.md).
+
+Build mặc định tạo duy nhất `OpenKey-Setup.exe`, tải Visual C++ Runtime từ Microsoft
+và Windows App Runtime chỉ khi máy thiếu (cần Internet lúc đó); xem [cách build và kiểm thử bản online](docs/INSTALLER.md#bộ-cài-online--2026-11-02).
+Workflow phát hành đính kèm một EXE này cùng checksum.
 
 Bản fork phát triển từ [OpenKey của Mai Vũ Tuyên](https://github.com/tuyenvm/OpenKey).
 Thông tin và ảnh macOS/legacy bên dưới được giữ để ghi nguồn, không phải ảnh UI Fluent mới.

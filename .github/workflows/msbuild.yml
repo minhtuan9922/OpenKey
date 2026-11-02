@@ -42,8 +42,8 @@ jobs:
         path: |
           ${{env.SOLUTION_FILE_PATH}}/Release/
           ${{env.SOLUTION_FILE_PATH}}/x64/Release/
-          ${{env.SOLUTION_FILE_PATH}}/OpenKey.UI/Release/OpenKey.UI/
-          ${{env.SOLUTION_FILE_PATH}}/OpenKey.UI/x64/Release/OpenKey.UI/
+          ${{env.SOLUTION_FILE_PATH}}/OpenKey.UI/Win32/Release/FrameworkDependent/OpenKey.UI/
+          ${{env.SOLUTION_FILE_PATH}}/OpenKey.UI/x64/Release/FrameworkDependent/OpenKey.UI/
 
     outputs:
       subject-name: OpenKey

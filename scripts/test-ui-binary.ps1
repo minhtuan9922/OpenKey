@@ -7,6 +7,7 @@ $OpenKeyRepositoryRoot = Split-Path -Parent $PSScriptRoot
 
 $ErrorActionPreference = 'Stop'
 $prefix = if ($Platform -eq 'x64') { "x64\$Configuration" } else { $Configuration }
+if ($Configuration -eq 'Release') { $prefix = "$(if ($Platform -eq 'x64') {'x64'} else {'Win32'})\Release\FrameworkDependent" }
 $binary = Join-Path $OpenKeyRepositoryRoot "Sources\OpenKey\win32\OpenKey\OpenKey.UI\$prefix\OpenKey.UI\OpenKey.UI.exe"
 $asset = Join-Path $OpenKeyRepositoryRoot 'Sources\OpenKey\win32\OpenKey\OpenKey\icon.ico'
 if (-not ('OpenKeyResourceReader' -as [type])) {

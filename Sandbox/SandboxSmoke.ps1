@@ -35,7 +35,7 @@ try {
     $runtime = & (Join-Path $workRoot 'check-prerequisites.ps1') -ReportOnly
     $report.runtime = $runtime
     $report.packageArchitecture = $session.architecture
-    if ($runtime.VcRuntimeSatisfied) {
+    if ($runtime.AllPrerequisitesSatisfied) {
         # Interactive guest UI for manual QA, not a background helper on the host.
         $ui = Start-Process -FilePath (Join-Path $workRoot 'OpenKey.UI\OpenKey.UI.exe') -WorkingDirectory (Join-Path $workRoot 'OpenKey.UI') -PassThru -WindowStyle Normal
         Start-Sleep -Seconds 3

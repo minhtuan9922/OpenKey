@@ -1,6 +1,9 @@
 // Runs the real engine without installing hooks or changing user settings.
 #include "../Sources/OpenKey/engine/Engine.h"
+#include "../Sources/OpenKey/engine/CaretToneEdit.h"
+#include "../Sources/OpenKey/win32/OpenKey/OpenKey/CaretSettingsProtocol.h"
 #include "../Sources/OpenKey/win32/OpenKey/OpenKey/KeyboardCaseState.h"
+#include "../Sources/OpenKey/win32/OpenKey/OpenKey/TsfTyping.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -103,6 +106,8 @@ int main() {
         { "gia1", L"giá", vVNI, 1 }, { "qua1", L"quá", vVNI, 1 },
         { "hoa1", L"hoá", vVNI, 1 }, { "hoa1", L"hóa", vVNI, 0 },
         { "tie6ng1", L"tiếng", vVNI, 1 }, { "vie6t5", L"việt", vVNI, 1 }
+        , { "laapj", L"l\u1eadp", vTelex, 0 }, { "coongj", L"c\u1ed9ng", vTelex, 0 }
+        , { "xax", L"x\u00e3", vTelex, 0 }, { "hoaf", L"h\u00f2a", vTelex, 0 }, { "hoaf", L"ho\u00e0", vTelex, 1 }
     };
     int failures = 0;
     for (const auto& item : cases) {
@@ -156,5 +161,127 @@ int main() {
     std::cout << "Caps Lock regression: " << (sizeof(capsCases) / sizeof(capsCases[0]) - capsFailures)
               << "/" << sizeof(capsCases) / sizeof(capsCases[0]) << " passed\n";
     failures += capsFailures;
+    int caretCases = 0, caretFailures = 0;
+    for (const char* raw : {"a", "aw", "aa", "e", "ee", "i", "o", "oo", "ow", "u", "uw", "y",
+        "bang", "bawng", "tieeng", "nghieeng", "dduowng", "hoa", "hoan", "qua", "quy", "gia", "gi",
+        "mua", "tua", "tuan", "ngoai", "khuyu", "khuya", "ngoa", "cuu", "tuowng"}) {
+        for (int modern : {0, 1}) for (bool capital : {false, true}) for (int tone = 1; tone <= 5; ++tone) {
+            const auto original = type(raw, vTelex, modern, capital);
+            const auto input = std::string(raw) + "sfrxj"[tone - 1];
+            const auto expected = type(input.c_str(), vTelex, modern, capital);
+            std::wstring edited;
+            const bool changed = OpenKeyCaretTone::Edit(original, tone, modern != 0, edited);
+            ++caretCases;
+            if (!changed || edited != expected) {
+                ++caretFailures;
+                std::cerr << "FAIL caret parity: " << raw << " tone=" << tone << " modern=" << modern
+                    << " got=" << wideStringToUtf8(edited) << " expected=" << wideStringToUtf8(expected) << '\n';
+            }
+        }
+    }
+    std::cout << "Caret tone/engine parity: " << caretCases - caretFailures << '/' << caretCases << " passed\n";
+    failures += caretFailures;
+    struct ShapeCase { const char* raw; char key; };
+    const ShapeCase shapes[] = {{"noi", 'o'}, {"noij", 'o'}, {"ten", 'e'}, {"ban", 'a'}, {"bang", 'w'},
+        {"bangf", 'w'}, {"tuong", 'w'}, {"tuongs", 'w'}, {"duong", 'd'}, {"duongw", 'd'},
+        {"mua", 'w'}, {"mui", 'w'}, {"tuu", 'w'}, {"noi", 'w'}, {"thuong", 'w'}};
+    // Bare "thuo" and changes after its existing tone have legacy differences
+    // depending on Caps Lock/free-mark history. Caret editing uses independent
+    // expected Unicode cases for these, preserving consistent case handling.
+    int shapeCases = 0, shapeFailures = 0;
+    for (const auto& item : shapes) for (int modern : {0, 1}) for (bool capital : {false, true}) {
+        const auto original = type(item.raw, vTelex, modern, capital);
+        const auto input = std::string(item.raw) + item.key;
+        const auto expected = type(input.c_str(), vTelex, modern, capital);
+        std::wstring edited;
+        ++shapeCases;
+        if (!OpenKeyCaretTone::EditAction(original, OpenKeyCaretTone::EditKey(item.key - 'a' + 'A', vTelex), modern != 0, edited) || edited != expected) {
+            ++shapeFailures;
+            std::cerr << "FAIL caret shape parity: " << input << " modern=" << modern
+                << " got=" << wideStringToUtf8(edited) << " expected=" << wideStringToUtf8(expected) << '\n';
+        }
+    }
+    std::cout << "Caret shape/engine parity: " << shapeCases - shapeFailures << '/' << shapeCases << " passed\n";
+    failures += shapeFailures;
+    int routingChecks = 0;
+    for (const char* input : {"laapj", "coongj", "xax", "hoaf", "aapj"}) {
+        OpenKeyCaretRuntime::Runtime runtime;
+        const auto window = reinterpret_cast<HWND>(1);
+        runtime.profile.Notify(OpenKeyCaretRuntime::Activate, window, 100);
+        runtime.intent.Move(window); // A click in the empty editor before typing.
+        std::string prefix;
+        for (const char* key = input; *key; ++key) {
+            const auto vk = static_cast<UINT>(*key - 'a' + 'A');
+            if (runtime.Delegate(window, vk, vTelex, true)) { ++failures; std::cerr << "Typing stolen by caret service: " << input << '\n'; }
+            ++routingChecks;
+            runtime.intent.PassKey(vk, true);
+            prefix += *key;
+            const auto rendered = type(prefix.c_str(), vTelex, 0);
+            // Word/Chromium may advertise text availability and selection
+            // changes after every rendered prefix. This is not a user move.
+            runtime.profile.Notify(OpenKeyCaretRuntime::Ready, window, 100);
+            runtime.profile.Notify(OpenKeyCaretRuntime::Activate, window, 100);
+            if (!runtime.profile.Active(window) || rendered.empty()) ++failures;
+        }
+        runtime.intent.Move(window);
+        if (!runtime.Delegate(window, 'Z', vTelex, true)) ++failures;
+        ++routingChecks;
+    }
+    std::cout << "Normal typing/caret handoff: " << routingChecks << " checks completed\n";
+    int rangeCases = 0;
+    for (int inputMode : {vTelex, vVNI, vSimpleTelex1, vSimpleTelex2}) for (int modern : {0, 1}) for (bool caps : {false, true}) {
+        for (const char* input : {"laapj", "coongj", "xax", "hoaf", "cooo", "xaxx", "tieengs", "dduowngf", "aapj", "no65", "tie6ng1"}) {
+            const auto expected = type(input, inputMode, modern, caps);
+            vInputType = inputMode; vUseModernOrthography = modern;
+            auto* state = static_cast<vKeyHookState*>(vKeyInit()); startNewSession();
+            std::wstring actual;
+            for (const char* key = input; *key; ++key) {
+                const UINT vk = *key >= 'a' && *key <= 'z' ? *key - 'a' + 'A' : *key;
+                vKeyHandleEvent(Keyboard, KeyDown, static_cast<Uint16>(vk), caps ? 2 : 0);
+                const auto edit = OpenKeyTsfTyping::Convert(*state, vk, caps ? 2 : 0);
+                if (!edit.changed) actual += static_cast<wchar_t>(caps && *key >= 'a' && *key <= 'z' ? *key - 'a' + 'A' : *key);
+                else if (edit.removed <= actual.size()) {
+                    actual.resize(actual.size() - edit.removed); actual += edit.inserted;
+                } else ++failures;
+            }
+            if (actual != expected) { ++failures; std::cerr << "FAIL TSF range typing parity: " << input << '\n'; }
+            ++rangeCases;
+        }
+    }
+    std::cout << "TSF range typing/legacy engine parity: " << rangeCases << " checks completed\n";
+    int bridgeChecks = 0;
+    for (const char* input : {"laapj", "coongj", "xax", "hoaf", "cooo", "xaxx"}) {
+        const auto expected = type(input, vTelex, 0);
+        auto* state = static_cast<vKeyHookState*>(vKeyInit()); startNewSession();
+        OpenKeyTsfTyping::Bridge bridge;
+        const auto window = reinterpret_cast<HWND>(1);
+        std::wstring actual;
+        // Queue a complete burst before the editor processes any key. This
+        // catches single-slot IPC implementations that lose fast keystrokes.
+        for (const char* key = input; *key; ++key) bridge.Forward(window, *key - 'a' + 'A', 0);
+        for (const char* key = input; *key; ++key) {
+            const auto vk = *key - 'a' + 'A';
+            if (bridge.Handle(0, window, vk, state) != 1 || bridge.Handle(0, window, vk, state) != 1) ++failures;
+            const auto packet = static_cast<ULONG_PTR>(bridge.Handle(1, window, vk, state));
+            if ((packet & 0xc0000000u) != 0x40000000u) ++failures;
+            if (packet & 0x200000u) {
+                const auto removed = (packet >> 13) & 255;
+                std::wstring inserted;
+                for (unsigned i = 0; i < (packet & 8191); ++i) {
+                    const auto ch = bridge.Handle(2, window, MAKELPARAM(i, (packet >> 22) & 255), state);
+                    if (!ch) ++failures; else inserted += static_cast<wchar_t>(ch - 1);
+                }
+                if (removed > actual.size()) ++failures;
+                else { actual.resize(actual.size() - removed); actual += inserted; }
+                if (bridge.Handle(2, window, MAKELPARAM(0, (((packet >> 22) & 255) + 1) & 255), state)) ++failures;
+            } else actual += static_cast<wchar_t>(*key);
+            ++bridgeChecks;
+        }
+        if (actual != expected || bridge.Handle(1, window, 'A', state)) ++failures;
+        bridge.Forward(window, 'L', 0); bridge.Handle(3, window, 0, state);
+        if (bridge.Handle(0, window, 'L', state)) ++failures;
+        ++bridgeChecks;
+    }
+    std::cout << "TSF queued engine IPC: " << bridgeChecks << " checks completed\n";
     return failures ? 1 : 0;
 }

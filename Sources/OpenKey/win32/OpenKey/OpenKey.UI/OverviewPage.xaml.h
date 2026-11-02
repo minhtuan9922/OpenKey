@@ -9,6 +9,8 @@ namespace winrt::OpenKeyUI::implementation
     {
         OverviewPage();
         ~OverviewPage();
+        winrt::fire_and_forget OnEnableCaretEditing(winrt::Windows::Foundation::IInspectable const&, winrt::Microsoft::UI::Xaml::RoutedEventArgs const&);
+        void OnDisableCaretEditing(winrt::Windows::Foundation::IInspectable const&, winrt::Microsoft::UI::Xaml::RoutedEventArgs const&);
 
         void OnLanguageToggled(
             winrt::Windows::Foundation::IInspectable const& sender,
@@ -29,6 +31,11 @@ namespace winrt::OpenKeyUI::implementation
         void SavePreferences();
         void UpdateLanguageDescription();
         void ShowSaveResult(bool saved);
+        void RefreshCaretEditing();
+        bool m_caretBusy = false;
+        unsigned m_caretTicks = 0;
+        bool m_caretFeedback = false;
+        int m_caretState = -1;
 
         bool m_loadingPreferences = true;
         bool m_saveFailed = false;

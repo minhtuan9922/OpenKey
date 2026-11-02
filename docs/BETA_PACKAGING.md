@@ -1,5 +1,27 @@
 # Gói beta Fluent UI — thử nghiệm nội bộ
 
+## Runtime giao diện dùng chung — 2026-11-02
+
+Release UI dùng Windows App Runtime 2.x chung, tối thiểu 2.5.1.0; Debug vẫn
+self-contained. Gói ZIP Release chỉ giữ app, XBF/PRI và bootstrapper, kèm
+`OpenKey.RuntimeCheck.<arch>.exe` kiểm tra framework cho tài khoản hiện tại.
+ZIP không tự cài thư viện: dùng `OpenKey-Setup.exe` để tải và cài VC++/Windows
+App Runtime nếu thiếu. Bộ cài online mặc định còn khoảng 5,85 MB; máy thiếu
+Windows App Runtime phải tải thêm installer Microsoft khoảng 120 MB.
+Build và pin/hash được mô tả trong [INSTALLER.md](INSTALLER.md).
+
+## OpenKey Caret Editing — 2026-10-31
+
+Build thông thường và ZIP nay kèm `CaretEditing/OpenKey.CaretSetup.exe` cùng
+`x64/OpenKey.TextService.dll` và `x86/OpenKey.TextService.dll`. Helper phù hợp
+kiến trúc gói chứa sẵn cả hai DLL; manifest/hash kiểm tra cả ba file.
+
+Bộ cài theo tài khoản giữ nguyên. Tùy chọn OpenKey Caret Editing yêu cầu UAC
+riêng để đăng ký TSF; từ chối yêu cầu này vẫn hoàn tất cài ứng dụng. Có thể bật
+sau tại **Tổng quan → Sửa dấu tại con trỏ → Bật và sử dụng**, hoặc tắt profile
+bằng nút **Tắt**. Xem [TEXT_SERVICE.md](TEXT_SERVICE.md) để biết phạm vi thử nghiệm.
+Yêu cầu runtime VC++ sẵn có của bộ cài vẫn áp dụng độc lập.
+
 ## Artifact 3.0.3 hiện tại — 2026-10-11
 
 Bộ cài chung: `dist/setup-b95a532783d34c8eb3d7d1dfd53ab70d/Output/OpenKey-Setup.exe`,

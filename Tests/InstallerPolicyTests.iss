@@ -12,6 +12,7 @@ SetupLogging=yes
 
 [Code]
 #include "..\Installer\RuntimePolicy.iss"
+#include "..\Installer\CaretPolicy.iss"
 var
   Passed: Integer;
 
@@ -84,6 +85,14 @@ begin
   Check(RuntimeOutcome(1602, True) = 2, 'user canceled');
   Check(RuntimeOutcome(1603, True) = 2, 'fatal runtime failure');
   Check(RuntimeOutcome(-1, True) = 2, 'unknown failure');
+  Check(CaretNextAction(False, False, False) = 0, 'unselected optional component does not elevate');
+  Check(CaretNextAction(True, True, False) = 2, 'installed matching component does not elevate');
+  Check(CaretNextAction(True, False, True) = 0, 'silent core install does not request UAC');
+  Check(CaretNextAction(True, False, False) = 1, 'interactive selected component requests UAC');
+  Check(CaretRegistrationSucceeded(True, 0), 'component success');
+  Check(not CaretRegistrationSucceeded(False, 1223), 'UAC canceled skips component');
+  Check(not CaretRegistrationSucceeded(False, 0), 'failed launch cannot claim component installed');
+  Check(not CaretRegistrationSucceeded(True, 5), 'component access denied skips component');
   if not SaveStringToFile(Report, IntToStr(Passed) + ' native Pascal policy checks passed; no registry, app, runtime or installation actions.', False) then
     RaiseException('Cannot write fixture report');
 end;

@@ -15,14 +15,21 @@ $keep = @(
 function Add-Candidate([string]$Path) { $candidates.Add([IO.Path]::GetFullPath($Path)) }
 
 if (Test-Path -LiteralPath $dist) {
-    $latestSetup = Get-ChildItem -LiteralPath $dist -Directory |
+    $setupFolders = Get-ChildItem -LiteralPath $dist -Directory |
         Where-Object Name -Match '^setup-[a-f0-9]{32}$' |
         Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'setup-build.json') } |
-        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        Sort-Object LastWriteTime -Descending
+    $keepSetups = @()
+    $setupModes = @{}
     $keepZips = @()
-    if ($latestSetup) {
-        $setup = Get-Content -LiteralPath (Join-Path $latestSetup.FullName 'setup-build.json') -Raw | ConvertFrom-Json
-        $keepZips = @($setup.zipX64, $setup.zipX86)
+    foreach ($folder in $setupFolders) {
+        $setup = Get-Content -LiteralPath (Join-Path $folder.FullName 'setup-build.json') -Raw | ConvertFrom-Json
+        $mode = if ($setup.mode) { $setup.mode } else { 'offline' }
+        if (-not $setupModes.ContainsKey($mode)) {
+            $setupModes[$mode] = $true
+            $keepSetups += $folder.FullName
+            $keepZips += @($setup.zipX64, $setup.zipX86)
+        }
     }
     # Retain the newest passing report for each PowerShell host.
     $reports = @(Get-ChildItem -LiteralPath $dist -Directory -Filter 'regression-*' |
@@ -41,7 +48,7 @@ if (Test-Path -LiteralPath $dist) {
         if ($item.PSIsContainer) {
             if ($item.Name -match '^(notices-(reference|tests)-|package-tests-|prerequisites-tests-|sandbox-[a-f0-9]{32}$|setup-policy-|installer-close-compile-|diagnostics-test-|ui-debug-)' -or
                 $item.Name -match '^OpenKey-Fluent-beta-' -or
-                ($item.Name -match '^setup-[a-f0-9]{32}$' -and $item.FullName -ne $latestSetup.FullName) -or
+                ($item.Name -match '^setup-[a-f0-9]{32}$' -and $item.FullName -notin $keepSetups) -or
                 ($item.Name -match '^regression-' -and $item.Name -notin $keepReports)) { Add-Candidate $item.FullName }
         } elseif (($item.Extension -eq '.zip' -and $item.Name -like 'OpenKey-Fluent-beta-*' -and $item.FullName -notin $keepZips) -or
             ($item.Extension -eq '.log' -and $item.Name -notlike 'layout-regression*.log') -or

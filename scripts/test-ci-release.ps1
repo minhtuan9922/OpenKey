@@ -31,6 +31,7 @@ $contracts = @(
     ($workflow -match 'needs: build'),
     ($workflow -match 'sha256sum --check SHA256SUMS.txt'),
     ($workflow -match 'gh release upload.*OpenKey-Setup.exe SHA256SUMS.txt'),
+    ($workflow -notmatch 'OpenKey-Setup-Online.exe'),
     ($workflow -notmatch '(?m)^\s+gh .*--clobber'),
     ($workflow -match '(?s)publish:.*contents: write'),
     ($workflow -match 'gh release create.*--draft'),
@@ -40,6 +41,8 @@ $contracts = @(
 foreach ($contract in $contracts) { if (-not $contract) { throw 'CI source contract failed.' }; $checks++ }
 $buildSource = Get-Content -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'scripts\build-ci-release.ps1') -Raw
 $hostContracts = @(
+    (@([regex]::Matches($buildSource, 'build-setup.ps1')).Count -eq 1 -and $buildSource -notmatch 'OpenKey-Setup-Online.exe'),
+    ($buildSource.Contains("if (`$report.mode -ne 'online')") -and $buildSource -match 'Single online setup'),
     ($buildSource -match 'Get-Command pwsh.exe -ErrorAction Stop'),
     ($buildSource.Contains('System32\WindowsPowerShell\v1.0\powershell.exe')),
     ($buildSource -match '(?s)foreach \(\$regressionHost in \$regressionHosts\).*?-NoProfile -ExecutionPolicy Bypass -File.*?test-all.ps1.*?if \(\$LASTEXITCODE -ne 0\).*?throw'),

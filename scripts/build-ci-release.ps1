@@ -25,6 +25,7 @@ foreach ($regressionHost in $regressionHosts) {
     if ($LASTEXITCODE -ne 0) { throw "Release regression failed in $regressionHost. No upload directory produced." }
 }
 $report = Get-Content -LiteralPath $setupResult.BuildReport -Raw | ConvertFrom-Json
+if ($report.mode -ne 'online') { throw 'Release setup must use online mode.' }
 $stage = Split-Path -Parent $setupResult.BuildReport
 foreach ($arch in @('x64','x86')) {
     $engine = if ($arch -eq 'x64') { 'OpenKey64.exe' } else { 'OpenKey32.exe' }
@@ -38,11 +39,13 @@ $output = Join-Path $OpenKeyRepositoryRoot 'dist/ci-release'
 if (Test-Path -LiteralPath $output) { throw 'CI release output already exists; refusing to overwrite.' }
 New-Item -ItemType Directory -Path $output | Out-Null
 Copy-Item -LiteralPath $setupResult.Setup -Destination (Join-Path $output 'OpenKey-Setup.exe')
-"$($report.sha256.ToLowerInvariant())  OpenKey-Setup.exe" | Set-Content -LiteralPath (Join-Path $output 'SHA256SUMS.txt') -Encoding ascii
+"$($report.sha256.ToLowerInvariant())  OpenKey-Setup.exe" |
+    Set-Content -LiteralPath (Join-Path $output 'SHA256SUMS.txt') -Encoding ascii
 @"
 OpenKey Fluent $version (automated beta build)
 
-Single offline setup for Windows x64/x86; includes engine, Fluent UI and runtime prerequisites.
+Single online setup for Windows x64/x86; includes engine and Fluent UI.
+Downloads the matching Microsoft VC++ Runtime and Windows App Runtime only if missing; Internet access required then.
 SHA-256: $($report.sha256)
 Not code-signed. Clean-machine installation, upgrade and uninstall acceptance remains pending.
 Exit OpenKey before running setup. GPLv3 and third-party notices included.

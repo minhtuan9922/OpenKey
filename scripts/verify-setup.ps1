@@ -32,8 +32,35 @@ foreach ($taskRow in (Import-Csv -LiteralPath $taskReport.compilerManifest -Deli
     }
     $taskCompiled[$taskRow.SourceFilename] = $taskRow
 }
-$taskExpectedFiles = @(Get-ChildItem -LiteralPath (Join-Path $taskStage 'x64'), (Join-Path $taskStage 'x86'),
-    (Join-Path $taskStage 'runtime') -File -Recurse)
+$taskRoots = @((Join-Path $taskStage 'x64'), (Join-Path $taskStage 'x86'))
+if ($taskReport.appRuntimeVersion) {
+    . (Join-Path $OpenKeyRepositoryRoot 'Installer\AppRuntime.ps1')
+    $taskAppDefaults = Get-OpenKeyAppRuntimeInputs
+    if ($taskReport.appRuntimeVersion -ne $taskAppDefaults.version -or
+        (Get-FileHash -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer\AppRuntimeInputs.json')).Hash -ne $taskReport.appRuntimeInputsSha256) {
+        throw 'Windows App Runtime pins changed after build.'
+    }
+    foreach ($taskArch in @('x64','x86')) {
+        Assert-OpenKeyAppRuntime (Join-Path $taskStage "app-runtime\WindowsAppRuntimeInstall-$taskArch.exe") $taskAppDefaults.$taskArch.sha256
+    }
+    if ($taskReport.mode -eq 'offline') { $taskRoots += Join-Path $taskStage 'app-runtime' }
+}
+if ($taskReport.mode -eq 'online') {
+    $taskDefaultsPath = Join-Path $OpenKeyRepositoryRoot 'Installer\OfflineInputs.json'
+    if ((Get-FileHash -LiteralPath $taskDefaultsPath).Hash -ne $taskReport.runtimeInputsSha256) {
+        throw 'Pinned online runtime inputs changed.'
+    }
+    $taskDefaults = Get-Content -LiteralPath $taskDefaultsPath -Raw | ConvertFrom-Json
+    foreach ($taskArch in @('x64','x86')) {
+        if ($taskReport."runtimeUrl$taskArch" -cne $taskDefaults.$taskArch.url -or
+            $taskReport."runtime$taskArch".Sha256 -ne $taskDefaults.$taskArch.sha256) {
+            throw 'Online runtime URL/hash mismatch.'
+        }
+    }
+} elseif (-not $taskReport.mode -or $taskReport.mode -eq 'offline') {
+    $taskRoots += Join-Path $taskStage 'runtime'
+} else { throw 'Unknown setup mode.' }
+$taskExpectedFiles = @(Get-ChildItem -LiteralPath $taskRoots -File -Recurse)
 if ($taskCompiled.Count -ne $taskExpectedFiles.Count) { throw 'Compiler embedded file inventory mismatch.' }
 foreach ($taskExpected in $taskExpectedFiles) {
     $taskEmbedded = $taskCompiled[$taskExpected.FullName]
@@ -66,8 +93,10 @@ foreach ($taskArch in @('x64','x86')) {
 $taskSources = @{
     'Installer\OpenKey.iss' = $taskReport.installerSourceSha256
     'Installer\RuntimePolicy.iss' = $taskReport.policySourceSha256
+    'Installer\CaretPolicy.iss' = $taskReport.caretPolicySourceSha256
     'Installer\Vietnamese.isl' = $taskReport.translationSha256
 }
+if ($taskReport.legacyUiCleanupSha256) { $taskSources['Installer\LegacyUiRuntimeCleanup.iss'] = $taskReport.legacyUiCleanupSha256 }
 foreach ($taskRelative in $taskSources.Keys) {
     if ((Get-FileHash -LiteralPath (Join-Path $OpenKeyRepositoryRoot $taskRelative)).Hash -ne $taskSources[$taskRelative]) {
         throw "Installer source changed since compile: $taskRelative"

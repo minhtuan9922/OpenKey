@@ -56,9 +56,14 @@ namespace winrt::OpenKeyUI::implementation
         void UpdateHotkeyPreview();
         ConvertService::Options CurrentOptions();
         void ShowStatus(bool success, winrt::hstring const& title, winrt::hstring const& message);
+        void ArmCaretTone(bool armed);
+        void EditCaretTone(winrt::Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args);
 
         bool m_loadingPreferences = true;
         bool m_saveFailed = false;
+        bool m_caretToneArmed = false;
+        bool m_composingText = false;
+        HWND m_caretToneWindow = nullptr;
         SettingsService::Preferences m_preferences;
         SettingsService::Preferences m_savedPreferences;
         std::vector<int> m_quickKeyCodes;

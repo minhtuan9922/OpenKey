@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ConvertPage.xaml.h"
+#include "../../../engine/CaretToneEdit.h"
 #include "Localization.h"
 
 #include <algorithm>
@@ -63,6 +64,26 @@ namespace winrt::OpenKeyUI::implementation
         ApplyPreferences();
         m_loadingPreferences = false;
         UpdateActionState();
+        // Register handled pointer events too: TextBox consumes pointer events
+        // while moving its own caret. Key preview runs before text insertion.
+        InputBox().AddHandler(UIElement::PointerReleasedEvent(), box_value(Input::PointerEventHandler(
+            [weak = get_weak()](auto const&, auto const&) { if (auto page = weak.get()) page->ArmCaretTone(true); })), true);
+        InputBox().AddHandler(UIElement::KeyUpEvent(), box_value(Input::KeyEventHandler(
+            [weak = get_weak()](auto const&, Input::KeyRoutedEventArgs const& args) {
+                const auto key = static_cast<UINT>(args.Key());
+                if ((key >= VK_PRIOR && key <= VK_DOWN) && key != VK_SELECT)
+                    if (auto page = weak.get()) page->ArmCaretTone(true);
+            })), true);
+        InputBox().PreviewKeyDown([weak = get_weak()](auto const&, Input::KeyRoutedEventArgs const& args) {
+            if (auto page = weak.get()) page->EditCaretTone(args);
+        });
+        InputBox().LostFocus([weak = get_weak()](auto const&, auto const&) { if (auto page = weak.get()) page->ArmCaretTone(false); });
+        InputBox().TextCompositionStarted([weak = get_weak()](auto const&, auto const&) {
+            if (auto page = weak.get()) { page->m_composingText = true; page->ArmCaretTone(false); }
+        });
+        InputBox().TextCompositionEnded([weak = get_weak()](auto const&, auto const&) {
+            if (auto page = weak.get()) { page->m_composingText = false; page->ArmCaretTone(false); }
+        });
         m_refreshTimer = DispatcherQueue().CreateTimer();
         m_refreshTimer.Interval(std::chrono::milliseconds(500));
         m_refreshTimer.Tick([weak = get_weak()](auto const&, auto const&)
@@ -79,13 +100,59 @@ namespace winrt::OpenKeyUI::implementation
         });
         Unloaded([weak = get_weak()](auto const&, auto const&)
         {
-            if (auto page = weak.get()) page->m_refreshTimer.Stop();
+            if (auto page = weak.get()) { page->m_refreshTimer.Stop(); page->ArmCaretTone(false); }
         });
     }
 
     ConvertPage::~ConvertPage()
     {
+        ArmCaretTone(false);
         if (m_refreshTimer) m_refreshTimer.Stop();
+    }
+
+    void ConvertPage::ArmCaretTone(bool armed)
+    {
+        DWORD owner = 0;
+        if (m_caretToneWindow && GetWindowThreadProcessId(m_caretToneWindow, &owner) && owner == GetCurrentProcessId())
+            RemovePropW(m_caretToneWindow, L"OpenKey.CaretToneEdit");
+        m_caretToneWindow = nullptr;
+        m_caretToneArmed = armed && !m_composingText && InputBox().SelectionLength() == 0 && !InputBox().IsReadOnly() &&
+            InputBox().FocusState() != FocusState::Unfocused;
+        if (m_caretToneArmed) {
+            const HWND window = GetForegroundWindow(); DWORD process = 0;
+            GetWindowThreadProcessId(window, &process);
+            if (process == GetCurrentProcessId() && SetPropW(window, L"OpenKey.CaretToneEdit", reinterpret_cast<HANDLE>(1)))
+                m_caretToneWindow = window;
+        }
+    }
+
+    void ConvertPage::EditCaretTone(Input::KeyRoutedEventArgs const& args)
+    {
+        const UINT key = static_cast<UINT>(args.Key());
+        if ((key >= VK_PRIOR && key <= VK_DOWN) || key == VK_SHIFT || key == VK_CAPITAL) return;
+        if (!m_caretToneArmed) return;
+        const auto preferences = SettingsService::readPreferences();
+        const int tone = OpenKeyCaretTone::EditKey(key, preferences.inputType);
+        if (tone < 0 || preferences.language == 0 || preferences.codeTable != 0 ||
+            (GetKeyState(VK_CONTROL) & 0x8000) || (GetKeyState(VK_MENU) & 0x8000) ||
+            (GetKeyState(VK_LWIN) & 0x8000) || (GetKeyState(VK_RWIN) & 0x8000) ||
+            InputBox().SelectionLength() || InputBox().IsReadOnly() ||
+            InputBox().FocusState() == FocusState::Unfocused) { ArmCaretTone(false); return; }
+        const auto caret = InputBox().SelectionStart();
+        if (args.KeyStatus().WasKeyDown) { args.Handled(true); return; }
+        const std::wstring text = InputBox().Text().c_str();
+        OpenKeyCaretTone::Word word; std::wstring replacement;
+        if (!OpenKeyCaretTone::Around(text, caret, word) ||
+            !OpenKeyCaretTone::EditAction(word.text, tone, preferences.useModernOrthography != 0, replacement)) {
+            ArmCaretTone(false); return;
+        }
+        // SelectedText changes only this word and retains the TextBox undo
+        // history. Never assign the whole document back through Text().
+        InputBox().Select(static_cast<int>(word.start), static_cast<int>(word.text.size()));
+        InputBox().SelectedText(replacement);
+        InputBox().Select(caret, 0);
+        args.Handled(true);
+        ArmCaretTone(true);
     }
 
     void ConvertPage::RefreshPreferences()

@@ -1,4 +1,4 @@
-; Single offline installer. Build only through build-setup.ps1 (verified payloads).
+; Online/offline installers. Build through build-setup.ps1 (verified payloads).
 #ifndef PayloadX64
   #error Supply verified payload/runtime paths through build-setup.ps1.
 #endif
@@ -6,7 +6,7 @@
 [Setup]
 AppId={{88759ADC-2201-4DF1-A68A-687EB37B1A02}
 AppName=OpenKey Fluent Beta
-AppVersion=3.0.9
+AppVersion=3.0.10
 AppPublisher=OpenKey contributors
 DefaultDirName={localappdata}\Programs\OpenKey-Fluent
 DefaultGroupName=OpenKey Fluent
@@ -40,18 +40,27 @@ vietnamese.StartApp=Chạy OpenKey
 english.StartApp=Start OpenKey
 vietnamese.RuntimeTitle=Thư viện cần thiết
 english.RuntimeTitle=Required libraries
-vietnamese.RuntimeInfo=Khi thiếu thư viện, bộ cài sẽ cài Microsoft Visual C++ Runtime đi kèm trước OpenKey. Windows sẽ yêu cầu quyền quản trị. Không cần Internet. Hủy hoặc cài thất bại sẽ dừng cài OpenKey. Gỡ OpenKey không gỡ runtime dùng chung.
-english.RuntimeInfo=If missing, Setup installs the bundled Microsoft Visual C++ Runtime before OpenKey. Windows will request administrator permission. No download is needed. Canceling or failure stops installation. Uninstalling OpenKey does not remove the shared runtime.
-vietnamese.RuntimeConsent=Tôi đồng ý cài Microsoft Visual C++ Runtime nếu cần
-english.RuntimeConsent=I agree to install the Microsoft Visual C++ Runtime if needed
+#ifdef OnlineSetup
+vietnamese.RuntimeInfo=Khi thiếu thư viện, bộ cài sẽ tải Visual C++ Runtime và Windows App Runtime từ Microsoft trước khi cài OpenKey. Cần Internet; Windows có thể yêu cầu quyền quản trị cho Visual C++. Windows App Runtime khoảng 120 MB, được đăng ký cho tài khoản đang cài. Hủy, tải hoặc cài thất bại sẽ dừng cài OpenKey. Gỡ OpenKey không gỡ các runtime dùng chung.
+english.RuntimeInfo=If missing, Setup downloads Visual C++ Runtime and Windows App Runtime from Microsoft before installing OpenKey. Internet is required; Visual C++ may request administrator permission. Windows App Runtime is about 120 MB and registers for the installing user. Canceling, download or installation failure stops installation. Uninstalling OpenKey keeps shared runtimes.
+#else
+vietnamese.RuntimeInfo=Khi thiếu thư viện, bộ cài sẽ cài Visual C++ Runtime và Windows App Runtime đi kèm trước OpenKey. Windows có thể yêu cầu quyền quản trị cho Visual C++. Không cần Internet. Hủy hoặc cài thất bại sẽ dừng cài OpenKey. Gỡ OpenKey không gỡ các runtime dùng chung.
+english.RuntimeInfo=If missing, Setup installs the bundled Visual C++ Runtime and Windows App Runtime before OpenKey. Visual C++ may request administrator permission. No download is needed. Canceling or failure stops installation. Uninstalling OpenKey keeps shared runtimes.
+#endif
+vietnamese.RuntimeDownload=Tải thư viện Microsoft
+english.RuntimeDownload=Downloading Microsoft libraries
+vietnamese.RuntimeDownloadFailed=Không thể tải hoặc xác minh runtime. OpenKey chưa được cài. Kiểm tra Internet rồi thử lại, hoặc dùng bộ cài offline.
+english.RuntimeDownloadFailed=Runtime download or verification failed. OpenKey was not installed. Check your Internet connection and retry, or use the offline installer.
+vietnamese.RuntimeConsent=Tôi đồng ý tải và cài các thư viện Microsoft còn thiếu
+english.RuntimeConsent=I agree to download and install missing Microsoft libraries
 vietnamese.AcceptRuntime=Vui lòng đồng ý cài thư viện cần thiết hoặc hủy bộ cài.
 english.AcceptRuntime=Please accept installation of the required runtime, or cancel Setup.
 vietnamese.CloseApp=OpenKey chưa thoát hoàn toàn. Vui lòng thoát ở tray, đóng giao diện hoặc dừng debugger rồi thử lại. Bộ cài không cưỡng bức dừng tiến trình.
 english.CloseApp=OpenKey has not fully exited. Exit from the tray, close its UI or stop the debugger, then retry. Setup will not force-terminate processes.
 vietnamese.CloseAppConfirm=Đóng OpenKey và giao diện đang chạy trong thư mục cài đặt để tiếp tục cập nhật? Cấu hình và gõ tắt đã lưu được giữ lại; nội dung chưa lưu trong giao diện sẽ bị mất. Chọn Không để dừng trước khi thay file.
 english.CloseAppConfirm=Close OpenKey and its UI running from the installation folder to continue updating? Saved settings and text expansions are preserved; unsaved UI text will be lost. Choose No to stop before replacing files.
-vietnamese.SilentRuntime=Thiếu Microsoft Visual C++ Runtime hoặc phiên bản quá cũ. Chạy bộ cài tương tác để đồng ý cài thư viện.
-english.SilentRuntime=Required Microsoft Visual C++ Runtime is missing or too old. Run interactive Setup to approve its installation.
+vietnamese.SilentRuntime=Thiếu Visual C++ Runtime hoặc Windows App Runtime phù hợp. Chạy bộ cài tương tác để đồng ý cài thư viện.
+english.SilentRuntime=The required Visual C++ Runtime or Windows App Runtime is missing. Run interactive Setup to approve installation.
 vietnamese.BadRuntime=Kiểm tra tính toàn vẹn runtime thất bại. OpenKey chưa được cài.
 english.BadRuntime=Bundled runtime integrity check failed. OpenKey was not installed.
 vietnamese.CanceledRuntime=Đã hủy hoặc không thể bắt đầu cài runtime. OpenKey chưa được cài.
@@ -62,15 +71,31 @@ vietnamese.FailedRuntime=Cài runtime không đạt kiểm tra phiên bản. Ope
 english.FailedRuntime=Required runtime installation failed verification. OpenKey was not installed.
 vietnamese.UninstallRunning=Thoát OpenKey ở tray và đóng giao diện trước khi gỡ. Cấu hình và dữ liệu gõ tắt được giữ lại.
 english.UninstallRunning=Exit OpenKey from the tray and close its UI before uninstalling. Settings and text expansions will be preserved.
+vietnamese.CaretTask=Cài OpenKey Caret Editing (tùy chọn, yêu cầu quyền quản trị; từ chối vẫn cài OpenKey)
+english.CaretTask=Install OpenKey Caret Editing (optional, administrator permission; declining still installs OpenKey)
+vietnamese.CaretSkipped=OpenKey đã được cài. Thành phần Caret Editing được bỏ qua do chưa cấp quyền hoặc cài chưa thành công. Có thể bật lại trong trang Tổng quan.
+english.CaretSkipped=OpenKey was installed. Caret Editing was skipped because permission was declined or registration did not complete. Enable it later on the Overview page.
+vietnamese.CaretInstalled=Đã cài thành phần Caret Editing. Mở OpenKey, vào Tổng quan và chọn Bật và sử dụng. Mở lại trình soạn thảo nếu cần.
+english.CaretInstalled=Caret Editing was installed. Open Overview in OpenKey and select Enable and use. Reopen editors if needed.
+vietnamese.CaretUninstallSkipped=OpenKey đã được gỡ. Thành phần Caret Editing dùng chung chưa được gỡ do thiếu quyền hoặc đang thuộc bản cài khác.
+english.CaretUninstallSkipped=OpenKey was removed. The shared Caret Editing component was retained because permission was declined or another installation owns it.
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"; Flags: unchecked
+Name: "caretediting"; Description: "{cm:CaretTask}"
 
 [Files]
 Source: "{#PayloadX64}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: UseX64
 Source: "{#PayloadX86}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: UseX86
+#ifndef OnlineSetup
 Source: "{#RuntimeX64}"; DestName: "vc_redist.x64.exe"; Flags: dontcopy
 Source: "{#RuntimeX86}"; DestName: "vc_redist.x86.exe"; Flags: dontcopy
+Source: "{#AppRuntimeX64}"; DestName: "WindowsAppRuntimeInstall-x64.exe"; Flags: dontcopy
+Source: "{#AppRuntimeX86}"; DestName: "WindowsAppRuntimeInstall-x86.exe"; Flags: dontcopy
+#endif
+
+[InstallDelete]
+#include "LegacyUiRuntimeCleanup.iss"
 
 [Icons]
 Name: "{userprograms}\OpenKey Fluent\OpenKey"; Filename: "{app}\{code:EngineName}"; WorkingDir: "{app}"
@@ -82,13 +107,18 @@ Filename: "{app}\{code:EngineName}"; Description: "{cm:StartApp}"; WorkingDir: "
 
 [Code]
 #include "RuntimePolicy.iss"
+#include "CaretPolicy.iss"
 
 var
   RuntimePage: TInputOptionWizardPage;
+#ifdef OnlineSetup
+  RuntimeDownloadPage: TDownloadWizardPage;
+#endif
   CloseWindows: array of HWND;
   CloseHandles: array of THandle;
   CloseKinds: array of Integer;
   CloseProcessIDs: array of Cardinal;
+  CaretAttempted, CaretInstalled: Boolean;
 
 #if VER >= EncodeVer(7, 0, 0)
 function AppEnumWindows(Callback: NativeInt; Param: LPARAM): Boolean;
@@ -234,54 +264,88 @@ begin
     (FindWindowByWindowName('OpenKey') <> 0);
 end;
 
+function AppRuntimeSatisfied: Boolean;
+var
+  Probe, Architecture: String;
+  ExitCode: Integer;
+begin
+  Result := False;
+  if UseX64 then Architecture := 'x64' else Architecture := 'x86';
+  Probe := 'OpenKey.RuntimeCheck.' + Architecture + '.exe';
+  try
+    ExtractTemporaryFile(Probe);
+    Result := Exec(ExpandConstant('{tmp}\') + Probe, Architecture, '', SW_HIDE,
+      ewWaitUntilTerminated, ExitCode) and (ExitCode = 0);
+  except
+    Log(GetExceptionMessage);
+  end;
+end;
+
+function PrerequisitesSatisfied: Boolean;
+begin
+  Result := RuntimeSatisfied and AppRuntimeSatisfied;
+end;
+
 procedure InitializeWizard;
 begin
   RuntimePage := CreateInputOptionPage(wpLicense, CustomMessage('RuntimeTitle'),
-    'Microsoft Visual C++ Runtime {#MinimumRuntime} or newer',
+    'Microsoft Visual C++ / Windows App Runtime 2.5.1',
     CustomMessage('RuntimeInfo'), False, False);
   RuntimePage.Add(CustomMessage('RuntimeConsent'));
   RuntimePage.Values[0] := False;
+#ifdef OnlineSetup
+  RuntimeDownloadPage := CreateDownloadPage(CustomMessage('RuntimeDownload'), '', nil);
+  RuntimeDownloadPage.ShowBaseNameInsteadOfUrl := True;
+#endif
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := (PageID = RuntimePage.ID) and RuntimeSatisfied;
+  Result := (PageID = RuntimePage.ID) and PrerequisitesSatisfied;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
-  if (CurPageID = RuntimePage.ID) and not RuntimeSatisfied and not RuntimePage.Values[0] then begin
+  if (CurPageID = RuntimePage.ID) and not PrerequisitesSatisfied and not RuntimePage.Values[0] then begin
     if not WizardSilent then MsgBox(CustomMessage('AcceptRuntime'), mbError, MB_OK);
     Result := False;
   end;
 end;
 
-function PrepareToInstall(var NeedsRestart: Boolean): String;
+function InstallVcRuntime(var NeedsRestart: Boolean): String;
 var
   FileName, ExpectedHash: String;
   ExitCode: Integer;
 begin
   Result := '';
-  if not CloseInstalledApps then begin
-    Result := CustomMessage('CloseApp');
-    Exit;
-  end;
-  if EngineRunning then begin
-    Result := CustomMessage('CloseApp');
-    Exit;
-  end;
   if RuntimeSatisfied then Exit;
-  if WizardSilent or not RuntimePage.Values[0] then begin
-    Result := CustomMessage('SilentRuntime');
-    Exit;
-  end;
   if UseX64 then begin
     FileName := 'vc_redist.x64.exe'; ExpectedHash := '{#RuntimeHashX64}';
   end else begin
     FileName := 'vc_redist.x86.exe'; ExpectedHash := '{#RuntimeHashX86}';
   end;
+#ifdef OnlineSetup
+  RuntimeDownloadPage.Clear;
+  if UseX64 then
+    RuntimeDownloadPage.Add('{#RuntimeUrlX64}', FileName, ExpectedHash)
+  else
+    RuntimeDownloadPage.Add('{#RuntimeUrlX86}', FileName, ExpectedHash);
+  RuntimeDownloadPage.Show;
+  try
+    try
+      RuntimeDownloadPage.Download;
+    except
+      Log(GetExceptionMessage);
+      Result := CustomMessage('RuntimeDownloadFailed');
+      Exit;
+    end;
+  finally
+    RuntimeDownloadPage.Hide;
+  end;
+#else
   ExtractTemporaryFile(FileName);
+#endif
   FileName := ExpandConstant('{tmp}\') + FileName;
   if CompareText(GetSHA256OfFile(FileName), ExpectedHash) <> 0 then begin
     Result := CustomMessage('BadRuntime'); Exit;
@@ -299,11 +363,109 @@ begin
     Result := CustomMessage('FailedRuntime');
 end;
 
+function InstallAppRuntime: String;
+var
+  FileName, ExpectedHash: String;
+  ExitCode: Integer;
+begin
+  Result := '';
+  if AppRuntimeSatisfied then Exit;
+  if UseX64 then begin
+    FileName := 'WindowsAppRuntimeInstall-x64.exe'; ExpectedHash := '{#AppRuntimeHashX64}';
+  end else begin
+    FileName := 'WindowsAppRuntimeInstall-x86.exe'; ExpectedHash := '{#AppRuntimeHashX86}';
+  end;
+#ifdef OnlineSetup
+  RuntimeDownloadPage.Clear;
+  if UseX64 then RuntimeDownloadPage.Add('{#AppRuntimeUrlX64}', FileName, ExpectedHash)
+  else RuntimeDownloadPage.Add('{#AppRuntimeUrlX86}', FileName, ExpectedHash);
+  RuntimeDownloadPage.Show;
+  try
+    try
+      RuntimeDownloadPage.Download;
+    except
+      Log(GetExceptionMessage);
+      Result := CustomMessage('RuntimeDownloadFailed'); Exit;
+    end;
+  finally
+    RuntimeDownloadPage.Hide;
+  end;
+#else
+  ExtractTemporaryFile(FileName);
+#endif
+  FileName := ExpandConstant('{tmp}\') + FileName;
+  if CompareText(GetSHA256OfFile(FileName), ExpectedHash) <> 0 then begin
+    Result := CustomMessage('BadRuntime'); Exit;
+  end;
+  { Current-user package registration must run as the installing user, without runas. }
+  if not Exec(FileName, '--quiet', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then begin
+    Result := CustomMessage('CanceledRuntime'); Exit;
+  end;
+  Log(Format('Windows App Runtime exit code: %d', [ExitCode]));
+  if (ExitCode <> 0) or not AppRuntimeSatisfied then Result := CustomMessage('FailedRuntime');
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  if not CloseInstalledApps or EngineRunning then begin
+    Result := CustomMessage('CloseApp'); Exit;
+  end;
+  if PrerequisitesSatisfied then Exit;
+  if WizardSilent or not RuntimePage.Values[0] then begin
+    Result := CustomMessage('SilentRuntime'); Exit;
+  end;
+  Result := InstallVcRuntime(NeedsRestart);
+  if (Result <> '') or NeedsRestart then Exit;
+  Result := InstallAppRuntime;
+end;
+
 function InitializeUninstall: Boolean;
 begin
   Result := not EngineRunning;
   if not Result and not UninstallSilent then
     MsgBox(CustomMessage('UninstallRunning'), mbError, MB_OK);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Helper: String;
+  ExitCode: Integer;
+  Started: Boolean;
+begin
+  if (CurStep <> ssPostInstall) or not WizardIsTaskSelected('caretediting') then Exit;
+  CaretAttempted := True;
+  Helper := ExpandConstant('{app}\CaretEditing\OpenKey.CaretSetup.exe');
+  if not FileExists(Helper) then Exit;
+  Started := Exec(Helper, '--status', '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
+  CaretInstalled := CaretRegistrationSucceeded(Started, ExitCode);
+  if CaretNextAction(True, CaretInstalled, WizardSilent) <> 1 then Exit;
+  { Optional elevation: cancellation/failure never fails the main install. }
+  Started := ShellExec('runas', Helper, '--install', '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
+  CaretInstalled := CaretRegistrationSucceeded(Started, ExitCode);
+  Log(Format('Optional Caret Editing result: %d', [ExitCode]));
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if (CurPageID = wpFinished) and CaretAttempted then begin
+    if CaretInstalled then WizardForm.FinishedLabel.Caption := WizardForm.FinishedLabel.Caption + #13#10#13#10 + CustomMessage('CaretInstalled')
+    else WizardForm.FinishedLabel.Caption := WizardForm.FinishedLabel.Caption + #13#10#13#10 + CustomMessage('CaretSkipped');
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Helper: String;
+  ExitCode: Integer;
+  Removed: Boolean;
+begin
+  if (CurUninstallStep <> usUninstall) or UninstallSilent then Exit;
+  Helper := ExpandConstant('{app}\CaretEditing\OpenKey.CaretSetup.exe');
+  if not FileExists(Helper) then Exit;
+  if not Exec(Helper, '--owns', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) or (ExitCode <> 0) then Exit;
+  Removed := ShellExec('runas', Helper, '--uninstall', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) and (ExitCode = 0);
+  if not Removed then MsgBox(CustomMessage('CaretUninstallSkipped'), mbInformation, MB_OK);
 end;
 
 // No app settings/Run registry writes or recursive deletion: preserve user data.

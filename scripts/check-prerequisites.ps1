@@ -18,6 +18,7 @@ if ($MyInvocation.InvocationName -eq '.') { return }
 # This helper is also copied into a release ZIP. Its manifest stays beside
 # the script in that ZIP, independently of the repository scripts/ directory.
 $manifestPath = Join-Path $PSScriptRoot 'package-manifest.json'
+$manifest = $null
 if (Test-Path -LiteralPath $manifestPath) {
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
     if (-not $PSBoundParameters.ContainsKey('Platform')) { $Platform = $manifest.architecture }
@@ -47,14 +48,31 @@ foreach ($view in @([Microsoft.Win32.RegistryView]::Registry32, [Microsoft.Win32
     } finally { $base.Dispose() }
 }
 $satisfied = $null -ne $bestVersion -and $bestVersion -ge $MinimumVersion
+$appRuntimeSatisfied = $true
+if ($manifest -and $manifest.windowsAppSdk -eq 'framework-dependent') {
+    $appRuntimeSatisfied = $false
+    $probeName = "OpenKey.RuntimeCheck.$Platform.exe"
+    $probe = Join-Path $PSScriptRoot $probeName
+    $record = @($manifest.files | Where-Object path -eq $probeName)
+    if ($record.Count -eq 1 -and (Test-Path -LiteralPath $probe -PathType Leaf) -and
+        (Get-FileHash -LiteralPath $probe).Hash -eq $record[0].sha256) {
+        & $probe $Platform
+        $appRuntimeSatisfied = $LASTEXITCODE -eq 0
+    }
+}
 [pscustomobject]@{
     Architecture = $Platform
     RequiredVcRuntime = $MinimumVersion.ToString()
     InstalledVcRuntime = if ($bestVersion) { $bestVersion.ToString() } else { 'Not detected' }
     VcRuntimeSatisfied = $satisfied
+    WindowsAppRuntimeSatisfied = $appRuntimeSatisfied
+    AllPrerequisitesSatisfied = $satisfied -and $appRuntimeSatisfied
     Download = "https://aka.ms/vc14/vc_redist.$Platform.exe"
-    Scope = 'Registry prerequisite check only; not a clean-machine or DLL-load test'
+    Scope = 'Read-only VC registry and current-user Windows App Runtime probe; not clean-machine acceptance'
 }
 if (-not $satisfied -and -not $ReportOnly) {
     throw 'Visual C++ runtime prerequisite is missing or too old. Download from Microsoft; this script does not install anything.'
+}
+if (-not $appRuntimeSatisfied -and -not $ReportOnly) {
+    throw 'Windows App Runtime is missing or the native probe failed. Use OpenKey-Setup.exe to install prerequisites.'
 }

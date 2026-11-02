@@ -8,9 +8,11 @@ param(
     [string]$RuntimeX86 = '',
     [string]$RuntimeHashX86 = '',
     [string]$IsccPath = '',
+    [switch]$Offline,
     [switch]$PassThru
 )
 $OpenKeyRepositoryRoot = Split-Path -Parent $PSScriptRoot
+$Online = -not $Offline
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $OpenKeyRepositoryRoot 'Installer\DataPreservation.ps1')
@@ -19,6 +21,11 @@ Assert-OpenKeyDataPreservation -Source (Get-Content -LiteralPath (Join-Path $Ope
 $IsccPath = Resolve-OpenKeySetupCompiler $IsccPath
 . (Join-Path $OpenKeyRepositoryRoot 'Sandbox\OfflineRuntime.ps1')
 $taskDefaults = Get-Content -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer\OfflineInputs.json') -Raw | ConvertFrom-Json
+. (Join-Path $OpenKeyRepositoryRoot 'Installer\AppRuntime.ps1')
+$taskAppDefaults = Get-OpenKeyAppRuntimeInputs
+foreach ($taskArch in @('x64','x86')) {
+    Assert-OpenKeyAppRuntime (Join-Path $OpenKeyRepositoryRoot $taskAppDefaults.$taskArch.path) $taskAppDefaults.$taskArch.sha256
+}
 Assert-OpenKeyRuntimeArguments $RuntimeX64 $RuntimeHashX64
 Assert-OpenKeyRuntimeArguments $RuntimeX86 $RuntimeHashX86
 if (-not $RuntimeX64) {
@@ -28,6 +35,16 @@ if (-not $RuntimeX64) {
 if (-not $RuntimeX86) {
     $RuntimeX86 = Join-Path $OpenKeyRepositoryRoot $taskDefaults.x86.path
     $RuntimeHashX86 = $taskDefaults.x86.sha256
+}
+# Online URLs and hashes are pinned together; custom offline inputs cannot change them.
+if ($Online) {
+    foreach ($taskArch in @('x64','x86')) {
+        $taskHash = if ($taskArch -eq 'x64') { $RuntimeHashX64 } else { $RuntimeHashX86 }
+        if ($taskHash -ne $taskDefaults.$taskArch.sha256 -or
+            $taskDefaults.$taskArch.url -cnotmatch '^https://download\.visualstudio\.microsoft\.com/download/pr/[A-Za-z0-9/._-]+$') {
+            throw 'Online setup requires pinned Microsoft runtime URLs and matching hashes.'
+        }
+    }
 }
 # Validate compiler and pinned runtime inputs before spending time building.
 foreach ($taskArch in @('x64','x86')) {
@@ -72,6 +89,11 @@ function Read-SetupManifest([string]$Path) {
 }
 $taskManifest64 = Read-SetupManifest $ZipX64
 $taskManifest86 = Read-SetupManifest $ZipX86
+foreach ($taskManifest in @($taskManifest64,$taskManifest86)) {
+    if ($taskManifest.windowsAppSdk -ne 'framework-dependent' -or $taskManifest.windowsAppSdkMinimumVersion -ne $taskAppDefaults.version) {
+        throw 'Setup requires framework-dependent UI packages matching the pinned Windows App Runtime.'
+    }
+}
 if ($taskManifest64.configuration -ne 'Release' -or $taskManifest86.configuration -ne 'Release' -or
     $taskManifest64.vcRuntimeMinimumVersion -ne $taskManifest86.vcRuntimeMinimumVersion) {
     throw 'Setup requires matching Release payloads and runtime minimum versions.'
@@ -96,20 +118,41 @@ $taskRuntime64 = Get-OpenKeyRuntimeMetadata (Join-Path $taskRuntimeDir 'vc_redis
 $taskRuntime86 = Get-OpenKeyRuntimeMetadata (Join-Path $taskRuntimeDir 'vc_redist.x86.exe')
 Assert-OpenKeyRuntimeMetadata $taskRuntime64 x64 $taskMinimum $RuntimeHashX64
 Assert-OpenKeyRuntimeMetadata $taskRuntime86 x86 $taskMinimum $RuntimeHashX86
+$taskAppRuntimeDir = Join-Path $taskStage 'app-runtime'
+New-Item -ItemType Directory -Path $taskAppRuntimeDir | Out-Null
+foreach ($taskArch in @('x64','x86')) {
+    $taskAppRuntime = Join-Path $taskAppRuntimeDir "WindowsAppRuntimeInstall-$taskArch.exe"
+    Copy-Item -LiteralPath (Join-Path $OpenKeyRepositoryRoot $taskAppDefaults.$taskArch.path) -Destination $taskAppRuntime
+    Assert-OpenKeyAppRuntime $taskAppRuntime $taskAppDefaults.$taskArch.sha256
+}
 $taskOutput = Join-Path $taskStage 'Output'
 $taskArguments = @('/Qp', "/DPayloadX64=$taskPayload64", "/DPayloadX86=$taskPayload86",
     "/DRuntimeX64=$($taskRuntime64.Path)", "/DRuntimeX86=$($taskRuntime86.Path)",
     "/DRuntimeHashX64=$RuntimeHashX64", "/DRuntimeHashX86=$RuntimeHashX86",
+    "/DAppRuntimeX64=$taskAppRuntimeDir\WindowsAppRuntimeInstall-x64.exe", "/DAppRuntimeX86=$taskAppRuntimeDir\WindowsAppRuntimeInstall-x86.exe",
+    "/DAppRuntimeHashX64=$($taskAppDefaults.x64.sha256)", "/DAppRuntimeHashX86=$($taskAppDefaults.x86.sha256)",
+    "/DAppRuntimeUrlX64=$($taskAppDefaults.x64.url)", "/DAppRuntimeUrlX86=$($taskAppDefaults.x86.url)",
     "/DMinimumRuntime=$taskMinimum", "/DSetupOutput=$taskOutput", "/DSetupManifest=$taskStage\compiler-manifest.txt",
     (Join-Path $OpenKeyRepositoryRoot 'Installer\OpenKey.iss'))
+if ($Online) {
+    $taskArguments = @('/DOnlineSetup', "/DRuntimeUrlX64=$($taskDefaults.x64.url)",
+        "/DRuntimeUrlX86=$($taskDefaults.x86.url)") + $taskArguments
+}
 & $IsccPath @taskArguments
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed: $LASTEXITCODE. Staging retained: $taskStage" }
 $taskSetup = Join-Path $taskOutput 'OpenKey-Setup.exe'
 if (-not (Test-Path -LiteralPath $taskSetup -PathType Leaf)) { throw 'Setup executable was not produced.' }
-if (@(Get-ChildItem -LiteralPath $taskOutput -File).Count -ne 1) { throw 'Expected exactly one offline setup file.' }
+if (@(Get-ChildItem -LiteralPath $taskOutput -File).Count -ne 1) { throw 'Expected exactly one setup file.' }
 $taskHash = (Get-FileHash -LiteralPath $taskSetup -Algorithm SHA256).Hash
 [ordered]@{
     setup = $taskSetup; sha256 = $taskHash; bytes = (Get-Item -LiteralPath $taskSetup).Length
+    mode = $(if ($Online) { 'online' } else { 'offline' })
+    runtimeUrlX64 = $(if ($Online) { $taskDefaults.x64.url } else { '' })
+    runtimeUrlX86 = $(if ($Online) { $taskDefaults.x86.url } else { '' })
+    runtimeInputsSha256 = (Get-FileHash -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer\OfflineInputs.json')).Hash
+    appRuntimeVersion = $taskAppDefaults.version
+    appRuntimeInputsSha256 = (Get-FileHash -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer\AppRuntimeInputs.json')).Hash
+    legacyUiCleanupSha256 = (Get-FileHash -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer\LegacyUiRuntimeCleanup.iss')).Hash
     architecture = 'auto x64/x86; ARM not supported'; configuration = 'Release'; channel = 'internal-beta'
     minimumRuntime = $taskMinimum.ToString(); runtimeX64 = $taskRuntime64; runtimeX86 = $taskRuntime86
     zipX64 = $ZipX64; zipX64Sha256 = (Get-FileHash -LiteralPath $ZipX64).Hash
@@ -117,6 +160,7 @@ $taskHash = (Get-FileHash -LiteralPath $taskSetup -Algorithm SHA256).Hash
     compiler = $IsccPath; compilerSha256 = (Get-FileHash -LiteralPath $IsccPath).Hash
     installerSourceSha256 = (Get-FileHash -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer\OpenKey.iss')).Hash
     policySourceSha256 = (Get-FileHash -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer\RuntimePolicy.iss')).Hash
+    caretPolicySourceSha256 = (Get-FileHash -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer\CaretPolicy.iss')).Hash
     translationSha256 = (Get-FileHash -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer\Vietnamese.isl')).Hash
     compilerManifest = (Join-Path $taskStage 'compiler-manifest.txt')
     compilerManifestSha256 = (Get-FileHash -LiteralPath (Join-Path $taskStage 'compiler-manifest.txt')).Hash
