@@ -143,6 +143,7 @@ void* vKeyInit() {
 }
 
 bool isWordBreak(const vKeyEvent& event, const vKeyEventState& state, const Uint16& data) {
+    (void)state;
     if (event == vKeyEvent::Mouse)
         return true;
     for (i = 0; static_cast<size_t>(i) < _breakCode.size(); i++) {
@@ -163,7 +164,7 @@ bool isMacroBreakCode(const int& data) {
 }
 
 void setKeyData(const Byte& index, const Uint16& keyCode, const bool& isCaps) {
-    if (index < 0 || index >= MAX_BUFF)
+    if (index >= MAX_BUFF)
         return;
     TypingWord[index] = keyCode | (isCaps ? CAPS_MASK : 0);
 }
@@ -805,7 +806,7 @@ void insertMark(const Uint32& markMask, const bool& canModifyFlag) {
     hNCC = hBPC;
 }
 
-void insertD(const Uint16& data, const bool& isCaps) {
+void insertD(const Uint16&, const bool&) {
     hCode = vWillProcess;
     hBPC = 0;
     for (ii = _index - 1; ii >= 0; ii--) {
@@ -830,7 +831,7 @@ void insertD(const Uint16& data, const bool& isCaps) {
     hNCC = hBPC;
 }
 
-void insertAOE(const Uint16& data, const bool& isCaps) {
+void insertAOE(const Uint16& data, const bool&) {
     findAndCalculateVowel();
     
     //remove W tone
@@ -868,7 +869,7 @@ void insertAOE(const Uint16& data, const bool& isCaps) {
     hNCC = hBPC;
 }
 
-void insertW(const Uint16& data, const bool& isCaps) {
+void insertW(const Uint16&, const bool&) {
     isRestoredW = false;
     
     findAndCalculateVowel();

@@ -17,6 +17,7 @@ Sources/OpenKey/win32/OpenKey/x64/OpenKey/*
 
 .vs/
 /dist/
+/build/
 /Sources/OpenKey/win32/OpenKey/**/Debug/
 /Sources/OpenKey/win32/OpenKey/**/Release/
 /Sources/OpenKey/win32/OpenKey/**/x64/
