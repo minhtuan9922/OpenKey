@@ -10,6 +10,35 @@
 
 using Microsoft::WRL::ComPtr;
 namespace OpenKeyTextService {
+    // A Vietnamese TIP can still receive the built-in Vietnamese base layout,
+    // even with SubstituteKeyboardLayout set to US. Normalize only printable
+    // keys that differ from US; correction/engine handling always runs first.
+    wchar_t BaseCharacter(UINT key, HKL layout, bool shift, bool shortcut) {
+        if (LOWORD(reinterpret_cast<ULONG_PTR>(layout)) != Language || shortcut) return 0;
+        if (key >= '0' && key <= '9') return shift ? L")!@#$%^&*("[key - '0'] : static_cast<wchar_t>(key);
+        switch (key) {
+        case VK_OEM_MINUS: return shift ? L'_' : L'-';
+        case VK_OEM_PLUS: return shift ? L'+' : L'=';
+        case VK_OEM_4: return shift ? L'{' : L'[';
+        case VK_OEM_6: return shift ? L'}' : L']';
+        default: return 0;
+        }
+    }
+    wchar_t RawCharacter(UINT key) {
+        return BaseCharacter(key, GetKeyboardLayout(0), (GetKeyState(VK_SHIFT) & 0x8000) != 0,
+            ((GetKeyState(VK_CONTROL) | GetKeyState(VK_MENU) | GetKeyState(VK_LWIN) | GetKeyState(VK_RWIN)) & 0x8000) != 0);
+    }
+    bool SendRawCharacter(wchar_t character) {
+        INPUT events[2]{};
+        for (auto& event : events) {
+            event.type = INPUT_KEYBOARD; event.ki.wScan = character;
+            event.ki.dwFlags = KEYEVENTF_UNICODE; event.ki.dwExtraInfo = 0x4f4b5453;
+        }
+        events[1].ki.dwFlags |= KEYEVENTF_KEYUP;
+        const UINT sent = SendInput(2, events, sizeof(INPUT));
+        if (sent == 1) SendInput(1, events + 1, sizeof(INPUT));
+        return sent != 0; // Never repeat a character whose keydown was delivered.
+    }
     HMODULE module = nullptr;
     std::atomic<long> objects{0}, serverLocks{0};
     bool WordHost() {
@@ -266,6 +295,8 @@ namespace OpenKeyTextService {
         bool (*typing)(unsigned, UINT, OpenKeyTsfTyping::Result&) = TypingRpc;
         bool swallowed[256]{};
         bool typingKeyUp[256]{};
+        wchar_t (*rawCharacter)(UINT) = RawCharacter;
+        bool (*sendRawCharacter)(wchar_t) = SendRawCharacter;
         HWND selectionTarget = nullptr, selectionEngine = nullptr;
         void NotifySelection(bool selected, bool force = false, bool fromKey = false) {
             const HWND target = selected ? GetForegroundWindow() : selectionTarget;
@@ -537,10 +568,18 @@ namespace OpenKeyTextService {
             if (!completed) { OpenKeyTsfTyping::Result unused; typing(3, 0, unused); }
             return consumed;
         }
+        wchar_t RawKey(ITfContext* target, WPARAM key) {
+            if (!foregroundKeys || target != context.Get() || Disabled(target) || key > 255) return 0;
+            // Native input requires an activated TSF service. Isolated fixtures
+            // supply their own character/sender backends without activation.
+            if (!manager && rawCharacter == RawCharacter) return 0;
+            return rawCharacter(static_cast<UINT>(key));
+        }
     public:
         explicit Service(Preferences (*read)() = ReadPreferences, bool word = WordHost(),
-            bool (*backend)(unsigned, UINT, OpenKeyTsfTyping::Result&) = TypingRpc, bool rendererHost = RendererHost())
-            : wordTyping(word), renderer(rendererHost), preferences(read), typing(backend) { ++objects; }
+            bool (*backend)(unsigned, UINT, OpenKeyTsfTyping::Result&) = TypingRpc, bool rendererHost = RendererHost(),
+            wchar_t (*raw)(UINT) = RawCharacter, bool (*send)(wchar_t) = SendRawCharacter)
+            : wordTyping(word), renderer(rendererHost), preferences(read), typing(backend), rawCharacter(raw), sendRawCharacter(send) { ++objects; }
         ~Service() { Deactivate(); --objects; }
         HRESULT STDMETHODCALLTYPE QueryInterface(REFIID id, void** out) override {
             if (!out) return E_POINTER; *out = nullptr;
@@ -595,7 +634,7 @@ namespace OpenKeyTextService {
             OpenKeyCaretTrace::Record trace;
             const bool correction = Candidate(target, key, false, &trace);
             ReportCorrectionIntent(key, correction);
-            *eaten = (key < 256 && swallowed[key]) || correction || TestTyping(target, key);
+            *eaten = (key < 256 && swallowed[key]) || correction || TestTyping(target, key) || RawKey(target, key);
             TraceKey(trace, key, *eaten != FALSE);
             return S_OK;
         }
@@ -610,7 +649,14 @@ namespace OpenKeyTextService {
                 if (key < 256) swallowed[key] = true; *eaten = TRUE;
             } else if (Type(target, key)) {
                 if (key < 256) typingKeyUp[key] = true; *eaten = TRUE;
-            } else Publish(false);
+            } else {
+                const wchar_t character = RawKey(target, key);
+                if (character && sendRawCharacter(character)) {
+                    if (key < 256) typingKeyUp[key] = true;
+                    *eaten = TRUE;
+                }
+                Publish(false);
+            }
             TraceKey(trace, key, *eaten != FALSE);
             return S_OK;
         }

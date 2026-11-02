@@ -20,6 +20,21 @@ helper; thư mục DLL cũ giữ lại vì editor có thể đang nạp. Không 
 OpenKey. Hủy quyền admin có thể bật lại sau từ giao diện. Luồng UAC và kích
 hoạt trên máy sạch vẫn cần nghiệm thu, không suy ra từ kiểm thử tự động.
 
+### Phím số khi chọn VIE
+
+Một số ứng dụng vẫn nhận layout nền Vietnamese `0x042A042A` khi chọn
+OpenKey Caret Editing, dù profile đã đăng ký layout US thay thế. Khi đó phím
+`1`, `2`, `3` có thể ra `ă`, `â`, `ê` nếu chuyển nguyên phím cho Windows.
+Service ưu tiên sửa dấu và kết quả engine, sau đó trả các phím số và
+`-=[]` về ký tự US bằng sự kiện Unicode khi layout nền là Vietnamese.
+Giữ Shift dùng ký hiệu US; Ctrl/Alt/Win và layout khác được giữ nguyên.
+Test-key không phát phím; nếu không gửi được sự kiện, phím vật lý đi tiếp.
+Không thay layout mặc định hoặc cấu hình bàn phím của Windows.
+
+Sau cập nhật DLL, đóng/mở lại ứng dụng để nạp bản mới. Bộ kiểm thử x64/x86
+đạt 1.876 ca mỗi kiến trúc, gồm hàng số, Shift, OEM, lặp phím, lỗi gửi,
+focus và ưu tiên VNI bằng backend giả; nhập phím thật vẫn cần nghiệm thu.
+
 ### Khóa và mở khóa Windows
 
 Engine nhận checkpoint chọn/bỏ chọn từ chính DLL TSF trong editor trên desktop

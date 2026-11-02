@@ -447,6 +447,60 @@ namespace {
         if (part == 1) { ++typingRequests; result = typedResult; return true; }
         return false;
     }
+    std::wstring rawCharacters;
+    bool acceptRaw = true;
+    wchar_t FixtureRawCharacter(UINT key) {
+        return BaseCharacter(key, reinterpret_cast<HKL>(0x042a042a), false, false);
+    }
+    bool FixtureSendRaw(wchar_t character) {
+        if (!acceptRaw) return false;
+        rawCharacters += character; return true;
+    }
+    void VietnameseBaseKeys() {
+        const auto vietnamese = reinterpret_cast<HKL>(0x042a042a);
+        const auto english = reinterpret_cast<HKL>(0x04090409);
+        for (UINT key = '0'; key <= '9'; ++key) {
+            Check(BaseCharacter(key, vietnamese, false, false) == key, "Vietnamese base number row stays numeric");
+            Check(BaseCharacter(key, vietnamese, true, false) == L")!@#$%^&*("[key - '0'], "Shift number row uses US punctuation");
+            Check(!BaseCharacter(key, vietnamese, false, true), "number shortcuts are never remapped");
+            Check(!BaseCharacter(key, english, false, false), "US base layout is untouched");
+        }
+        const UINT keys[] = {VK_OEM_MINUS, VK_OEM_PLUS, VK_OEM_4, VK_OEM_6};
+        for (int i = 0; i < 4; ++i) {
+            Check(BaseCharacter(keys[i], vietnamese, false, false) == L"-=[]"[i], "Vietnamese OEM keys use US base");
+            Check(BaseCharacter(keys[i], vietnamese, true, false) == L"_+{}"[i], "shifted OEM keys use US base");
+        }
+        for (UINT key : {0x41, VK_NUMPAD1, VK_RETURN, VK_PACKET})
+            Check(!BaseCharacter(key, vietnamese, false, false), "letters, numpad, controls and injected Unicode pass through");
+        settings = {}; rawCharacters.clear(); acceptRaw = true;
+        Document doc{L"", 0, 0}; ComPtr<Context> context; context.Attach(new Context(doc));
+        ComPtr<DocumentManager> document; document.Attach(new DocumentManager(context.Get()));
+        auto* service = new Service(TestPreferences, false, TestTypingRpc, false, FixtureRawCharacter, FixtureSendRaw);
+        service->OnSetFocus(document.Get(), nullptr);
+        BOOL eaten = FALSE;
+        for (UINT key = '0'; key <= '9'; ++key) {
+            service->OnTestKeyDown(context.Get(), key, 0, &eaten);
+            Check(eaten && rawCharacters.size() == key - '0', "test-key has no injection side effect");
+            service->OnKeyDown(context.Get(), key, 0, &eaten);
+            Check(eaten && rawCharacters.back() == key && doc.writes == 0, "raw digits delivered without modifying TSF ranges");
+            service->OnKeyUp(context.Get(), key, 0, &eaten); Check(eaten, "raw digit keyup consumed");
+        }
+        service->OnKeyDown(context.Get(), '1', 1LL << 30, &eaten);
+        Check(eaten && rawCharacters == L"01234567891", "held digit repeats normally");
+        acceptRaw = false;
+        service->OnKeyDown(context.Get(), '2', 0, &eaten);
+        Check(!eaten && rawCharacters == L"01234567891", "failed injection leaves physical key available");
+        acceptRaw = true;
+        service->OnSetFocus(FALSE);
+        service->OnKeyDown(context.Get(), '3', 0, &eaten); Check(!eaten, "background service cannot inject raw digits");
+        service->OnSetFocus(TRUE);
+        settings.inputType = 1; settings.caretIntent = true;
+        doc.text = L"a"; doc.caret = doc.selectedEnd = 1;
+        service->OnKeyDown(context.Get(), '1', 0, &eaten);
+        Check(eaten && doc.text == L"\u00e1" && rawCharacters == L"01234567891", "VNI correction wins over raw digit normalization");
+        service->Deactivate(); service->Release(); settings = {};
+        Check(objects == 0, "raw key fixtures release COM objects");
+    }
     void RangeTyping() {
         settings = {}; typingRequests = typingResets = 0;
         Document doc{L"l\u00e2p", 3, 3};
@@ -855,7 +909,7 @@ namespace {
     }
 }
 int wmain(int argc, wchar_t** argv) {
-    try { Integration(); NormalTyping(); RangeTyping(); RendererCorrections(); EndOfTextCorrections(); MissingKeyUpCorrections(); ExistingTextReconversion(); Diagnostics(); if (argc >= 2) Binary(argv[1]);
+    try { Integration(); NormalTyping(); VietnameseBaseKeys(); RangeTyping(); RendererCorrections(); EndOfTextCorrections(); MissingKeyUpCorrections(); ExistingTextReconversion(); Diagnostics(); if (argc >= 2) Binary(argv[1]);
         if (argc == 3 && std::wstring(argv[2]) == L"--interactive") NativeFramework(true);
         if (argc == 3 && std::wstring(argv[2]) == L"--native-context") NativeFramework(false);
         std::cout << checks << " TSF/UIA checks passed (" << (argc == 3 ? "COM fixture plus owned native TSF context" : "isolated COM fixture")
