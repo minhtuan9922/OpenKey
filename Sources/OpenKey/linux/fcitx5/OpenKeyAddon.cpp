@@ -76,7 +76,15 @@ public:
     }
 
     void deactivate(const fcitx::InputMethodEntry&, fcitx::InputContextEvent& event) override {
-        commit(event.inputContext());
+        auto* ic = event.inputContext();
+        // On focus-out, Fcitx already committed client preedit, or delegated
+        // that commit to a ClientUnfocusCommit frontend. Committing again here
+        // duplicates the word. Server-side preedit still belongs to us.
+        if (event.type() == fcitx::EventType::InputContextFocusOut &&
+            (ic->capabilityFlags() & fcitx::CapabilityFlag::Preedit)) {
+            ic->propertyFor(&factory_)->composition.clear();
+            update(ic);
+        } else commit(ic);
     }
 
 private:

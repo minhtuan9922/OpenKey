@@ -6,7 +6,7 @@ Fluent, tray riêng, macro hoặc bộ cài `.deb`.
 
 ## Build và test
 
-Công cụ: compiler C++20 cho addon, CMake >= 3.16, Ninja và SDK Fcitx5 >= 5.0.
+Công cụ: compiler C++20 cho addon, CMake >= 3.16, Ninja và SDK Fcitx5 >= 5.0.14.
 Engine vẫn dùng C++17. Trên Ubuntu, tên gói SDK core là `libfcitx5core-dev`:
 
 ```bash
@@ -59,8 +59,10 @@ cả thư mục Fcitx5 hoặc profile người dùng.
   rồi chuyển phím gốc cho ứng dụng. Không dùng clipboard, giả lập phím hoặc xóa
   văn bản đã commit. Chưa sửa dấu ở từ cũ ngoài preedit.
 - Backspace xóa ký tự hiển thị trong preedit, không chỉ xóa phím Telex/VNI cuối.
-  Escape hủy preedit; reset từ client hủy preedit; deactivate/focus-out commit
-  theo callback của Fcitx5. Hành vi focus thực tế vẫn cần kiểm thử desktop.
+  Escape hủy preedit; reset từ client hủy preedit. Khi focus-out, Fcitx5 hoặc
+  client đã phụ trách commit client preedit thì addon chỉ xóa trạng thái để
+  tránh lặp từ; với server-side preedit, addon tự commit. Khi đổi input method,
+  addon commit phần đang gõ. Hành vi trên ứng dụng thật vẫn cần kiểm thử desktop.
 - Shift/Caps Lock giữ chữ hoa. Ctrl/Alt/Super shortcut commit từ rồi chuyển
   shortcut cho ứng dụng. Ô Password/Sensitive bỏ qua engine.
 - Mỗi input context có composition riêng. Vì engine legacy dùng trạng thái
@@ -72,7 +74,7 @@ cả thư mục Fcitx5 hoặc profile người dùng.
 
 ## Kiểm chứng
 
-Đã build với GCC 15 và SDK Fcitx5 5.1.19. Có bốn CTest executable:
+Đã build với GCC 15 và SDK Fcitx5 5.1.19. Có sáu mục CTest:
 
 1. Engine smoke: chuyển mã Unicode/VNI.
 2. Engine regression: Telex, Backspace và macro ở lớp engine.
@@ -80,9 +82,14 @@ cả thư mục Fcitx5 hoặc profile người dùng.
    và giới hạn sự kiện.
 4. Addon: nạp module bằng `dlopen`, tạo addon qua factory thật, dùng frontend
    giả để kiểm tra preedit, commit, Escape, reset, deactivate, shortcut và ô nhạy cảm.
+5. Install fixture: cài vào prefix riêng bên trong build, không ghi hệ thống.
+6. Integration: Fcitx tự đọc descriptor và nạp module từ install fixture, chuyển
+   key event qua pipeline thật, kiểm tra focus-out không lặp từ (cả client và
+   server preedit), đổi Telex/VNI và quay lại ô nhập cũ. Không nạp frontend desktop.
 
 Test headless không chứng minh tương thích Firefox/Chrome, LibreOffice, VS Code,
 GTK/Qt hoặc GNOME/KDE Wayland/X11. Các mục này vẫn chưa nghiệm thu.
+Xem [checklist nghiệm thu desktop](../../../docs/UBUNTU_INPUT_QA.md).
 
 Tham khảo [API phát triển Fcitx5](https://fcitx-im.org/wiki/Develop_an_simple_input_method),
 [kế hoạch Ubuntu](../../../docs/UBUNTU_DEVELOPMENT_PLAN.md) và

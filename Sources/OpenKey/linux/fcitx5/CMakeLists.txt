@@ -1,4 +1,4 @@
-find_package(Fcitx5Core 5.0 REQUIRED)
+find_package(Fcitx5Core 5.0.14 REQUIRED)
 include(GNUInstallDirs)
 
 add_library(openkey_fcitx5 MODULE OpenKeyAddon.cpp)
@@ -12,11 +12,18 @@ if(OPENKEY_WARNINGS_AS_ERRORS)
     target_compile_options(openkey_fcitx5 PRIVATE -Werror)
 endif()
 
-install(TARGETS openkey_fcitx5 DESTINATION ${CMAKE_INSTALL_LIBDIR}/fcitx5)
-install(FILES openkey-addon.conf DESTINATION ${CMAKE_INSTALL_DATADIR}/fcitx5/addon RENAME openkey.conf)
-install(FILES openkey-telex.conf openkey-vni.conf DESTINATION ${CMAKE_INSTALL_DATADIR}/fcitx5/inputmethod)
+install(TARGETS openkey_fcitx5 DESTINATION ${CMAKE_INSTALL_LIBDIR}/fcitx5 COMPONENT openkey_fcitx5)
+install(FILES openkey-addon.conf DESTINATION ${CMAKE_INSTALL_DATADIR}/fcitx5/addon
+    RENAME openkey.conf COMPONENT openkey_fcitx5)
+install(FILES openkey-telex.conf openkey-vni.conf DESTINATION ${CMAKE_INSTALL_DATADIR}/fcitx5/inputmethod
+    COMPONENT openkey_fcitx5)
 
 if(OPENKEY_BUILD_SMOKE_TESTS)
+    # --prefix cannot relocate absolute install destinations. Keep the CTest
+    # staging fixture confined to the build directory even with custom flags.
+    if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}" OR IS_ABSOLUTE "${CMAKE_INSTALL_DATADIR}")
+        message(FATAL_ERROR "Fcitx5 tests require relative CMAKE_INSTALL_LIBDIR and CMAKE_INSTALL_DATADIR")
+    endif()
     add_executable(openkey_composition_tests ${PROJECT_SOURCE_DIR}/Tests/LinuxCompositionTests.cpp)
     target_include_directories(openkey_composition_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(openkey_composition_tests PRIVATE openkey_engine)
@@ -32,4 +39,18 @@ if(OPENKEY_BUILD_SMOKE_TESTS)
     set_tests_properties(openkey_fcitx5_tests PROPERTIES TIMEOUT 20)
     set_tests_properties(openkey_fcitx5_tests PROPERTIES ENVIRONMENT
         "XDG_CONFIG_HOME=${CMAKE_CURRENT_BINARY_DIR}/test-config;XDG_DATA_HOME=${CMAKE_CURRENT_BINARY_DIR}/test-data;XDG_CACHE_HOME=${CMAKE_CURRENT_BINARY_DIR}/test-cache")
+
+    add_executable(openkey_fcitx5_integration_tests ${PROJECT_SOURCE_DIR}/Tests/LinuxFcitx5IntegrationTests.cpp)
+    target_link_libraries(openkey_fcitx5_integration_tests PRIVATE Fcitx5::Core)
+    target_compile_features(openkey_fcitx5_integration_tests PRIVATE cxx_std_20)
+    target_compile_options(openkey_fcitx5_integration_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_dependencies(openkey_fcitx5_integration_tests openkey_fcitx5)
+    set(OPENKEY_TEST_PREFIX "${PROJECT_BINARY_DIR}/fcitx5-test-install")
+    add_test(NAME openkey_fcitx5_stage COMMAND ${CMAKE_COMMAND} --install ${PROJECT_BINARY_DIR}
+        --prefix ${OPENKEY_TEST_PREFIX} --config $<CONFIG> --component openkey_fcitx5)
+    set_tests_properties(openkey_fcitx5_stage PROPERTIES FIXTURES_SETUP openkey_installed TIMEOUT 20)
+    add_test(NAME openkey_fcitx5_integration_tests COMMAND openkey_fcitx5_integration_tests
+        ${OPENKEY_TEST_PREFIX} ${CMAKE_INSTALL_LIBDIR})
+    set_tests_properties(openkey_fcitx5_integration_tests PROPERTIES
+        FIXTURES_REQUIRED openkey_installed TIMEOUT 20)
 endif()

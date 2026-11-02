@@ -24,12 +24,18 @@ prototype: [Linux README](../Sources/OpenKey/linux/README.md).
 - [x] Test headless nạp module thật, preedit/commit, Escape/reset/deactivate,
   shortcut, ô nhạy cảm và isolation giữa context.
 - [x] Bổ sung build/install target và CI build addon.
+- [x] Kiểm thử discovery descriptor, nạp addon từ install prefix và routing qua
+  Fcitx event pipeline thật (headless, không dùng desktop).
+- [x] Sửa lỗi commit lặp từ khi mất focus; test focus-out cho client preedit,
+  ClientUnfocusCommit và server-side preedit, chuyển Telex/VNI và quay lại ô cũ.
 - [ ] Kiểm thử cài vào desktop, phát hiện input method và focus-out thực tế.
 - [ ] Đo độ trễ replay, thiết kế engine context riêng trước beta.
 - [ ] Kết nối macro/cấu hình lưu bền và các kiểu gõ còn lại vào addon.
 - [ ] Kiểm thử Firefox/Chrome, LibreOffice, VS Code, GTK và Qt.
 - [ ] Kiểm thử X11 và Wayland.
 - [ ] Đánh giá IBus fallback.
+
+Checklist nghiệm thu thủ công: [Ubuntu input QA](UBUNTU_INPUT_QA.md).
 
 ## v0.3 — Tray và hotkey
 
