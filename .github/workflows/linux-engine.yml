@@ -18,13 +18,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install build tools
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build ${{ matrix.compiler }}
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++ libfcitx5core-dev ${{ matrix.compiler }}
 
       - name: Configure
         env:
           CC: ${{ matrix.compiler == 'gcc' && 'gcc' || 'clang' }}
           CXX: ${{ matrix.compiler == 'gcc' && 'g++' || 'clang++' }}
-        run: cmake -S . -B build/linux -G Ninja -DOPENKEY_WARNINGS_AS_ERRORS=ON
+        run: cmake -S . -B build/linux -G Ninja -DOPENKEY_WARNINGS_AS_ERRORS=ON -DOPENKEY_BUILD_FCITX5=ON
 
       - name: Build
         run: cmake --build build/linux

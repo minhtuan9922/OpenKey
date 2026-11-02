@@ -10,6 +10,8 @@ Các lệnh trong tài liệu được chạy từ thư mục gốc repository.
   [baseline bộ điều khiển](MAIN_CONTROL_BASELINE.md),
   [macro/chuyển mã](MACRO_CONVERT_BASELINE.md), [tray/vòng đời](TRAY_LIFECYCLE_BASELINE.md).
 - [Checklist Fluent UI](TODO_FLUENT_UI.md), [build macOS](macOS_Build.md).
+- [Kế hoạch Ubuntu](UBUNTU_DEVELOPMENT_PLAN.md), [task Ubuntu](UBUNTU_TASKS.md),
+  [build và cài thử Fcitx5](../Sources/OpenKey/linux/README.md).
 - [Sửa dấu tại con trỏ](CARET_TONE_EDIT.md).
 - [Tích hợp TSF/UI Automation và cách bật profile](TEXT_SERVICE.md).
 - [Thông báo HTML entities](HTML_ENTITIES_NOTICE.md),

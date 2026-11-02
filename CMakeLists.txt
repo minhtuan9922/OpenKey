@@ -4,6 +4,7 @@ project(OpenKey VERSION 3.1.0 LANGUAGES CXX)
 
 option(OPENKEY_BUILD_SMOKE_TESTS "Build small Linux engine smoke tests" ON)
 option(OPENKEY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
+option(OPENKEY_BUILD_FCITX5 "Build the experimental Fcitx5 input method" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,6 +23,10 @@ add_library(openkey_engine STATIC
 
 target_compile_definitions(openkey_engine PUBLIC LINUX=1)
 target_include_directories(openkey_engine PUBLIC "${OPENKEY_ENGINE_DIR}")
+set_target_properties(openkey_engine PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON)
 
 if(MSVC)
     target_compile_options(openkey_engine PRIVATE /W4)
@@ -54,4 +59,8 @@ if(OPENKEY_BUILD_SMOKE_TESTS)
 
     add_test(NAME openkey_engine_smoke COMMAND openkey_engine_smoke)
     add_test(NAME openkey_engine_regression COMMAND openkey_engine_regression)
+endif()
+
+if(OPENKEY_BUILD_FCITX5)
+    add_subdirectory(Sources/OpenKey/linux/fcitx5)
 endif()

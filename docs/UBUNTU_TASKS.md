@@ -1,6 +1,9 @@
 # Task phát triển OpenKey cho Ubuntu
 
-Nhánh triển khai hiện tại: `feature/ubuntu-v0.1-foundation`
+Nhánh triển khai hiện tại: `feature/ubuntu-v0.2-fcitx5`
+
+Mốc nền tảng v0.1: commit `b22c3eb`. Hướng dẫn build/cài thử và giới hạn của
+prototype: [Linux README](../Sources/OpenKey/linux/README.md).
 
 ## v0.1 — Engine và build nền tảng
 
@@ -15,9 +18,15 @@ Nhánh triển khai hiện tại: `feature/ubuntu-v0.1-foundation`
 
 ## v0.2 — Input method
 
-- [ ] Chọn frontend chính: Fcitx5.
-- [ ] Tạo module nhận key event từ Fcitx5.
-- [ ] Gửi kết quả Unicode và lệnh backspace về ứng dụng.
+- [x] Chọn frontend chính: Fcitx5.
+- [x] Tạo module nhận key event từ Fcitx5 (Telex và VNI).
+- [x] Cập nhật Unicode/preedit và Backspace trong từ đang gõ, commit qua Fcitx5.
+- [x] Test headless nạp module thật, preedit/commit, Escape/reset/deactivate,
+  shortcut, ô nhạy cảm và isolation giữa context.
+- [x] Bổ sung build/install target và CI build addon.
+- [ ] Kiểm thử cài vào desktop, phát hiện input method và focus-out thực tế.
+- [ ] Đo độ trễ replay, thiết kế engine context riêng trước beta.
+- [ ] Kết nối macro/cấu hình lưu bền và các kiểu gõ còn lại vào addon.
 - [ ] Kiểm thử Firefox/Chrome, LibreOffice, VS Code, GTK và Qt.
 - [ ] Kiểm thử X11 và Wayland.
 - [ ] Đánh giá IBus fallback.
