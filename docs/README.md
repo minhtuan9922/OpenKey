@@ -12,6 +12,7 @@ Các lệnh trong tài liệu được chạy từ thư mục gốc repository.
 - [Checklist Fluent UI](TODO_FLUENT_UI.md), [build macOS](macOS_Build.md).
 - [Kế hoạch Ubuntu](UBUNTU_DEVELOPMENT_PLAN.md), [task Ubuntu](UBUNTU_TASKS.md),
   [build và cài thử Fcitx5](../Sources/OpenKey/linux/README.md),
+  [cài/gỡ gói Ubuntu](UBUNTU_INSTALL.md),
   [nghiệm thu bộ gõ Ubuntu](UBUNTU_INPUT_QA.md).
 - [Sửa dấu tại con trỏ](CARET_TONE_EDIT.md).
 - [Tích hợp TSF/UI Automation và cách bật profile](TEXT_SERVICE.md).

@@ -1,8 +1,16 @@
 # OpenKey cho Linux — Fcitx5 proof-of-concept
 
-Nhánh `feature/ubuntu-v0.2-fcitx5` bổ sung module Fcitx5 thử nghiệm với hai input
-method **OpenKey Telex** và **OpenKey VNI**, dùng engine C++ chung. Chưa có UI
-Fluent, tray riêng, macro hoặc bộ cài `.deb`.
+Nhánh `feature/ubuntu-deb-packaging` có module Fcitx5 thử nghiệm với hai input
+method **OpenKey Telex** và **OpenKey VNI**, dùng engine C++ chung, cùng gói `.deb`
+alpha. Chưa có UI Fluent, tray riêng hoặc macro trong addon.
+
+## Gói cài Ubuntu
+
+Chạy `bash scripts/build-linux-deb.sh` từ root repository để tạo `.deb` và checksum
+trong `dist/linux/`. Script build Release, chạy test và kiểm tra addon từ gói đã
+giải nén, không cài vào hệ thống. Xem [hướng dẫn cài/gỡ](../../../docs/UBUNTU_INSTALL.md).
+Bản build trên Ubuntu 26.04 yêu cầu runtime của máy build; không mặc nhiên hỗ trợ
+Ubuntu cũ hơn. CI có job build riêng trên Ubuntu 24.04, chưa chạy trên remote.
 
 ## Build và test
 

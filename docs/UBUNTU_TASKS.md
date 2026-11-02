@@ -1,6 +1,6 @@
 # Task phát triển OpenKey cho Ubuntu
 
-Nhánh triển khai hiện tại: `feature/ubuntu-v0.2-fcitx5`
+Nhánh triển khai hiện tại: `feature/ubuntu-deb-packaging`
 
 Mốc nền tảng v0.1: commit `b22c3eb`. Hướng dẫn build/cài thử và giới hạn của
 prototype: [Linux README](../Sources/OpenKey/linux/README.md).
@@ -68,10 +68,14 @@ Checklist nghiệm thu thủ công: [Ubuntu input QA](UBUNTU_INPUT_QA.md).
 ## v0.6 — Đóng gói
 
 - [ ] Tạo AppImage thử nghiệm.
-- [ ] Tạo gói `.deb` cho Ubuntu.
+- [x] Tạo gói `.deb` alpha cho addon Fcitx5 (chưa có UI).
+- [x] Kiểm tra dependency, payload và nạp addon từ gói đã giải nén.
 - [ ] Tạo Flatpak.
 - [ ] Kiểm tra cài mới, nâng cấp, gỡ cài đặt và giữ cấu hình.
-- [ ] Thêm checksum và artifact Linux vào CI.
+- [x] Thêm checksum SHA-256 và job artifact `.deb` vào CI (chưa chạy trên remote).
+
+Build/cài/gỡ bản alpha: [Ubuntu install](UBUNTU_INSTALL.md). Kiểm thử cài/gỡ bằng
+APT trên máy desktop vẫn chưa nghiệm thu; không đánh dấu xong mục vòng đời gói ở trên.
 
 ## Điều kiện nghiệm thu bản Ubuntu đầu tiên
 

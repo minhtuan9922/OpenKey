@@ -5,6 +5,7 @@ project(OpenKey VERSION 3.1.0 LANGUAGES CXX)
 option(OPENKEY_BUILD_SMOKE_TESTS "Build small Linux engine smoke tests" ON)
 option(OPENKEY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
 option(OPENKEY_BUILD_FCITX5 "Build the experimental Fcitx5 input method" OFF)
+option(OPENKEY_BUILD_DEB "Enable experimental Debian package generation" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -63,4 +64,8 @@ endif()
 
 if(OPENKEY_BUILD_FCITX5)
     add_subdirectory(Sources/OpenKey/linux/fcitx5)
+endif()
+
+if(OPENKEY_BUILD_DEB)
+    include(cmake/LinuxDeb.cmake)
 endif()
