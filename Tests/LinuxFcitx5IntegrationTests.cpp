@@ -1,5 +1,6 @@
 // Test discovery and event routing through a real initialized Fcitx instance.
 // Paths are isolated by Fcitx's test helper; no real display/frontend is loaded.
+#include "DirectInput.h"
 #include <fcitx-utils/testing.h>
 #include <fcitx/addonmanager.h>
 #include <fcitx/inputcontext.h>
@@ -24,7 +25,14 @@ public:
     ~Editor() override { destroy(); }
     const char* frontend() const override { return "openkey-integration-test"; }
     std::string committed;
+    bool directDocument = false;
     std::string preedit() { return inputPanel().clientPreedit().toString(); }
+    void report() {
+        if (!directDocument) return;
+        const auto count = static_cast<unsigned>(openkey::codepoints(committed).size());
+        surroundingText().setText(committed, count, count);
+        updateSurroundingText();
+    }
     bool send(fcitx::Key key) {
         fcitx::KeyEvent event(this, key);
         const bool handled = keyEvent(event);
@@ -36,9 +44,14 @@ public:
         }
     }
 private:
-    void commitStringImpl(const std::string& text) override { committed += text; }
-    void deleteSurroundingTextImpl(int, unsigned int) override {
-        throw std::runtime_error("Unexpected surrounding text deletion");
+    void commitStringImpl(const std::string& text) override { committed += text; report(); }
+    void deleteSurroundingTextImpl(int offset, unsigned int size) override {
+        if (!directDocument) throw std::runtime_error("Unexpected surrounding text deletion");
+        auto value = openkey::codepoints(committed);
+        require(offset == -static_cast<int>(size) && size <= value.size(), "Invalid Direct edit range");
+        value.resize(value.size() - size);
+        committed = openkey::utf8(value);
+        report();
     }
     void forwardKeyImpl(const fcitx::ForwardKeyEvent&) override {
         throw std::runtime_error("Unexpected synthesized key");
@@ -126,5 +139,27 @@ int main(int argc, char** args) {
     serverPreedit.focusOut();
     require(serverPreedit.committed == "việt" && serverPreedit.inputPanel().preedit().toString().empty(),
             "Server preedit focus-out lost or duplicated a word");
+
+    auto* addon = instance.addonManager().addon("openkey", true);
+    fcitx::RawConfig directSettings;
+    directSettings.setValueByPath("InputStyle", "Direct");
+    addon->setConfig(directSettings);
+    Editor direct(instance.inputContextManager());
+    direct.directDocument = true;
+    direct.setCapabilityFlags(fcitx::CapabilityFlags{
+        fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::SurroundingText});
+    direct.report();
+    direct.focusIn();
+    instance.setCurrentInputMethod(&direct, "openkey-telex", false);
+    direct.type("print");
+    require(direct.committed == "print" && direct.preedit().empty(), "Direct identifier pipeline");
+    require(direct.send(fcitx::Key(FcitxKey_space)), "Direct Space must be serialized");
+    direct.type("tieengs");
+    require(direct.committed == "print tiếng" && direct.preedit().empty(), "Direct Telex pipeline");
+    instance.setCurrentInputMethod(&direct, "openkey-vni", false);
+    direct.type("vie6t5");
+    require(direct.committed == "print tiếngviệt" && direct.preedit().empty(), "Direct VNI pipeline");
+    direct.focusOut();
+    require(direct.committed == "print tiếngviệt", "Direct pipeline focus-out duplicated text");
     std::cout << "Fcitx5 integration: installed descriptors, addon loading, key pipeline, focus and method switching passed\n";
 }

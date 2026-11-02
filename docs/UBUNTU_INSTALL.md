@@ -5,8 +5,9 @@ Gói `fcitx5-openkey` cung cấp hai input method **OpenKey Telex (Experimental)
 hợp Linux của bản fork. Mã nguồn/giấy phép: GPL-3.0, xem
 <https://github.com/minhtuan9922/OpenKey>.
 
-Đây là bản alpha, chưa có giao diện Fluent giống Windows, tray riêng, macro hoặc
-cấu hình lưu bền. Chưa nghiệm thu trên toàn bộ ứng dụng X11/Wayland.
+Đây là bản alpha, chưa có giao diện Fluent giống Windows, tray riêng hoặc macro.
+Từ alpha.3 có lựa chọn Preedit/Direct được lưu trong cấu hình Fcitx5.
+Chưa nghiệm thu Direct và IntelliSense trên VS Code desktop thật.
 
 ## Cài gói
 
@@ -14,8 +15,8 @@ Từ root repository, sau khi đã có gói và checksum trong `dist/linux/`:
 
 ```bash
 cd dist/linux
-sha256sum -c 'fcitx5-openkey_3.1.0~alpha.2-1_amd64.deb.sha256'
-sudo apt install './fcitx5-openkey_3.1.0~alpha.2-1_amd64.deb'
+sha256sum -c 'fcitx5-openkey_3.1.0~alpha.3-1_amd64.deb.sha256'
+sudo apt install './fcitx5-openkey_3.1.0~alpha.3-1_amd64.deb'
 ```
 
 APT sẽ xử lý dependency được khai báo trong gói. Bản build trên Ubuntu 26.04
@@ -42,6 +43,48 @@ giống nhau cho mọi GNOME/KDE/Wayland session.
 
 Thử Telex `tieengs vieetj` hoặc VNI `tie6ng1 vie6t5`, rồi Space. Kỳ vọng:
 `tiếng việt `. Kiểm tra thêm đổi focus không làm lặp từ.
+
+## Chọn có/không gạch chân
+
+Trong cấu hình Fcitx5, mở cấu hình OpenKey (Telex/VNI, hoặc addon OpenKey), chọn
+**Chế độ gõ / Input style**:
+
+- **Preedit**: mặc định, giữ cơ chế gõ có composition để tương thích.
+- **Direct**: thử nghiệm, commit từng ký tự và thay dấu qua surrounding-text,
+  không gửi preedit khi ứng dụng hỗ trợ.
+
+Lựa chọn áp dụng chung cho cả Telex và VNI. Khi lưu cấu hình, từ Preedit đang
+gõ được commit một lần; từ Direct đã nằm trong tài liệu không bị commit lại.
+Cấu hình lưu tại `$XDG_CONFIG_HOME/fcitx5/conf/openkey.conf` hoặc mặc định
+`~/.config/fcitx5/conf/openkey.conf`, với `InputStyle=Preedit` hoặc `InputStyle=Direct`.
+
+Direct yêu cầu ứng dụng hỗ trợ surrounding-text hợp lệ và không có selection.
+Nếu thiếu hỗ trợ ngay đầu từ, addon dùng Preedit. Nếu mất đồng bộ giữa từ, addon
+ngừng thay dấu và gõ nguyên trạng đến ranh giới tiếp theo; từ đó có thể còn phím
+Telex/VNI thô. Khi snapshot vẫn khớp vị trí cũ nhưng chờ quá lâu, phím chờ được
+chuyển tiếp nguyên trạng. Nếu context/selection đã thay đổi, phần chữ chưa nhập
+được giữ trong bảng phụ **Phím chưa nhập / Pending**: bỏ chọn vùng và đặt con trỏ,
+rồi Enter xác nhận chèn tại vị trí hiện tại, Escape hủy. Không chèn khi vẫn có
+selection hoặc surrounding-text chưa hợp lệ. Các shortcut/
+phím điều hướng đang chờ bị hủy trong trường hợp mất ngữ cảnh; chỉ giữ phần chữ.
+Timeout xác nhận là 250 ms, hàng đợi
+tối đa 64 sự kiện; mục tiêu là không xóa nhầm nội dung khi client cập nhật chậm.
+Snapshot có cùng nội dung/vị trí nhưng không có revision không phân biệt được
+ACK mới với echo cũ; trường hợp mơ hồ được ngừng theo dõi thay vì tiếp tục sửa.
+
+Space và ký tự phân cách in được trong Direct được commit theo cùng hàng đợi
+để giữ đúng thứ tự nhiều từ, kể cả sau dấu câu.
+Enter/Tab/shortcut vẫn được chuyển cho ứng dụng; sau một sự kiện làm đổi vị trí
+không thể dự đoán, phần còn lại của burst có thể được gõ nguyên trạng.
+Escape ở Direct chỉ kết thúc theo dõi từ, không xóa ký tự đã commit.
+Ngoại lệ: khi bảng phục hồi đang mở, Enter/Escape là lệnh xác nhận/hủy chữ chờ,
+không được chuyển sang ứng dụng; chữ gõ thêm được thêm vào phần chờ (tối đa 256).
+
+Direct không tắt quy tắc Telex/VNI trong identifier. Ví dụ `console` có thể chứa
+phím đặt dấu; chuyển English khi cần gõ code nguyên trạng. Chế độ này nhằm bỏ
+composition kéo dài, không thay cấu hình IntelliSense hoặc bảo đảm mọi frontend
+Electron đều cung cấp API cần thiết. Hãy thử gõ `print` chưa Space để kiểm tra gợi ý,
+và kiểm tra Tab/Enter nhận completion, undo/redo trên VS Code thực tế.
 
 ## Gỡ và nâng cấp
 
@@ -74,11 +117,11 @@ frontend giả. Không dùng sudo hoặc cài gói khi build/test.
 Các file đầu ra nằm trong `dist/linux/`. Muốn debug dependency và payload:
 
 ```bash
-dpkg-deb --info 'dist/linux/fcitx5-openkey_3.1.0~alpha.2-1_amd64.deb'
-dpkg-deb --contents 'dist/linux/fcitx5-openkey_3.1.0~alpha.2-1_amd64.deb'
+dpkg-deb --info 'dist/linux/fcitx5-openkey_3.1.0~alpha.3-1_amd64.deb'
+dpkg-deb --contents 'dist/linux/fcitx5-openkey_3.1.0~alpha.3-1_amd64.deb'
 ```
 
-Đã kiểm tra local trên Ubuntu 26.04 amd64: 6/6 CTest, checksum, payload,
+Đã kiểm tra local trên Ubuntu 26.04 amd64: 7/7 CTest, checksum, payload,
 dependency tự sinh, nạp addon từ `.deb` đã giải nén và `apt-get --simulate install`.
 Chưa chạy cài/gỡ/nâng cấp bằng APT thật hoặc kiểm thử ứng dụng desktop. CI có
 job build gói Ubuntu 24.04 riêng; thêm workflow chưa đồng nghĩa job remote đã chạy.

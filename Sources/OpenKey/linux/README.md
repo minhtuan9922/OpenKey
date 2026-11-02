@@ -1,8 +1,12 @@
 # OpenKey cho Linux — Fcitx5 proof-of-concept
 
-Nhánh `feature/ubuntu-deb-packaging` có module Fcitx5 thử nghiệm với hai input
+Nhánh `feature/ubuntu-direct-input` có module Fcitx5 thử nghiệm với hai input
 method **OpenKey Telex** và **OpenKey VNI**, dùng engine C++ chung, cùng gói `.deb`
 alpha. Chưa có UI Fluent, tray riêng hoặc macro trong addon.
+
+Alpha.3 thêm lựa chọn **Preedit / Direct** trong cấu hình Fcitx5. Direct commit
+từng ký tự, không gửi preedit khi client hỗ trợ surrounding-text; Preedit vẫn là
+mặc định. Xem [cách bật và giới hạn](../../../docs/UBUNTU_INSTALL.md#chọn-cókhông-gạch-chân).
 
 ## Gói cài Ubuntu
 
@@ -63,10 +67,10 @@ cả thư mục Fcitx5 hoặc profile người dùng.
 
 - Chỉ xuất Unicode dựng sẵn. Dùng keysym để ánh xạ chữ/số; không coi keycode
   Wayland/evdev là keycode X11 trong engine.
-- Từ đang gõ nằm trong preedit; Space, Enter, dấu câu hoặc điều hướng commit từ
+- Ở chế độ Preedit, từ đang gõ nằm trong preedit; Space, Enter, dấu câu hoặc điều hướng commit từ
   rồi chuyển phím gốc cho ứng dụng. Không dùng clipboard, giả lập phím hoặc xóa
   văn bản đã commit. Chưa sửa dấu ở từ cũ ngoài preedit.
-- Backspace xóa ký tự hiển thị trong preedit, không chỉ xóa phím Telex/VNI cuối.
+- Backspace ở Preedit xóa ký tự hiển thị, không chỉ xóa phím Telex/VNI cuối.
   Escape hủy preedit; reset từ client hủy preedit. Khi focus-out, Fcitx5 hoặc
   client đã phụ trách commit client preedit thì addon chỉ xóa trạng thái để
   tránh lặp từ; với server-side preedit, addon tự commit. Khi đổi input method,
@@ -77,12 +81,19 @@ cả thư mục Fcitx5 hoặc profile người dùng.
   toàn cục, prototype replay tối đa 256 sự kiện của từ trên event thread Fcitx5;
   đến giới hạn thì commit phần cũ trước phím tiếp theo. Đây không phải giải pháp
   đa luồng hoặc engine nhiều instance; cần đo độ trễ trước beta.
-- Chưa bật macro, cấu hình lưu bền, bảng mã legacy, smart-switch theo ứng dụng,
+- Direct chỉ thay suffix thuộc từ engine đang quản lý, sau khi surrounding-text
+  xác nhận edit trước. Các sự kiện đến sớm được xếp hàng; gặp snapshot thay đổi,
+  selection, queue overflow hoặc timeout thì ngừng sửa. Chỉ chuyển tiếp phím gốc
+  khi vị trí vẫn khớp snapshot đã biết; nếu context đã thay đổi thì giữ chữ chờ
+  trong bảng phụ, cần Enter xác nhận chèn hoặc Escape hủy.
+  Các trường hợp mơ hồ (ví dụ Backspace quay lại snapshot cũ) ngừng theo dõi từ.
+  Đây không phải cam kết hỗ trợ mọi Electron/Wayland frontend hoặc undo grouping.
+- Chưa bật macro, cấu hình engine lưu bền, bảng mã legacy, smart-switch theo ứng dụng,
   global hotkey hay UI riêng. Fcitx5 quản lý chuyển input method ở giai đoạn này.
 
 ## Kiểm chứng
 
-Đã build với GCC 15 và SDK Fcitx5 5.1.19. Có sáu mục CTest:
+Đã build với GCC 15 và SDK Fcitx5 5.1.19. Có bảy mục CTest:
 
 1. Engine smoke: chuyển mã Unicode/VNI.
 2. Engine regression: Telex, Backspace và macro ở lớp engine.
@@ -94,6 +105,9 @@ cả thư mục Fcitx5 hoặc profile người dùng.
 6. Integration: Fcitx tự đọc descriptor và nạp module từ install fixture, chuyển
    key event qua pipeline thật, kiểm tra focus-out không lặp từ (cả client và
    server preedit), đổi Telex/VNI và quay lại ô nhập cũ. Không nạp frontend desktop.
+7. Direct: commit tức thì/no preedit, Unicode code-point offsets, Telex/VNI,
+   delayed/duplicate/out-of-order ACK, timeout/queue overflow, selection/cursor,
+   đổi cấu hình và fallback. Integration cũng chạy Direct qua Fcitx pipeline thật.
 
 Test headless không chứng minh tương thích Firefox/Chrome, LibreOffice, VS Code,
 GTK/Qt hoặc GNOME/KDE Wayland/X11. Các mục này vẫn chưa nghiệm thu.

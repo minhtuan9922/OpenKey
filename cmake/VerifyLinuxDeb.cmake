@@ -1,5 +1,5 @@
 # Read and extract only; never run dpkg --install or maintainer scripts.
-foreach(required DEB_PATH EXTRACT_DIR LIBDIR INTEGRATION_TEST)
+foreach(required DEB_PATH EXTRACT_DIR LIBDIR INTEGRATION_TEST DIRECT_TEST)
     if(NOT DEFINED ${required})
         message(FATAL_ERROR "Missing ${required}")
     endif()
@@ -59,5 +59,7 @@ if(NOT file_count EQUAL 7)
 endif()
 
 check_command("${INTEGRATION_TEST}" "${prefix}" "${LIBDIR}")
+message(STATUS "${command_output}")
+check_command("${DIRECT_TEST}" "${prefix}/${LIBDIR}/fcitx5/openkey.so")
 message(STATUS "${command_output}")
 message(STATUS "DEB payload, dependencies and extracted-addon integration passed")

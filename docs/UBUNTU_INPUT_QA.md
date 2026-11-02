@@ -10,6 +10,30 @@ ClientUnfocusCommit và server preedit, chuyển Telex/VNI và quay lại ô nh�
 Chưa nghiệm thu trên GNOME/KDE, X11/Wayland và các ứng dụng bên dưới. Môi trường
 phát triển hiện tại là tty, không có DISPLAY hoặc WAYLAND_DISPLAY.
 
+Alpha.3: đã có lựa chọn Preedit/Direct và test headless Direct qua addon/pipeline
+thật, gồm xác nhận surrounding-text chậm/cũ, nhiều từ, timeout, đổi context và
+phục hồi chữ chờ. Chưa xác nhận Direct/IntelliSense trên VS Code thực tế.
+
+## Ca bổ sung cho Direct
+
+- Chọn **Chế độ gõ / Input style → Direct** theo [hướng dẫn cài](UBUNTU_INSTALL.md).
+- Gõ `print` chưa Space: chữ phải ở tài liệu, không ở preedit; xác minh popup
+  IntelliSense cập nhật ngay khi gõ. Kiểm tra inline completion riêng.
+- Gõ Telex/VNI trong comment/string, dùng Backspace, nhận completion bằng Tab/Enter,
+  di chuyển chuột/cursor, chọn vùng, dán, undo/redo, đổi focus và đổi kiểu gõ.
+- Gõ nhanh nhiều từ và nhiều dòng; ghi nhận fallback nếu client thiếu capability
+  hoặc ACK quá chậm. Không được tự thay dấu trong vùng đã chọn hoặc từ cũ ngoài
+  đoạn đang quản lý.
+- Nếu bảng **Phím chưa nhập / Pending** xuất hiện sau đổi selection, kiểm tra
+  nội dung tài liệu không tự bị ghi đè; Enter chỉ chèn sau xác nhận, Escape hủy.
+- Chuyển Preedit ↔ Direct khi đang gõ: không lặp từ, không mất chữ chưa xác nhận,
+  không xóa panel thuộc một input method khác.
+- Với identifier có phím Telex đặt dấu (ví dụ `console`), phân biệt quy tắc gõ
+  tiếng Việt với lỗi completion. Dùng English khi cần giữ nguyên code.
+
+Tất cả ca UI trên vẫn cần người kiểm thử chạy trên desktop; test headless không
+đủ để đánh dấu đạt IntelliSense, undo grouping hoặc tương thích Electron.
+
 ## Chuẩn bị
 
 1. Build, test và cài thử theo [Linux README](../Sources/OpenKey/linux/README.md).

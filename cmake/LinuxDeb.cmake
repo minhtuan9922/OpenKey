@@ -32,8 +32,8 @@ set(CPACK_PACKAGE_NAME fcitx5-openkey)
 set(CPACK_PACKAGE_VENDOR "OpenKey contributors")
 set(CPACK_PACKAGE_CONTACT "TuanPham <minhtuan9922@gmail.com>")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Experimental OpenKey Vietnamese input method for Fcitx5")
-set(CPACK_PACKAGE_DESCRIPTION "OpenKey engine by Mai Vu Tuyen, with experimental Linux integration.\n Telex and VNI with Unicode preedit. No standalone settings UI yet.\n Installation does not change input-method profiles or restart Fcitx5.")
-set(CPACK_PACKAGE_VERSION "3.1.0~alpha.2")
+set(CPACK_PACKAGE_DESCRIPTION "OpenKey engine by Mai Vu Tuyen, with experimental Linux integration.\n Telex and VNI with selectable Preedit or experimental Direct input.\n No standalone settings UI yet. Installation does not change input-method\n profiles or restart Fcitx5.")
+set(CPACK_PACKAGE_VERSION "3.1.0~alpha.3")
 set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
 set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "${OPENKEY_DEB_ARCH}")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
@@ -61,7 +61,8 @@ if(OPENKEY_BUILD_SMOKE_TESTS)
             "-DEXTRACT_DIR=${PROJECT_BINARY_DIR}/deb-validation"
             "-DLIBDIR=${CMAKE_INSTALL_LIBDIR}"
             "-DINTEGRATION_TEST=$<TARGET_FILE:openkey_fcitx5_integration_tests>"
+            "-DDIRECT_TEST=$<TARGET_FILE:openkey_direct_tests>"
             -P "${PROJECT_SOURCE_DIR}/cmake/VerifyLinuxDeb.cmake"
-        DEPENDS openkey_fcitx5_integration_tests
+        DEPENDS openkey_fcitx5_integration_tests openkey_direct_tests
         VERBATIM)
 endif()
