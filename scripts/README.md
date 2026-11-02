@@ -12,6 +12,7 @@ file, không phụ thuộc thư mục làm việc hiện tại.
 ./scripts/test-text-service.ps1 x64
 ./scripts/test-caret-deployment.ps1
 ./scripts/build-setup.ps1 -Release
+./scripts/build-setup.ps1 -Release -Offline # tùy chọn thủ công khi cần cài không có mạng
 ```
 
 - Build/phát hành: `package-beta.ps1`, `build-setup.ps1`, `prepare-ci.ps1`,
@@ -36,7 +37,7 @@ TSF là component thử nghiệm riêng, chưa nằm trong gói phát hành. Xem
 ```
 
 Giữ executable/PDB Debug engine mới nhất, bộ runtime UI Debug, bộ cài local
-mới nhất và ZIP nguồn của nó, báo cáo hồi quy đạt mới nhất theo shell, báo cáo
+mới nhất của mỗi loại online/offline và ZIP nguồn, báo cáo hồi quy đạt mới nhất theo shell, báo cáo
 chẩn đoán/đo hiệu năng, cache compiler và runtime đầu vào. Các output build
 trung gian, gói cũ và fixture kiểm thử được sinh lại khi chạy công cụ.
 

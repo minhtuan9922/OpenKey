@@ -23,6 +23,13 @@ foreach ($arch in @('x64','x86')) {
     Assert-OpenKeyRuntimeMetadata (Get-OpenKeyRuntimeMetadata $path) $arch ([version]$runtimeInputs.minimumVersion) $runtimeInput.sha256
     Write-Output "Verified Microsoft offline runtime: $arch"
 }
+. (Join-Path $OpenKeyRepositoryRoot 'Installer/AppRuntime.ps1')
+$appInputs = Get-OpenKeyAppRuntimeInputs
+foreach ($arch in @('x64','x86')) {
+    $inputPath = Join-Path $OpenKeyRepositoryRoot $appInputs.$arch.path
+    Get-VerifiedCiInput $appInputs.$arch.url $inputPath $appInputs.$arch.sha256
+    Assert-OpenKeyAppRuntime $inputPath $appInputs.$arch.sha256
+}
 $compiler = Get-Content -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer/CiCompiler.json') -Raw | ConvertFrom-Json
 $compilerRoot = Join-Path $OpenKeyRepositoryRoot "dist/inno-$($compiler.version)-portable"
 $installer = Join-Path $compilerRoot "innosetup-$($compiler.version).exe"

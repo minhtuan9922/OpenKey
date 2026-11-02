@@ -12,9 +12,10 @@ Không dùng beta Fluent trên Vista/Windows 7 theo yêu cầu legacy ở phần
 Môi trường đã build: Visual Studio 2026 Community (18.x), MSVC v145, workload
 Desktop development with C++, Windows SDK và công cụ C++/WinRT/WinUI.
 Các NuGet version đang dùng được ghi trong OpenKey.UI.vcxproj; build chạy restore.
-Máy chạy không cần Visual Studio nhưng cần VC++ Redistributable phù hợp và toàn bộ
-thư mục UI/runtime trong gói. Windows App SDK đang được đóng gói self-contained;
-điều này chưa loại bỏ phụ thuộc VC++ runtime hoặc thay kiểm thử máy sạch.
+Máy chạy không cần Visual Studio nhưng cần VC++ Redistributable và Windows App
+Runtime 2.x phù hợp (tối thiểu 2.5.1.0). Bộ cài online tự tải thư viện khi thiếu;
+Release UI dùng runtime chung, còn Debug giữ self-contained. ZIP Release không
+tự cài runtime; giữ nguyên cấu trúc gói và dùng bộ cài để chuẩn bị máy sạch.
 
 Chạy từ PowerShell tại root repository:
 
@@ -41,7 +42,7 @@ Chạy từ PowerShell tại root repository:
 .\scripts\test-debug-launcher.ps1 # 15 ca launcher/preflight giả; không build/chạy app
 .\test-all.ps1 All       # toàn bộ test x64/x86, log và JSON riêng trong dist
 .\scripts\package-beta.ps1 x64
-.\scripts\build-setup.ps1 -Release # build mới cả x64/x86 và tạo một setup offline
+.\scripts\build-setup.ps1 -Release # build mới x64/x86, tạo một OpenKey-Setup.exe online
 ```
 
 Thay x64 bằng x86 ở các script nhận Platform. ZIP nằm trong dist và bị Git bỏ qua.

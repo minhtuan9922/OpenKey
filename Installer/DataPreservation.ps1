@@ -1,10 +1,20 @@
 # Conservative source-policy guard, not a Pascal parser or installer sandbox.
 # Reject unexpected edits before building; actual upgrade acceptance stays separate.
+function Assert-OpenKeyLegacyUiCleanup([string[]]$Lines) {
+    foreach ($line in $Lines) {
+        if (-not $line.Trim() -or $line.StartsWith(';')) { continue }
+        if ($line -cnotmatch '^Type: files; Name: "\{app\}\\OpenKey\.UI\\[A-Za-z0-9_.\\-]+\.(dll|mui|winmd|pri)"$' -or
+            $line -match '\.\.|OpenKey\.UI\.pri|OpenKeyUI\.winmd|Bootstrap\.dll') {
+            throw 'Data preservation: unsafe legacy SDK cleanup entry.'
+        }
+    }
+}
+
 function Assert-OpenKeyDataPreservation {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$RuntimePolicy, [string]$CaretPolicy)
     if (-not $CaretPolicy) { $CaretPolicy = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'CaretPolicy.iss') -Raw }
-    $allowedSections = @('Setup','Languages','CustomMessages','Tasks','Files','Icons','Run','Code')
+    $allowedSections = @('Setup','Languages','CustomMessages','Tasks','Files','InstallDelete','Icons','Run','Code')
     $sections = @([regex]::Matches($Source, '(?im)^\s*\[([^\]\r\n]+)\]\s*$') | ForEach-Object { $_.Groups[1].Value })
     if ($sections.Count -ne $allowedSections.Count -or
         @(Compare-Object ($sections | Sort-Object) ($allowedSections | Sort-Object)).Count) {
@@ -19,10 +29,14 @@ function Assert-OpenKeyDataPreservation {
         }
     }
     $includes = @([regex]::Matches($Source, '(?im)^\s*#include\s+(.+)$') | ForEach-Object { $_.Groups[1].Value.Trim() })
-    if ($includes.Count -ne 2 -or @(Compare-Object $includes @('"RuntimePolicy.iss"','"CaretPolicy.iss"') -CaseSensitive).Count -or
+    if ($includes.Count -ne 3 -or @(Compare-Object $includes @('"LegacyUiRuntimeCleanup.iss"','"RuntimePolicy.iss"','"CaretPolicy.iss"') -CaseSensitive).Count -or
         ($RuntimePolicy + "`n" + $CaretPolicy) -match '(?im)^\s*#include\b') {
         throw 'Data preservation: unexpected included installer code.'
     }
+    $cleanup = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'LegacyUiRuntimeCleanup.iss')
+    Assert-OpenKeyLegacyUiCleanup $cleanup
+    $deleteBlock = [regex]::Match($Source, '(?ims)^\[InstallDelete\]\s*$(.*?)^\[').Groups[1].Value.Trim()
+    if ($deleteBlock -cne '#include "LegacyUiRuntimeCleanup.iss"') { throw 'Data preservation: unexpected cleanup actions.' }
     # Intentionally conservative: even a mention in a comment requires review.
     if (($Source + "`n" + $RuntimePolicy + "`n" + $CaretPolicy) -match '(?i)\b(RegWrite\w*|RegDelete\w*|RegCreate\w*|DeleteFile|DelTree|RenameFile|FileCopy|SaveStringToFile|SaveStringsToFile|CreateDir)\s*\(') {
         throw 'Data preservation: explicit registry/file mutation requires review.'
@@ -32,10 +46,14 @@ function Assert-OpenKeyDataPreservation {
     $expectedFiles = @(
         'Source: "{#PayloadX64}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: UseX64',
         'Source: "{#PayloadX86}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: UseX86',
+        '#ifndef OnlineSetup',
         'Source: "{#RuntimeX64}"; DestName: "vc_redist.x64.exe"; Flags: dontcopy',
-        'Source: "{#RuntimeX86}"; DestName: "vc_redist.x86.exe"; Flags: dontcopy'
+        'Source: "{#RuntimeX86}"; DestName: "vc_redist.x86.exe"; Flags: dontcopy',
+        'Source: "{#AppRuntimeX64}"; DestName: "WindowsAppRuntimeInstall-x64.exe"; Flags: dontcopy',
+        'Source: "{#AppRuntimeX86}"; DestName: "WindowsAppRuntimeInstall-x86.exe"; Flags: dontcopy',
+        '#endif'
     )
-    if ($files.Count -ne 4 -or @(Compare-Object ($files | ForEach-Object { $_.Trim() }) $expectedFiles -CaseSensitive).Count) {
+    if (($files.Trim() -join "`n") -cne ($expectedFiles -join "`n")) {
         throw 'Data preservation: payload destination/actions changed.'
     }
     $runBlock = [regex]::Match($Source, '(?ims)^\[Run\]\s*$(.*?)^\[').Groups[1].Value

@@ -16,10 +16,10 @@ Assert-Setup ($taskSource -match 'ArchitecturesAllowed=x86os x64os') 'explicit s
 Assert-Setup ($taskSource -match 'MinVersion=10.0.17763') 'minimum Windows version'
 Assert-Setup ($taskSource -match 'PrivilegesRequired=lowest') 'current-user installation'
 Assert-Setup ($taskSource -match 'DefaultDirName=\{localappdata\}') 'user-owned destination'
-Assert-Setup ($taskSource -match 'DiskSpanning=no') 'one offline executable'
+Assert-Setup ($taskSource -match 'DiskSpanning=no') 'one setup executable'
 Assert-Setup ($taskSource -match 'PayloadX64.*Check: UseX64') 'x64 payload condition'
 Assert-Setup ($taskSource -match 'PayloadX86.*Check: UseX86') 'x86 payload condition'
-Assert-Setup (@([regex]::Matches($taskSource, 'Flags: dontcopy')).Count -eq 2) 'two temporary-only runtimes'
+Assert-Setup (@([regex]::Matches($taskSource, 'Flags: dontcopy')).Count -eq 4) 'four temporary-only runtime installers'
 Assert-Setup ($taskSource -match 'userprograms.*code:EngineName') 'Start Menu starts engine'
 Assert-Setup ($taskSource -match 'userdesktop.*Tasks: desktopicon') 'optional desktop engine shortcut'
 Assert-Setup ($taskSource -match 'Name: "desktopicon".*Flags: unchecked') 'desktop unchecked by default'
@@ -31,7 +31,8 @@ Assert-Setup ($taskSource -match 'Remaining := AppCloseWaitMilliseconds\(AppTick
 Assert-Setup ($taskSource -notmatch 'TerminateProcess|taskkill|Stop-Process') 'never force terminate'
 Assert-Setup ($taskSource -match 'AppCloseAction\(WaitResult, CloseKinds\[Index\], CurrentProcessID, CloseProcessIDs\[Index\]\)' -and $taskSource -match 'if Action = -1 then Result := False') 'revalidate HWND process and stop on wait failure'
 Assert-Setup ($taskSource -match 'if WaitResult = 258 then\s+AppWindowProcess' -and $taskSource -match 'else if Action <> 0 then begin') 'only running process can receive a close message'
-Assert-Setup ($taskSource.IndexOf('if not CloseInstalledApps then') -lt $taskSource.IndexOf('if RuntimeSatisfied then Exit;')) 'close before runtime/file installation'
+$taskPrepare = ($taskSource -split 'function PrepareToInstall', 2)[1]
+Assert-Setup ($taskPrepare.IndexOf('if not CloseInstalledApps or EngineRunning') -lt $taskPrepare.IndexOf('Result := InstallVcRuntime')) 'close before runtime/file installation'
 Assert-Setup ($taskSource -match 'RuntimePage.Values\[0\] := False') 'explicit runtime consent'
 Assert-Setup ($taskSource -match 'if WizardSilent or not RuntimePage.Values\[0\]') 'silent missing-runtime fails closed'
 Assert-Setup ($taskSource -match 'function PrepareToInstall') 'runtime installed before app files'
@@ -39,8 +40,17 @@ Assert-Setup ($taskSource.IndexOf('GetSHA256OfFile') -lt $taskSource.IndexOf("Sh
 Assert-Setup ($taskSource -match '/install /passive /norestart') 'no automatic runtime reboot'
 Assert-Setup ($taskSource -match 'RuntimeInView\(HKLM32\)' -and $taskSource -match 'RuntimeInView\(HKLM64\)') 'both registry views queried'
 Assert-Setup ($taskSource -match 'RuntimeOutcome\(ExitCode, RuntimeSatisfied\)') 'verify version after runtime process'
+Assert-Setup ($taskPrepare -match '(?s)PrerequisitesSatisfied.*?WizardSilent.*?InstallVcRuntime.*?InstallAppRuntime') 'both prerequisites gated before app installation'
+Assert-Setup ($taskSource -match 'if \(ExitCode <> 0\) or not AppRuntimeSatisfied' -and $taskSource -match "Exec\(FileName, '--quiet'") 'current-user SDK installation checked by native probe afterward'
+Assert-Setup ($taskSource -match '(?s)#ifndef OnlineSetup\s+Source:.*RuntimeX64.*RuntimeX86.*?#endif') 'online excludes embedded runtimes'
+Assert-Setup (@([regex]::Matches($taskSource, '(?m)^OutputBaseFilename=OpenKey-Setup\s*$')).Count -eq 1 -and $taskSource -notmatch 'OpenKey-Setup-Online') 'single canonical setup filename'
+Assert-Setup ($taskSource -match "RuntimeDownloadPage.Add\('\{#RuntimeUrlX64\}', FileName, ExpectedHash\)" -and
+    $taskSource -match "RuntimeDownloadPage.Add\('\{#RuntimeUrlX86\}', FileName, ExpectedHash\)") 'pinned hash for each architecture download'
+Assert-Setup ($taskPrepare.IndexOf('if WizardSilent or not RuntimePage.Values[0]') -lt $taskPrepare.IndexOf('Result := InstallVcRuntime')) 'no runtime install/download before consent or in silent mode'
+Assert-Setup ($taskSource.IndexOf('if RuntimeSatisfied then Exit;') -lt $taskSource.IndexOf('RuntimeDownloadPage.Download')) 'no download if runtime already installed'
+Assert-Setup ($taskSource -match '(?s)RuntimeDownloadPage.Download;\s+except.*?Result := CustomMessage\(''RuntimeDownloadFailed''\);\s+Exit;.*?finally\s+RuntimeDownloadPage.Hide;') 'download failure stops install and restores page for retry'
 Assert-Setup ($taskSource -match 'InitializeUninstall' -and $taskSource -match 'not EngineRunning') 'uninstall running-app guard'
-Assert-Setup ($taskSource -notmatch '(?im)^\[Registry\]|^\[InstallDelete\]|^\[UninstallDelete\]|RegDelete|RegWrite|DelTree') 'preserve settings and no broad deletes'
+Assert-Setup ($taskSource -notmatch '(?im)^\[Registry\]|^\[UninstallDelete\]|RegDelete|RegWrite|DelTree' -and $taskSource -match '#include "LegacyUiRuntimeCleanup.iss"') 'preserve settings; only exact legacy SDK file cleanup'
 Assert-Setup ($taskSource -match 'Name: "vietnamese"' -and $taskSource -match 'Name: "english"') 'Vietnamese and English'
 $taskViKeys = @([regex]::Matches($taskSource, '(?m)^vietnamese\.([A-Za-z]+)=') | ForEach-Object { $_.Groups[1].Value })
 $taskEnKeys = @([regex]::Matches($taskSource, '(?m)^english\.([A-Za-z]+)=') | ForEach-Object { $_.Groups[1].Value })
@@ -52,6 +62,7 @@ $taskReleaseSet = $taskBuildCommand.ParameterSets | Where-Object Name -eq 'Relea
 Assert-Setup (@($taskReleaseSet.Parameters | Where-Object { $_.Name -eq 'Release' -and $_.IsMandatory }).Count -eq 1) 'explicit Release switch'
 Assert-Setup (-not @($taskReleaseSet.Parameters | Where-Object Name -in @('ZipX64','ZipX86')).Count) 'Release does not require existing ZIPs'
 $taskBuildSource = Get-Content -LiteralPath $taskBuildCommand.Source -Raw
+Assert-Setup ($taskBuildCommand.Parameters.ContainsKey('Offline') -and $taskBuildSource.Contains('$Online = -not $Offline')) 'online default with explicit offline opt-in'
 Assert-Setup ($taskBuildSource -match 'package-beta.ps1.*-PassThru' -and $taskBuildSource -match 'ZipPath') 'fresh package paths returned directly'
 Assert-Setup ($taskBuildSource.IndexOf('verify-setup.ps1') -lt $taskBuildSource.IndexOf('SETUP FILE:')) 'verify before quick access output'
 $taskDefaults = Get-Content -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'Installer\OfflineInputs.json') -Raw | ConvertFrom-Json
@@ -61,7 +72,7 @@ foreach ($taskArch in @('x64','x86')) {
 $taskPackageSource = Get-Content -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'scripts\package-beta.ps1') -Raw
 Assert-Setup ($taskPackageSource.Contains('$engine = Join-Path $projectRoot "$prefix\$engineName"') -and $taskPackageSource.Contains('$updater = Join-Path $projectRoot "$prefix\OpenKeyUpdate.exe"')) 'solution Release output paths'
 Assert-Setup ($taskPackageSource.IndexOf('Stale/mismatched Release binary:') -lt $taskPackageSource.IndexOf('Copy-Item -LiteralPath $engine') -and $taskPackageSource.Contains('$binaryVersion.FileBuildPart')) 'reject stale binary version before staging'
-Write-Output '9 build shortcut/packaging contract checks passed.'
+Write-Output '10 build shortcut/packaging contract checks passed.'
 if (-not (Test-Path -LiteralPath $IsccPath -PathType Leaf)) { throw 'Inno compiler required for native Pascal policy fixture.' }
 $taskProbeRoot = Join-Path $OpenKeyRepositoryRoot ('dist\setup-policy-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $taskProbeRoot | Out-Null
@@ -90,8 +101,11 @@ end;
 "@
 $taskCompileFile = Join-Path $taskProbeRoot 'AppCloseCompileProbe.iss'
 $taskCompileSource | Set-Content -LiteralPath $taskCompileFile -Encoding UTF8
-& $IsccPath /Q /DMinimumRuntime=14.51.36231.0 /DRuntimeHashX64=fixture /DRuntimeHashX86=fixture $taskCompileFile
+$taskAppDefines = @('/DAppRuntimeHashX64=fixture', '/DAppRuntimeHashX86=fixture', '/DAppRuntimeUrlX64=https://example.invalid/x64', '/DAppRuntimeUrlX86=https://example.invalid/x86')
+& $IsccPath /Q /DMinimumRuntime=14.51.36231.0 /DRuntimeHashX64=fixture /DRuntimeHashX86=fixture @taskAppDefines $taskCompileFile
 if ($LASTEXITCODE -ne 0) { throw 'Actual installer app-close code compilation failed.' }
+& $IsccPath /Q /DOnlineSetup /DRuntimeUrlX64=https://example.invalid/x64 /DRuntimeUrlX86=https://example.invalid/x86 /DMinimumRuntime=14.51.36231.0 /DRuntimeHashX64=fixture /DRuntimeHashX86=fixture @taskAppDefines $taskCompileFile
+if ($LASTEXITCODE -ne 0) { throw 'Actual online installer code compilation failed.' }
 Write-Output 'Actual installer code compiled; app-close callbacks were not executed.'
 & $IsccPath /Q "/DProbeOutput=$taskProbeRoot" (Join-Path $OpenKeyRepositoryRoot 'Tests\InstallerPolicyTests.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Native policy fixture compilation failed.' }
@@ -101,3 +115,4 @@ $taskProbe = Start-Process -FilePath (Join-Path $taskProbeRoot 'PolicyProbe.exe'
 # InitializeSetup deliberately returns false: exit 1, before any installation.
 if ($taskProbe.ExitCode -ne 1 -or -not (Test-Path -LiteralPath $taskReport)) { throw "Native policy fixture failed. See $taskProbeRoot" }
 Get-Content -LiteralPath $taskReport
+& (Join-Path $OpenKeyRepositoryRoot 'scripts\test-runtime-check.ps1')

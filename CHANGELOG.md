@@ -1,5 +1,18 @@
 # OpenKey Change Log
 
+## Windows Fluent 3.0.10 — 2026-11-02
+
+- Bộ cài online mặc định chỉ có `OpenKey-Setup.exe`, khoảng 5,85 MB; tự tải và
+  xác minh Visual C++ / Windows App Runtime từ Microsoft khi máy thiếu.
+- Release UI dùng Windows App Runtime chung, giảm thư mục giao diện x64 còn
+  khoảng 2,99 MB. Nâng cấp dọn đúng file SDK cũ và giữ cấu hình/dữ liệu riêng.
+- Bổ sung Caret Editing thử nghiệm qua TSF, khôi phục profile qua phiên Windows,
+  và chuẩn hóa phím số/ký hiệu khi layout nền là Vietnamese.
+- Kiểm thử hồi quy PowerShell 7/5.1, TSF x64/x86 và Sandbox Windows 11 x64:
+  cài mới online, gõ Telex, cài lại, chuyển từ self-contained sang runtime chung
+  và gỡ ứng dụng giữ cấu hình/runtime.
+- Bộ cài chưa ký số. Máy thiếu Windows App Runtime cần tải thêm khoảng 120 MB.
+
 ## Windows Fluent 3.0.9 — 2026-10-29
 
 - Chuyển kiểu gõ, bảng mã và ghi nhớ bảng mã theo ứng dụng lên trang Tổng quan.

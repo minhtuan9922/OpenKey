@@ -1,0 +1,14 @@
+{
+  "version": "2.5.1.0",
+  "packageFamily": "Microsoft.WindowsAppRuntime.2_8wekyb3d8bbwe",
+  "x64": {
+    "url": "https://download.microsoft.com/download/de664922-b046-432f-bb2a-54aec3c5f1f6/WindowsAppRuntimeInstall-x64.exe",
+    "path": "dist/setup-inputs/windowsappruntime-2.5.1-x64.exe",
+    "sha256": "931A421E8DC3E6E67724806CB67FECDBB88DFE323F0170842EB4A4B4B149F1E2"
+  },
+  "x86": {
+    "url": "https://download.microsoft.com/download/652efa1f-ce5b-4ce9-8bfe-5a08e96145f4/WindowsAppRuntimeInstall-x86.exe",
+    "path": "dist/setup-inputs/windowsappruntime-2.5.1-x86.exe",
+    "sha256": "76DBD7C272CEE0BF18F0B7228255B353D669CD55DC530209C45646F47ACB89D4"
+  }
+}

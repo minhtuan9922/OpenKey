@@ -23,9 +23,11 @@ $engine = Join-Path $projectRoot "$prefix\$engineName"
 $updater = Join-Path $projectRoot "$prefix\OpenKeyUpdate.exe"
 $caretRoot = Join-Path $projectRoot "$prefix\CaretEditing"
 $caretFiles = @('OpenKey.CaretSetup.exe', 'x64\OpenKey.TextService.dll', 'x86\OpenKey.TextService.dll')
-$uiRoot = Join-Path $projectRoot "OpenKey.UI\$prefix\OpenKey.UI"
-$requiredUI = @('OpenKey.UI.exe', 'OpenKey.UI.pri', 'Microsoft.UI.Xaml.dll',
-    'Microsoft.WindowsAppRuntime.dll', 'MainWindow.xbf', 'AboutPage.xbf')
+$uiPlatform = if ($Platform -eq 'x64') { 'x64' } else { 'Win32' }
+$uiRoot = Join-Path $projectRoot "OpenKey.UI\$uiPlatform\Release\FrameworkDependent\OpenKey.UI"
+$runtimeProbe = Join-Path $OpenKeyRepositoryRoot "dist\runtime-check\$Platform\OpenKey.RuntimeCheck.$Platform.exe"
+$requiredUI = @('OpenKey.UI.exe', 'OpenKey.UI.pri', 'Microsoft.WindowsAppRuntime.Bootstrap.dll', 'MainWindow.xbf', 'AboutPage.xbf')
+if (Test-Path -LiteralPath (Join-Path $uiRoot 'Microsoft.UI.Xaml.dll')) { throw 'Framework-dependent output contains app-local WinUI runtime.' }
 foreach ($path in @($engine, $updater) + ($requiredUI | ForEach-Object { Join-Path $uiRoot $_ }) + ($caretFiles | ForEach-Object { Join-Path $caretRoot $_ })) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing Release output: $path" }
 }
@@ -43,6 +45,8 @@ function Assert-PEArchitecture([string]$Path, [string]$Architecture = $Platform)
     } finally { $reader.Dispose() }
 }
 foreach ($path in @($engine, $updater, (Join-Path $uiRoot 'OpenKey.UI.exe'))) { Assert-PEArchitecture $path }
+Assert-PEArchitecture $runtimeProbe
+Assert-PEArchitecture (Join-Path $uiRoot 'Microsoft.WindowsAppRuntime.Bootstrap.dll')
 Assert-PEArchitecture (Join-Path $caretRoot 'OpenKey.CaretSetup.exe')
 foreach ($arch in @('x64','x86')) { Assert-PEArchitecture (Join-Path $caretRoot "$arch\OpenKey.TextService.dll") $arch }
 $releaseMetadata = Get-Content -LiteralPath (Join-Path $OpenKeyRepositoryRoot 'version.json') -Raw | ConvertFrom-Json
@@ -63,10 +67,10 @@ New-Item -ItemType Directory -Path $distribution -Force | Out-Null
 $stage = Join-Path $distribution $packageName
 New-Item -ItemType Directory -Path $stage | Out-Null
 Copy-Item -LiteralPath $engine, $updater -Destination $stage
+Copy-Item -LiteralPath $runtimeProbe -Destination $stage
 $uiDestination = Join-Path $stage 'OpenKey.UI'
 New-Item -ItemType Directory -Path $uiDestination | Out-Null
-# Keep the complete self-contained runtime layout, including localized resources.
-# Exclude only development artifacts; do not reduce it to just EXE/DLL files.
+# Copy the clean framework-dependent output, including app resources and bootstrapper.
 $excludedExtensions = @('.pdb', '.exp', '.lib', '.obj', '.pch', '.ilk', '.log', '.tlog', '.recipe', '.lastcodeanalysissucceeded')
 foreach ($file in Get-ChildItem -LiteralPath $uiRoot -File -Recurse) {
     if ($file.Extension.ToLowerInvariant() -in $excludedExtensions) { continue }
@@ -100,7 +104,8 @@ $manifest = [ordered]@{
     configuration = 'Release'
     version = $releaseVersion.ToString()
     skippedBuild = [bool]$SkipBuild
-    windowsAppSdk = 'self-contained output copied; clean-machine test pending'
+    windowsAppSdk = 'framework-dependent'
+    windowsAppSdkMinimumVersion = '2.5.1.0'
     vcRuntime = 'matching Microsoft Visual C++ Redistributable required; not bundled'
     vcRuntimeMinimumVersion = $MinimumVcRuntimeVersion.ToString()
     files = $records

@@ -58,17 +58,29 @@ try {
     }
     $engine = if ($manifest.architecture -eq 'x64') { 'OpenKey64.exe' } else { 'OpenKey32.exe' }
     $required = @($engine, 'OpenKeyUpdate.exe', 'OpenKey.UI/OpenKey.UI.exe', 'OpenKey.UI/OpenKey.UI.pri',
-        'OpenKey.UI/Microsoft.UI.Xaml.dll', 'OpenKey.UI/Microsoft.WindowsAppRuntime.dll',
         'OpenKey.UI/MainWindow.xbf', 'OpenKey.UI/AboutPage.xbf', 'LICENSE', 'BETA_PACKAGING.md', 'check-prerequisites.ps1',
         'ThirdPartyNotices/inventory.json', 'CaretEditing/OpenKey.CaretSetup.exe',
         'CaretEditing/x64/OpenKey.TextService.dll', 'CaretEditing/x86/OpenKey.TextService.dll')
+    if ($manifest.windowsAppSdk -eq 'framework-dependent') {
+        if ($manifest.windowsAppSdkMinimumVersion -ne '2.5.1.0') { throw 'Unsupported Windows App Runtime requirement.' }
+        $required += @('OpenKey.UI/Microsoft.WindowsAppRuntime.Bootstrap.dll', "OpenKey.RuntimeCheck.$($manifest.architecture).exe")
+        foreach ($name in @('OpenKey.UI/Microsoft.UI.Xaml.dll', 'OpenKey.UI/Microsoft.WindowsAppRuntime.dll')) {
+            if ($listed.ContainsKey($name)) { throw 'Framework-dependent package contains app-local runtime.' }
+        }
+    } else {
+        $required += @('OpenKey.UI/Microsoft.UI.Xaml.dll', 'OpenKey.UI/Microsoft.WindowsAppRuntime.dll')
+    }
     foreach ($name in $required) {
         if (-not $listed.ContainsKey($name)) { throw "Required package file missing: $name" }
     }
     # Check PE headers without extracting or loading executables.
     $machine = if ($manifest.architecture -eq 'x64') { 0x8664 } else { 0x14c }
-    foreach ($name in @($engine, 'OpenKeyUpdate.exe', 'OpenKey.UI/OpenKey.UI.exe', 'CaretEditing/OpenKey.CaretSetup.exe',
-        'CaretEditing/x64/OpenKey.TextService.dll', 'CaretEditing/x86/OpenKey.TextService.dll')) {
+    $peFiles = @($engine, 'OpenKeyUpdate.exe', 'OpenKey.UI/OpenKey.UI.exe', 'CaretEditing/OpenKey.CaretSetup.exe',
+        'CaretEditing/x64/OpenKey.TextService.dll', 'CaretEditing/x86/OpenKey.TextService.dll')
+    if ($manifest.windowsAppSdk -eq 'framework-dependent') {
+        $peFiles += @('OpenKey.UI/Microsoft.WindowsAppRuntime.Bootstrap.dll', "OpenKey.RuntimeCheck.$($manifest.architecture).exe")
+    }
+    foreach ($name in $peFiles) {
         $expectedMachine = if ($name -eq 'CaretEditing/x64/OpenKey.TextService.dll') { 0x8664 }
             elseif ($name -eq 'CaretEditing/x86/OpenKey.TextService.dll') { 0x14c } else { $machine }
         $entry = $entries[$name]

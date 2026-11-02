@@ -1,5 +1,15 @@
 # Gói beta Fluent UI — thử nghiệm nội bộ
 
+## Runtime giao diện dùng chung — 2026-11-02
+
+Release UI dùng Windows App Runtime 2.x chung, tối thiểu 2.5.1.0; Debug vẫn
+self-contained. Gói ZIP Release chỉ giữ app, XBF/PRI và bootstrapper, kèm
+`OpenKey.RuntimeCheck.<arch>.exe` kiểm tra framework cho tài khoản hiện tại.
+ZIP không tự cài thư viện: dùng `OpenKey-Setup.exe` để tải và cài VC++/Windows
+App Runtime nếu thiếu. Bộ cài online mặc định còn khoảng 5,85 MB; máy thiếu
+Windows App Runtime phải tải thêm installer Microsoft khoảng 120 MB.
+Build và pin/hash được mô tả trong [INSTALLER.md](INSTALLER.md).
+
 ## OpenKey Caret Editing — 2026-10-31
 
 Build thông thường và ZIP nay kèm `CaretEditing/OpenKey.CaretSetup.exe` cùng

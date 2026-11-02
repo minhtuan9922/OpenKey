@@ -19,9 +19,11 @@ function Add-TestEntry($Archive, [string]$Name, [byte[]]$Bytes) {
 }
 $cases = @('valid-x64', 'valid-x86', 'modified', 'missing', 'extra', 'duplicate-zip',
     'duplicate-record', 'traversal', 'invalid-arch', 'wrong-pe', 'required-missing',
-    'no-manifest', 'invalid-runtime', 'invalid-hash', 'caret-missing', 'caret-wrong-arch', 'caret-helper-wrong-arch')
+    'no-manifest', 'invalid-runtime', 'invalid-hash', 'caret-missing', 'caret-wrong-arch', 'caret-helper-wrong-arch',
+    'valid-shared-x64', 'valid-shared-x86', 'shared-missing-bootstrap', 'shared-probe-wrong-arch', 'shared-local-runtime', 'shared-invalid-version')
 foreach ($case in $cases) {
-    $architecture = if ($case -eq 'valid-x86') { 'x86' } else { 'x64' }
+    $architecture = if ($case -in @('valid-x86','valid-shared-x86')) { 'x86' } else { 'x64' }
+    $shared = $case -match 'shared'
     $engine = if ($architecture -eq 'x64') { 'OpenKey64.exe' } else { 'OpenKey32.exe' }
     $files = @{}
     foreach ($name in @($engine, 'OpenKeyUpdate.exe', 'OpenKey.UI/OpenKey.UI.exe')) { $files[$name] = New-TestPE $architecture }
@@ -36,6 +38,15 @@ foreach ($case in $cases) {
         'LICENSE', 'BETA_PACKAGING.md', 'check-prerequisites.ps1', 'ThirdPartyNotices/inventory.json')) { $files[$name] = [Text.Encoding]::UTF8.GetBytes('fixture-only') }
     if ($case -eq 'required-missing') { $files.Remove('LICENSE') }
     if ($case -eq 'wrong-pe') { $files[$engine] = New-TestPE 'x86' }
+    if ($shared) {
+        $files.Remove('OpenKey.UI/Microsoft.UI.Xaml.dll')
+        $files.Remove('OpenKey.UI/Microsoft.WindowsAppRuntime.dll')
+        $files['OpenKey.UI/Microsoft.WindowsAppRuntime.Bootstrap.dll'] = New-TestPE $architecture
+        $files["OpenKey.RuntimeCheck.$architecture.exe"] = New-TestPE $architecture
+        if ($case -eq 'shared-missing-bootstrap') { $files.Remove('OpenKey.UI/Microsoft.WindowsAppRuntime.Bootstrap.dll') }
+        if ($case -eq 'shared-probe-wrong-arch') { $files["OpenKey.RuntimeCheck.$architecture.exe"] = New-TestPE 'x86' }
+        if ($case -eq 'shared-local-runtime') { $files['OpenKey.UI/Microsoft.UI.Xaml.dll'] = New-TestPE $architecture }
+    }
     $records = @($files.Keys | Sort-Object | ForEach-Object {
         $hash = [Security.Cryptography.SHA256]::Create()
         try { $digest = [BitConverter]::ToString($hash.ComputeHash([byte[]]$files[$_])).Replace('-', '') } finally { $hash.Dispose() }
@@ -47,6 +58,10 @@ foreach ($case in $cases) {
         vcRuntimeMinimumVersion = '14.51.36231.0'; files = $records }
     if ($case -eq 'invalid-arch') { $manifest.architecture = 'arm64' }
     if ($case -eq 'invalid-runtime') { $manifest.vcRuntimeMinimumVersion = 'invalid' }
+    if ($shared) {
+        $manifest.windowsAppSdk = 'framework-dependent'
+        $manifest.windowsAppSdkMinimumVersion = if ($case -eq 'shared-invalid-version') {'1.0.0.0'} else {'2.5.1.0'}
+    }
     if ($case -eq 'modified') { $files['LICENSE'] = [Text.Encoding]::UTF8.GetBytes('tamper------') }
     if ($case -eq 'missing') { $files.Remove('LICENSE') }
     $zipPath = Join-Path $root ($case + '.zip')
@@ -60,7 +75,7 @@ foreach ($case in $cases) {
     } finally { $archive.Dispose() }
     $accepted = $false
     try { & (Join-Path $OpenKeyRepositoryRoot 'scripts\verify-beta.ps1') -ZipPath $zipPath | Out-Null; $accepted = $true } catch { }
-    if ($accepted -ne ($case -in @('valid-x64', 'valid-x86'))) { throw "Packaging test failed: $case" }
+    if ($accepted -ne ($case -in @('valid-x64', 'valid-x86', 'valid-shared-x64', 'valid-shared-x86'))) { throw "Packaging test failed: $case" }
     Write-Host "PASS $case"
 }
 $validZip = Join-Path $root 'valid-x64.zip'
@@ -73,5 +88,5 @@ foreach ($testArguments in @(@{ ExpectedSha256 = ('0' * 64) }, @{ ExpectedArchit
     try { & (Join-Path $OpenKeyRepositoryRoot 'scripts\verify-beta.ps1') $validZip @testArguments | Out-Null } catch { $rejected = $true }
     if (-not $rejected) { throw 'External hash/architecture mismatch was accepted.' }
 }
-Write-Host "20/20 synthetic package checks passed. No executables loaded; fixtures retained: $root"
+Write-Host "26/26 synthetic package checks passed. No executables loaded; fixtures retained: $root"
 & (Join-Path $OpenKeyRepositoryRoot 'scripts\test-sandbox-staging.ps1') -FixtureRoot $root
