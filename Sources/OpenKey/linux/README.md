@@ -1,12 +1,17 @@
 # OpenKey cho Linux — Fcitx5 proof-of-concept
 
-Nhánh `feature/ubuntu-direct-input` có module Fcitx5 thử nghiệm với hai input
+Nhánh `fix/ubuntu-direct-focus` có module Fcitx5 thử nghiệm với hai input
 method **OpenKey Telex** và **OpenKey VNI**, dùng engine C++ chung, cùng gói `.deb`
 alpha. Chưa có UI Fluent, tray riêng hoặc macro trong addon.
 
 Alpha.3 thêm lựa chọn **Preedit / Direct** trong cấu hình Fcitx5. Direct commit
 từng ký tự, không gửi preedit khi client hỗ trợ surrounding-text; Preedit vẫn là
 mặc định. Xem [cách bật và giới hạn](../../../docs/UBUNTU_INSTALL.md#chọn-cókhông-gạch-chân).
+
+Alpha.4 sửa khởi tạo Direct khi ô nhập có selection sẵn và đổi context lúc idle,
+không cần toggle EN–VI để reset từ cũ. Đây là kết quả test headless theo phản hồi
+desktop; chưa khẳng định VS Code đã hoạt động. Có diagnostics tùy chọn không ghi
+nội dung để phân biệt thiếu capability, context chưa hợp lệ và timeout.
 
 ## Gói cài Ubuntu
 

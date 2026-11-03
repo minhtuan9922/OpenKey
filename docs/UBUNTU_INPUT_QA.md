@@ -14,6 +14,24 @@ Alpha.3: đã có lựa chọn Preedit/Direct và test headless Direct qua addon
 thật, gồm xác nhận surrounding-text chậm/cũ, nhiều từ, timeout, đổi context và
 phục hồi chữ chờ. Chưa xác nhận Direct/IntelliSense trên VS Code thực tế.
 
+### Phản hồi người dùng — 2026-11-03, alpha.3 Direct
+
+| Ứng dụng/vùng nhập | Kết quả báo lại |
+|---|---|
+| Text editor trên desktop | Direct hoạt động ổn định; tên editor/toolkit chưa xác định |
+| VS Code | Không hoạt động; biểu hiện cụ thể và backend chưa xác định |
+| Firefox, thanh địa chỉ | Ban đầu không hoạt động; toggle EN–VI mới hoạt động |
+| Chrome, thanh địa chỉ | Ban đầu không hoạt động; toggle EN–VI mới hoạt động |
+
+Chưa có thông tin GNOME/KDE, Wayland/X11 hoặc backend native/XWayland cho các
+kết quả này. Không gán chúng vào một ô môi trường cụ thể trong ma trận bên dưới.
+Alpha.4 đã sửa hai trường hợp headless: selection ban đầu và context đổi lúc
+không còn edit chờ. Cần người dùng xác nhận lại trên browser/VS Code thật.
+
+Ca nghiệm thu bổ sung: Ctrl+L hoặc click thanh địa chỉ, giữ selection cũ rồi gõ
+ngay Telex/VNI; thử cả bôi đen từ trái/phải, address rỗng và address có sẵn. Đổi
+qua lại ô nhập trong trang và address bar nhiều lần, không toggle EN–VI.
+
 ## Ca bổ sung cho Direct
 
 - Chọn **Chế độ gõ / Input style → Direct** theo [hướng dẫn cài](UBUNTU_INSTALL.md).

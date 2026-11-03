@@ -29,13 +29,14 @@ inline std::string utf8(const std::u32string& text) {
 struct Snapshot {
     std::u32string text;
     unsigned cursor = 0;
+    unsigned anchor = 0;
     bool operator==(const Snapshot& other) const {
-        return cursor == other.cursor && text == other.text;
+        return cursor == other.cursor && anchor == other.anchor && text == other.text;
     }
-    static std::optional<Snapshot> read(const fcitx::SurroundingText& source) {
-        if (!source.isValid() || source.cursor() != source.anchor() ||
+    static std::optional<Snapshot> read(const fcitx::SurroundingText& source, bool allowSelection = false) {
+        if (!source.isValid() || (!allowSelection && source.cursor() != source.anchor()) ||
             source.text().size() > 65536) return std::nullopt;
-        return Snapshot{codepoints(source.text()), source.cursor()};
+        return Snapshot{codepoints(source.text()), source.cursor(), source.anchor()};
     }
 };
 
@@ -71,6 +72,20 @@ public:
         const auto oldWord = codepoints(before);
         const auto newWord = codepoints(after);
         const auto cursor = confirmed_->cursor;
+        if (cursor != confirmed_->anchor) {
+            // Only a NEW user keystroke may replace the selection via the
+            // client's ordinary commitString semantics. Never delete the
+            // selected text through deleteSurroundingText or reuse an old word.
+            if (!oldWord.empty()) return std::nullopt;
+            const auto start = std::min(cursor, confirmed_->anchor);
+            const auto length = std::max(cursor, confirmed_->anchor) - start;
+            Snapshot next = *confirmed_;
+            next.text.replace(start, length, newWord);
+            next.cursor = next.anchor = start + static_cast<unsigned>(newWord.size());
+            remember(*confirmed_);
+            expected_ = std::move(next);
+            return Edit{0, utf8(newWord)};
+        }
         if (cursor < oldWord.size() ||
             confirmed_->text.substr(cursor - oldWord.size(), oldWord.size()) != oldWord)
             return std::nullopt;
@@ -82,9 +97,11 @@ public:
         Snapshot intermediate = *confirmed_;
         intermediate.text.erase(cursor - removed, removed);
         intermediate.cursor -= removed;
+        intermediate.anchor = intermediate.cursor;
         Snapshot next = intermediate;
         next.text.insert(next.cursor, added);
         next.cursor += static_cast<unsigned>(added.size());
+        next.anchor = next.cursor;
         if (next == *confirmed_) return Edit{0, {}};
         // Identical snapshots have no protocol revision. An old echo could be
         // mistaken for a new ACK (notably after Backspace); fail open instead.

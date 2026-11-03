@@ -1,6 +1,6 @@
 # Task phát triển OpenKey cho Ubuntu
 
-Nhánh triển khai hiện tại: `feature/ubuntu-direct-input`
+Nhánh triển khai hiện tại: `fix/ubuntu-direct-focus`
 
 Mốc nền tảng v0.1: commit `b22c3eb`. Hướng dẫn build/cài thử và giới hạn của
 prototype: [Linux README](../Sources/OpenKey/linux/README.md).
@@ -36,6 +36,24 @@ prototype: [Linux README](../Sources/OpenKey/linux/README.md).
 - [ ] Đánh giá IBus fallback.
 
 Checklist nghiệm thu thủ công: [Ubuntu input QA](UBUNTU_INPUT_QA.md).
+
+### Phản hồi desktop 2026-11-03 — alpha.3 Direct
+
+- Người dùng xác nhận text editor gõ ổn định; chưa xác định tên/toolkit của editor.
+- VS Code không hoạt động; cần phân biệt không đặt dấu, fallback preedit hay lỗi
+  completion, kèm desktop/session/backend và capability thực tế.
+- Firefox/Chrome ở thanh địa chỉ: phải chuyển EN–VI sau nhận focus mới hoạt động.
+- [x] Tái hiện và sửa trường hợp selection có sẵn lúc bắt đầu từ: commit phím mới
+  thay selection theo semantics của ứng dụng, không xóa selection bằng surrounding API.
+- [x] Tái hiện và sửa context được tái sử dụng/đổi khi không còn edit chờ:
+  kết thúc sở hữu từ cũ, tự bắt đầu từ mới; không buộc toggle EN–VI.
+- [x] Test selection đảo chiều + ACK chậm, context đổi không notification riêng,
+  capability bị rút và không mất phím đầu khi fallback.
+- [x] Thêm `DirectDiagnostics` tùy chọn, mặc định tắt: ghi reason/app/frontend/
+  capability, không ghi nội dung gõ, selection, offset hay recovery text.
+- [ ] Kiểm thử lại alpha.4 trên Firefox/Chrome desktop, không toggle EN–VI.
+- [ ] Xác định nguyên nhân VS Code bằng biểu hiện cụ thể và diagnostics; không
+  coi các test focus headless là bằng chứng đã sửa xong VS Code.
 
 ## v0.2.1 — Gõ trực tiếp không preedit/gạch chân (ưu tiên)
 

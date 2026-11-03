@@ -19,6 +19,7 @@ namespace {
 FCITX_CONFIG_ENUM(InputStyle, Preedit, Direct);
 FCITX_CONFIGURATION(InputConfig,
     fcitx::Option<InputStyle> style{this, "InputStyle", "Chế độ gõ / Input style", InputStyle::Preedit};
+    fcitx::Option<bool> diagnostics{this, "DirectDiagnostics", "Direct diagnostics (no text content)", false};
 );
 struct QueuedKey { fcitx::Key key; bool release; int time; };
 bool printable(uint32_t value) {
@@ -38,6 +39,7 @@ struct State : fcitx::InputContextProperty {
     bool emitting = false;
     bool active = false;
     std::string recovery;
+    std::string lastReason;
     std::deque<QueuedKey> queue;
     std::unique_ptr<fcitx::EventSourceTime> timeout;
 };
@@ -51,7 +53,17 @@ public:
             fcitx::EventWatcherPhase::InputMethod, [this](fcitx::Event& event) {
                 auto* ic = static_cast<fcitx::InputContextEvent&>(event).inputContext();
                 auto& state = *ic->propertyFor(&factory_);
-                if (state.direct && !state.emitting) reconcile(ic);
+                if (!state.active || state.emitting) return;
+                if (state.direct) reconcile(ic);
+                else if (state.bypass && state.recovery.empty() && state.queue.empty() &&
+                         openkey::Snapshot::read(ic->surroundingText(), true)) {
+                    // A reused browser context must not require an EN-VI
+                    // toggle. New input will own only a fresh suffix.
+                    clearDirect(state);
+                    state.composition.clear();
+                    diagnose(ic, "context-ready");
+                    update(ic);
+                }
             });
     }
 
@@ -72,6 +84,7 @@ public:
     void activate(const fcitx::InputMethodEntry& entry, fcitx::InputContextEvent& event) override {
         auto* state = event.inputContext()->propertyFor(&factory_);
         state->active = true;
+        state->lastReason.clear();
         clearDirect(*state);
         state->composition = openkey::Composition(entry.uniqueName() == "openkey-vni" ? vVNI : vTelex);
         update(event.inputContext());
@@ -82,6 +95,7 @@ public:
         auto& state = *ic->propertyFor(&factory_);
         auto& composition = state.composition;
         if (ic->capabilityFlags() & fcitx::CapabilityFlag::PasswordOrSensitive) {
+            diagnose(ic, "bypass:sensitive-field");
             clearDirect(state);
             state.recovery.clear();
             composition.clear();
@@ -140,11 +154,22 @@ public:
         }
         if (!state.direct && composition.empty() && *config_.style == InputStyle::Direct &&
             (ic->capabilityFlags() & fcitx::CapabilityFlag::SurroundingText) &&
-            openkey::Snapshot::read(ic->surroundingText())) state.direct = true;
+            openkey::Snapshot::read(ic->surroundingText(), true)) state.direct = true;
         if (state.direct) {
-            if (directKey(ic, key, letterOrDigit, symbol)) event.filterAndAccept();
-            return;
+            if (directKey(ic, key, letterOrDigit, symbol)) {
+                event.filterAndAccept();
+                return;
+            }
+            if (state.direct || state.bypass ||
+                ((ic->capabilityFlags() & fcitx::CapabilityFlag::SurroundingText) &&
+                 openkey::Snapshot::read(ic->surroundingText(), true))) return;
+            // If the client withdrew capability/context while idle, process
+            // this same key in Preedit, rather than lose the first keystroke.
         }
+        if (*config_.style == InputStyle::Direct)
+            diagnose(ic, !composition.empty() ? "fallback:preedit-word-in-progress" :
+                ((ic->capabilityFlags() & fcitx::CapabilityFlag::SurroundingText)
+                    ? "fallback:invalid-surrounding-text" : "fallback:no-surrounding-capability"));
         if (key.states() & fcitx::KeyStates{fcitx::KeyState::Ctrl, fcitx::KeyState::Alt,
                             fcitx::KeyState::Super, fcitx::KeyState::Super2,
                             fcitx::KeyState::Meta}) {
@@ -209,6 +234,18 @@ private:
     fcitx::SimpleInputContextPropertyFactory<State> factory_;
     std::unique_ptr<fcitx::HandlerTableEntry<fcitx::EventHandler>> surroundingWatcher_;
 
+    void diagnose(fcitx::InputContext* ic, const char* reason) {
+        if (!*config_.diagnostics) return;
+        auto& state = *ic->propertyFor(&factory_);
+        if (state.lastReason == reason) return;
+        state.lastReason = reason;
+        // Only app/frontend identifiers and capability state. Never log text,
+        // keystrokes, URLs, selections, offsets or recovery contents.
+        FCITX_INFO() << "OpenKey Direct: reason=" << reason << " app=" << ic->program()
+                     << " frontend=" << ic->frontend() << " capabilities="
+                     << ic->capabilityFlags().toInteger();
+    }
+
     static void clearDirect(State& state) {
         if (state.timeout) state.timeout->setEnabled(false);
         state.tracker.clear();
@@ -224,7 +261,7 @@ private:
         state.queue.clear();
         if (ic->capabilityFlags() & fcitx::CapabilityFlag::PasswordOrSensitive) return;
         if (forceRecovery || (state.direct && state.tracker.observe(
-                openkey::Snapshot::read(ic->surroundingText())) == openkey::DirectInput::Observation::Changed)) {
+                openkey::Snapshot::read(ic->surroundingText(), true)) == openkey::DirectInput::Observation::Changed)) {
             // Original keys no longer have a safe destination. Do not replay
             // them over a new selection/cursor: retain printable text for an
             // explicit Enter/Escape choice instead of silently losing it.
@@ -251,6 +288,7 @@ private:
         clearDirect(state);
         state.composition.clear();
         state.bypass = true; // Do not interpret an untracked suffix as a new word.
+        diagnose(ic, state.recovery.empty() ? "bypass:unconfirmed-edit" : "recovery:context-changed");
         update(ic);
     }
 
@@ -272,8 +310,19 @@ private:
 
     void reconcile(fcitx::InputContext* ic) {
         auto& state = *ic->propertyFor(&factory_);
-        const auto status = state.tracker.observe(openkey::Snapshot::read(ic->surroundingText()));
-        if (status == openkey::DirectInput::Observation::Changed) { abandon(ic); return; }
+        const bool pending = state.tracker.pending();
+        const auto status = state.tracker.observe(openkey::Snapshot::read(ic->surroundingText(), true));
+        if (status == openkey::DirectInput::Observation::Changed) {
+            if (!pending && state.queue.empty()) {
+                // Focus/selection/completion changes while idle end ownership
+                // of the old suffix, not Vietnamese input for the whole field.
+                clearDirect(state);
+                state.composition.clear();
+                diagnose(ic, "context-reset");
+                update(ic);
+            } else abandon(ic);
+            return;
+        }
         if (status != openkey::DirectInput::Observation::Ready) return;
         if (state.timeout) state.timeout->setEnabled(false);
         auto queued = std::move(state.queue);
@@ -313,16 +362,27 @@ private:
             state.composition.clear();
             return false;
         }
+        const auto snapshot = openkey::Snapshot::read(ic->surroundingText(), true);
         if (!(ic->capabilityFlags() & fcitx::CapabilityFlag::SurroundingText) ||
-            state.tracker.observe(openkey::Snapshot::read(ic->surroundingText())) !=
-                openkey::DirectInput::Observation::Ready) {
-            abandon(ic);
-            return false;
+            state.tracker.observe(snapshot) != openkey::DirectInput::Observation::Ready) {
+            if (!state.tracker.pending() && state.queue.empty()) {
+                clearDirect(state);
+                state.composition.clear();
+                if (!(ic->capabilityFlags() & fcitx::CapabilityFlag::SurroundingText) || !snapshot)
+                    return false;
+                state.direct = true;
+                state.tracker.observe(snapshot);
+                diagnose(ic, "context-reset");
+            } else {
+                abandon(ic);
+                return false;
+            }
         }
+        diagnose(ic, snapshot && snapshot->cursor != snapshot->anchor ? "direct:selection-start" : "direct:ready");
         if (state.composition.full()) {
             state.composition.clear();
             state.tracker.clear();
-            state.tracker.observe(openkey::Snapshot::read(ic->surroundingText()));
+            state.tracker.observe(openkey::Snapshot::read(ic->surroundingText(), true));
         }
         auto candidate = state.composition;
         const bool handled = delimiter || (textKey ? candidate.append(static_cast<char>(symbol)) : candidate.backspace());

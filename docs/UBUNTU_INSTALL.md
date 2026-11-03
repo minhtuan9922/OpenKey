@@ -15,8 +15,8 @@ Từ root repository, sau khi đã có gói và checksum trong `dist/linux/`:
 
 ```bash
 cd dist/linux
-sha256sum -c 'fcitx5-openkey_3.1.0~alpha.3-1_amd64.deb.sha256'
-sudo apt install './fcitx5-openkey_3.1.0~alpha.3-1_amd64.deb'
+sha256sum -c 'fcitx5-openkey_3.1.0~alpha.4-1_amd64.deb.sha256'
+sudo apt install './fcitx5-openkey_3.1.0~alpha.4-1_amd64.deb'
 ```
 
 APT sẽ xử lý dependency được khai báo trong gói. Bản build trên Ubuntu 26.04
@@ -58,9 +58,14 @@ gõ được commit một lần; từ Direct đã nằm trong tài liệu không
 Cấu hình lưu tại `$XDG_CONFIG_HOME/fcitx5/conf/openkey.conf` hoặc mặc định
 `~/.config/fcitx5/conf/openkey.conf`, với `InputStyle=Preedit` hoặc `InputStyle=Direct`.
 
-Direct yêu cầu ứng dụng hỗ trợ surrounding-text hợp lệ và không có selection.
+Direct yêu cầu ứng dụng hỗ trợ surrounding-text hợp lệ. Từ alpha.4, selection
+có sẵn ở đầu từ (như address bar vừa nhận focus) được thay bởi phím mới qua
+`commitString` của ứng dụng; không dùng lệnh xóa surrounding để xóa selection.
+Sau đó chỉ theo dõi phần ký tự mới đã gõ. Chỉ phục hồi chữ đang chờ vẫn yêu cầu
+con trỏ không có selection như mô tả dưới đây.
 Nếu thiếu hỗ trợ ngay đầu từ, addon dùng Preedit. Nếu mất đồng bộ giữa từ, addon
-ngừng thay dấu và gõ nguyên trạng đến ranh giới tiếp theo; từ đó có thể còn phím
+ngừng thay dấu và gõ nguyên trạng đến ranh giới tiếp theo hoặc context hợp lệ mới;
+từ đó có thể còn phím
 Telex/VNI thô. Khi snapshot vẫn khớp vị trí cũ nhưng chờ quá lâu, phím chờ được
 chuyển tiếp nguyên trạng. Nếu context/selection đã thay đổi, phần chữ chưa nhập
 được giữ trong bảng phụ **Phím chưa nhập / Pending**: bỏ chọn vùng và đặt con trỏ,
@@ -85,6 +90,37 @@ phím đặt dấu; chuyển English khi cần gõ code nguyên trạng. Chế �
 composition kéo dài, không thay cấu hình IntelliSense hoặc bảo đảm mọi frontend
 Electron đều cung cấp API cần thiết. Hãy thử gõ `print` chưa Space để kiểm tra gợi ý,
 và kiểm tra Tab/Enter nhận completion, undo/redo trên VS Code thực tế.
+
+### Chẩn đoán khi Direct không hoạt động trong một ứng dụng
+
+Trong cấu hình OpenKey, bật tạm **Direct diagnostics (no text content)**
+(`DirectDiagnostics=True` trong cấu hình). Mặc định tùy chọn này tắt.
+Chỉ log reason, định danh app/frontend và capability flags; không log ký tự,
+URL, nội dung tài liệu, vị trí con trỏ hoặc phần chữ đang chờ.
+
+Các reason thường gặp:
+
+- `direct:ready` / `direct:selection-start`: đã đi vào Direct.
+- `fallback:no-surrounding-capability`: client chưa công bố capability cần thiết.
+- `fallback:invalid-surrounding-text`: capability có nhưng context chưa hợp lệ.
+- `fallback:preedit-word-in-progress`: từ hiện tại đã bắt đầu ở fallback Preedit;
+  kết thúc từ trước khi thử Direct ở từ kế tiếp.
+- `context-reset` / `context-ready`: bỏ sở hữu từ cũ khi context đổi, không buộc toggle EN–VI.
+- `bypass:unconfirmed-edit` / `recovery:context-changed`: không tiếp tục sửa từ cũ
+  vì edit chưa xác nhận hoặc context đã đổi; có thể cần phục hồi theo bảng Pending.
+- `bypass:sensitive-field`: ứng dụng khai báo ô Password/Sensitive.
+
+Log đi tới stderr của tiến trình Fcitx5. Nếu desktop launcher chuyển stderr vào
+user journal, có thể đọc bằng:
+
+```bash
+journalctl --user --since '10 minutes ago' --no-pager | grep 'OpenKey Direct:'
+```
+
+Nếu không có log, chưa thể kết luận addon không chạy: nơi thu stderr tùy launcher.
+Không chạy thêm daemon hoặc `fcitx5 -r` chỉ để lấy log khi chưa biết cách desktop
+khởi chạy Fcitx5. Khi báo lỗi, gửi reason tương ứng và thông tin GNOME/KDE,
+Wayland/X11, native Wayland/XWayland của ứng dụng nếu biết; tắt diagnostics sau đó.
 
 ## Gỡ và nâng cấp
 
@@ -117,8 +153,8 @@ frontend giả. Không dùng sudo hoặc cài gói khi build/test.
 Các file đầu ra nằm trong `dist/linux/`. Muốn debug dependency và payload:
 
 ```bash
-dpkg-deb --info 'dist/linux/fcitx5-openkey_3.1.0~alpha.3-1_amd64.deb'
-dpkg-deb --contents 'dist/linux/fcitx5-openkey_3.1.0~alpha.3-1_amd64.deb'
+dpkg-deb --info 'dist/linux/fcitx5-openkey_3.1.0~alpha.4-1_amd64.deb'
+dpkg-deb --contents 'dist/linux/fcitx5-openkey_3.1.0~alpha.4-1_amd64.deb'
 ```
 
 Đã kiểm tra local trên Ubuntu 26.04 amd64: 7/7 CTest, checksum, payload,

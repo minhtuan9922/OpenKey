@@ -144,6 +144,53 @@ int main(int argc, char** args) {
     const auto* savedStyle = savedSettings.valueByPath("InputStyle");
     require(savedStyle && *savedStyle == "Direct", "Input style was not persisted in isolated config");
 
+    // Browser address bars select their old value on focus. The first typed
+    // character should replace that selection without entering preedit.
+    Editor address(instance.inputContextManager());
+    address.document = U"https://example.invalid";
+    address.cursor = static_cast<unsigned>(address.document.size()); address.anchor = 0;
+    address.report(); activate(*addon, telex, address);
+    type(*addon, telex, address, "tieengs");
+    require(address.text() == "tiếng" && address.preedit().empty() && address.nonemptyPreedits == 0,
+            "Initially selected address bar required EN-VI toggle");
+
+    // Browsers can reuse an input context for a different editor without a
+    // matching IM activation. An idle surrounding-text change starts a fresh
+    // word; it must not lock the next field in bypass until EN-VI is toggled.
+    address.document.clear(); address.cursor = address.anchor = 0;
+    address.report();
+    type(*addon, telex, address, "vieetj");
+    require(address.text() == "việt" && address.preedit().empty(),
+            "Idle context change left Direct stuck in bypass");
+
+    Editor selectedBurst(instance.inputContextManager());
+    selectedBurst.document = U"old address";
+    selectedBurst.cursor = 0; selectedBurst.anchor = 11; // reversed selection
+    selectedBurst.report(); activate(*addon, vni, selectedBurst);
+    selectedBurst.delayed = true;
+    type(*addon, vni, selectedBurst, "vie6t5");
+    require(selectedBurst.text() == "v" && selectedBurst.deletions == 0,
+            "Initial selection must use normal commit, not surrounding deletion");
+    selectedBurst.ackAll();
+    require(selectedBurst.text() == "việt" && selectedBurst.nonemptyPreedits == 0,
+            "Delayed/reversed initial selection lost Direct mode");
+
+    Editor missingNotification(instance.inputContextManager());
+    activate(*addon, telex, missingNotification);
+    type(*addon, telex, missingNotification, "a");
+    missingNotification.document.clear(); missingNotification.cursor = missingNotification.anchor = 0;
+    missingNotification.surroundingText().setText("", 0, 0); // frontend did not dispatch a separate notification
+    type(*addon, telex, missingNotification, "tieengs");
+    require(missingNotification.text() == "tiếng", "First key after idle context change was lost");
+
+    Editor withdrawn(instance.inputContextManager());
+    activate(*addon, telex, withdrawn);
+    type(*addon, telex, withdrawn, "a");
+    withdrawn.setCapabilityFlags(fcitx::CapabilityFlag::Preedit);
+    type(*addon, telex, withdrawn, "tieengs");
+    require(withdrawn.text() == "a" && withdrawn.preedit() == "tiếng",
+            "Capability withdrawal lost the first fallback key");
+
     Editor editor(instance.inputContextManager());
     activate(*addon, telex, editor);
     type(*addon, telex, editor, "print");
