@@ -45,24 +45,71 @@ struct Snapshot {
 class DirectInput {
 public:
     struct Edit { unsigned removed; std::string inserted; };
+    struct Comparison {
+        const char* reference = "none";
+        bool comparable = false;
+        bool textChanged = false, cursorChanged = false, anchorChanged = false;
+    };
     enum class Observation { Ready, Waiting, Changed };
     bool pending() const { return expected_.has_value(); }
+    bool requiresFreshUpdate() const { return requireFreshUpdate_; }
 
-    void clear() { expected_.reset(); confirmed_.reset(); echoes_.clear(); }
+    void clear() { expected_.reset(); confirmed_.reset(); echoes_.clear(); requireFreshUpdate_ = false; }
 
-    Observation observe(const std::optional<Snapshot>& snapshot) {
+    Comparison compare(const std::optional<Snapshot>& snapshot) const {
+        Comparison result;
+        const auto& reference = expected_ ? expected_ : confirmed_;
+        if (!reference) return result;
+        result.reference = expected_ ? "expected" : "confirmed";
+        if (!snapshot) return result;
+        result.comparable = true;
+        result.textChanged = snapshot->text != reference->text;
+        result.cursorChanged = snapshot->cursor != reference->cursor;
+        result.anchorChanged = snapshot->anchor != reference->anchor;
+        return result;
+    }
+
+    // Read-only classification for diagnostics; never expose document content
+    // or turn a predicted snapshot into an acknowledgement.
+    const char* snapshotStatus(const std::optional<Snapshot>& snapshot) const {
+        if (!snapshot) return "invalid";
+        if (expected_) {
+            if (*snapshot == *expected_) return "expected";
+            for (const auto& echo : echoes_)
+                if (echo == *snapshot) return "stale";
+            return "unexpected";
+        }
+        if (!confirmed_) return "initial";
+        if (*confirmed_ == *snapshot) return "current";
+        for (const auto& echo : echoes_)
+            if (echo == *snapshot) return "stale";
+        return "changed";
+    }
+
+    Observation observe(const std::optional<Snapshot>& snapshot, bool fromUpdate = false) {
         if (!snapshot) return Observation::Changed;
         if (expected_) {
             if (*snapshot == *expected_) {
+                // Returning to an earlier state is legitimate (Backspace,
+                // tone changes), but a cache read alone must not ACK it.
+                if (requireFreshUpdate_ && !fromUpdate) return Observation::Waiting;
                 confirmed_ = expected_;
                 expected_.reset();
+                requireFreshUpdate_ = false;
                 return Observation::Ready;
             }
             for (const auto& echo : echoes_)
                 if (echo == *snapshot) return Observation::Waiting;
             return Observation::Changed;
         }
-        if (confirmed_ && !(*confirmed_ == *snapshot)) return Observation::Changed;
+        if (confirmed_ && !(*confirmed_ == *snapshot)) {
+            // An old notification arriving AFTER ACK is not proof the caret
+            // moved. Keep ownership provisionally, but never authorize an edit
+            // from this snapshot. The key path must revalidate current text.
+            for (const auto& echo : echoes_)
+                if (echo == *snapshot) return Observation::Waiting;
+            return Observation::Changed;
+        }
         confirmed_ = snapshot;
         return Observation::Ready;
     }
@@ -103,10 +150,13 @@ public:
         next.cursor += static_cast<unsigned>(added.size());
         next.anchor = next.cursor;
         if (next == *confirmed_) return Edit{0, {}};
-        // Identical snapshots have no protocol revision. An old echo could be
-        // mistaken for a new ACK (notably after Backspace); fail open instead.
+        // A repeated state needs a surrounding-text notification after this
+        // edit, not merely a matching cached snapshot. This is still a
+        // revisionless protocol: identical delayed notifications cannot be
+        // distinguished absolutely, so serialize and validate every next key.
+        requireFreshUpdate_ = false;
         for (const auto& echo : echoes_)
-            if (next == echo) return std::nullopt;
+            if (next == echo) { requireFreshUpdate_ = true; break; }
         remember(*confirmed_);
         if (removed) remember(intermediate);
         expected_ = std::move(next);
@@ -115,6 +165,7 @@ public:
 
 private:
     std::optional<Snapshot> confirmed_, expected_;
+    bool requireFreshUpdate_ = false;
     std::deque<Snapshot> echoes_;
     void remember(const Snapshot& value) {
         echoes_.push_back(value);

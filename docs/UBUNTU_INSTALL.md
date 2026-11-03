@@ -7,7 +7,13 @@ hợp Linux của bản fork. Mã nguồn/giấy phép: GPL-3.0, xem
 
 Đây là bản alpha, chưa có giao diện Fluent giống Windows, tray riêng hoặc macro.
 Từ alpha.3 có lựa chọn Preedit/Direct được lưu trong cấu hình Fcitx5.
-Chưa nghiệm thu Direct và IntelliSense trên VS Code desktop thật.
+Kiểm thử người dùng trên GNOME/Wayland, alpha.7: profile textarea thông thường
+giữ gợi ý nhưng không chuyển dấu; profile textarea với accessibility support bật
+gõ `cộng hoà`, không gạch chân và giữ gợi ý. Alpha.8 đã được người dùng xác nhận
+sửa từ bằng Backspace đúng mong đợi; các ca Tab/Enter, undo/redo, đổi focus và gõ
+nhanh cũng được báo đạt trong profile accessible này (không thay toàn bộ ma trận QA).
+Alpha.9 bổ sung xóa Space vừa gõ để sửa tiếp từ trước đó; người dùng đã xác nhận
+các ca hướng dẫn đạt mong đợi trên profile accessible này.
 
 ## Cài gói
 
@@ -15,8 +21,8 @@ Từ root repository, sau khi đã có gói và checksum trong `dist/linux/`:
 
 ```bash
 cd dist/linux
-sha256sum -c 'fcitx5-openkey_3.1.0~alpha.4-1_amd64.deb.sha256'
-sudo apt install './fcitx5-openkey_3.1.0~alpha.4-1_amd64.deb'
+sha256sum -c 'fcitx5-openkey_3.1.0~alpha.9-1_amd64.deb.sha256'
+sudo apt install './fcitx5-openkey_3.1.0~alpha.9-1_amd64.deb'
 ```
 
 APT sẽ xử lý dependency được khai báo trong gói. Bản build trên Ubuntu 26.04
@@ -95,7 +101,8 @@ và kiểm tra Tab/Enter nhận completion, undo/redo trên VS Code thực tế.
 
 Trong cấu hình OpenKey, bật tạm **Direct diagnostics (no text content)**
 (`DirectDiagnostics=True` trong cấu hình). Mặc định tùy chọn này tắt.
-Chỉ log reason, định danh app/frontend và capability flags; không log ký tự,
+Chỉ log reason/cause, trạng thái snapshot/pending/notified, định danh app/frontend và
+capability flags; không log ký tự,
 URL, nội dung tài liệu, vị trí con trỏ hoặc phần chữ đang chờ.
 
 Các reason thường gặp:
@@ -106,9 +113,57 @@ Các reason thường gặp:
 - `fallback:preedit-word-in-progress`: từ hiện tại đã bắt đầu ở fallback Preedit;
   kết thúc từ trước khi thử Direct ở từ kế tiếp.
 - `context-reset` / `context-ready`: bỏ sở hữu từ cũ khi context đổi, không buộc toggle EN–VI.
+- `context-wait cause=late-known-echo` (alpha.6): snapshot cũ đã biết đến sau ACK.
+  Tạm giữ lịch sử, không sửa theo snapshot cũ. Trước phím tiếp theo, cache phải
+  khớp snapshot hiện tại đã xác nhận; nếu còn cũ thì bỏ lịch sử và bắt đầu từ mới.
+- `context-invalidated` (alpha.6): ghi trạng thái trước khi bỏ lịch sử lúc idle.
+  `cause=key-snapshot-not-current` là cache vẫn chưa khớp khi nhận phím tiếp theo;
+  `surrounding-mismatch`/`surrounding-invalid` là cập nhật khác/không hợp lệ.
 - `bypass:unconfirmed-edit` / `recovery:context-changed`: không tiếp tục sửa từ cũ
   vì edit chưa xác nhận hoặc context đã đổi; có thể cần phục hồi theo bảng Pending.
 - `bypass:sensitive-field`: ứng dụng khai báo ô Password/Sensitive.
+- `edit-aborted` (alpha.5): ghi trước khi dọn trạng thái; xem `cause` để phân biệt
+  `ack-timeout` (hết 250 ms chờ xác nhận), `surrounding-mismatch` (snapshot không
+  khớp), `surrounding-invalid` (snapshot không hợp lệ), `capability-withdrawn`,
+  `queue-overflow` hoặc `prepare-rejected`. Không suy ra timeout chỉ từ dòng
+  `bypass:unconfirmed-edit`.
+
+`snapshot=stale` nghĩa là cache khớp một trạng thái cũ đã biết (kể cả sau ACK);
+`unexpected` là trạng thái khác cả dự kiến lẫn các echo được nhận diện;
+`invalid` là snapshot không dùng được (không nhất thiết thiếu capability).
+`expected` khớp edit đang chờ; `initial`/`current`/`changed` mô tả trạng thái khi
+không có edit chờ. `pending=1` là có edit chưa được xác nhận tại lúc log.
+`notified=1` nghĩa là đã nhận ít nhất một sự kiện surrounding-text khi edit đang
+chờ; với `ack-timeout snapshot=stale`, dùng trường này để phân biệt không nhận
+sự kiện cập nhật (`0`) với có cập nhật nhưng vẫn là trạng thái cũ (`1`). Đây là
+quan sát ở phía addon, không chứng minh lỗi nằm ở VS Code hay bridge/compositor.
+Log chỉ phân loại, không chứa snapshot thực tế hay độ dài/vị trí trong tài liệu.
+
+Từ alpha.7, `reference=confirmed` so sánh với snapshot đã xác nhận gần nhất;
+`reference=expected` so với kết quả dự kiến của edit đang chờ (không phải ACK).
+`reference=none` là chưa có mốc so sánh. Chỉ đọc các cờ thay đổi nếu
+`comparable=1`; `comparable=0` nghĩa là thiếu mốc hoặc snapshot không hợp lệ,
+không được hiểu các cờ `0` là không thay đổi.
+
+- `text_changed=1`: chuỗi surrounding-text khác; chưa chứng minh tài liệu thực
+  sự bị sửa (frontend có thể báo một cửa sổ văn bản khác).
+- `cursor_changed=1`: offset con trỏ trong snapshot khác; không ghi offset.
+- `anchor_changed=1`: offset đầu selection khác; không ghi offset.
+
+Các cờ độc lập và có thể cùng bằng `1`. Khi snapshot bị cắt/rebase, offset cũng
+có thể thay đổi mà người dùng không di chuyển con trỏ. Vì thế các cờ này giúp
+khoanh vùng, chưa đủ để cho phép bỏ kiểm tra an toàn hoặc quy lỗi cho VS Code.
+Đọc dòng `context-invalidated`/`edit-aborted` trước khi tracker bị dọn; dòng
+`context-reset reference=none comparable=0` sau đó không còn mốc để so sánh.
+
+Nếu `app=gnome-shell frontend=ibus`, đây là định danh bridge mà Fcitx5 nhìn thấy,
+không chứng minh ứng dụng đích là GNOME Shell hay riêng VS Code. Khi thử alpha.9,
+ghi giờ bắt đầu/kết thúc, chọn Direct và gõ `coongj hoaf` trong tài liệu trống
+không chứa dữ liệu nhạy cảm, rồi lấy log cùng khoảng thời gian và báo kết quả.
+Sau đó thử lại Preedit riêng để đối chiếu; không thay cấu hình nhiều ứng dụng
+cùng lúc. Alpha.9 không thay timeout, kiểm tra suffix/cursor/selection hoặc thứ tự edit.
+Không khôi phục lịch sử chỉ vì vùng trước con trỏ có cùng hậu tố: không đủ bằng
+chứng để phân biệt cửa sổ surrounding-text đổi với di chuyển sang từ giống nhau.
 
 Log đi tới stderr của tiến trình Fcitx5. Nếu desktop launcher chuyển stderr vào
 user journal, có thể đọc bằng:
@@ -121,6 +176,60 @@ Nếu không có log, chưa thể kết luận addon không chạy: nơi thu std
 Không chạy thêm daemon hoặc `fcitx5 -r` chỉ để lấy log khi chưa biết cách desktop
 khởi chạy Fcitx5. Khi báo lỗi, gửi reason tương ứng và thông tin GNOME/KDE,
 Wayland/X11, native Wayland/XWayland của ứng dụng nếu biết; tắt diagnostics sau đó.
+
+### Đối chứng riêng cho VS Code
+
+Với alpha.7, người dùng xác nhận profile `accessible wayland` gõ đúng một lượt,
+không gạch chân và giữ gợi ý; `textarea wayland` chưa chuyển dấu. Cửa sổ XWayland
+qua GTK/IBus thiếu surrounding capability nên fallback Preedit có gạch chân. Dùng
+[trình chạy profile đối chứng](UBUNTU_VSCODE_INPUT_INVESTIGATION.md) để phân biệt
+đường EditContext/textarea/accessibility, không sửa profile VS Code chính.
+
+Trong profile thử `accessible`, các settings là:
+
+```json
+{
+  "editor.editContext": false,
+  "editor.accessibilitySupport": "on"
+}
+```
+
+Đây là cấu hình tương thích tạm thời trên máy đã thử, không bảo đảm mọi máy;
+accessibility support có thể thay đổi hành vi editor. Ca sửa từ alpha.8 và các
+thao tác cơ bản đã được người dùng báo đạt trên profile này.
+
+Alpha.8: `coongg` → `côngg` → Backspace → `công` → `j` → `cộng` đã được người
+dùng thử đạt. Backspace xóa ký tự hiển thị, không hoàn tác phím Telex cuối. Vì vậy để sửa
+`congg` (không có `oo`), còn cần nhập đủ phím tạo `ô`; không mặc định bỏ một `g`
+rồi thêm `j` sẽ tạo dấu mũ. Thử thêm xóa `g` trong `cộng`, gõ lại `g`, đổi dấu,
+gõ nhanh, selection/focus và undo/redo.
+
+Nếu edit sẽ quay lại snapshot đã từng gặp, alpha.8 không từ chối ngay như alpha.7;
+thay vào đó chờ surrounding-text notification sau khi bắt đầu edit. Cache trùng
+khớp nhưng không có notification chưa được tính là ACK (`ack_requires_update=1`).
+Phím sau vẫn xếp hàng; mất context hoặc quá 250 ms vẫn đi vào đường bảo vệ cũ.
+Giao thức không có revision cho snapshot: notification trễ có nội dung hoàn toàn
+giống kết quả mong đợi vẫn không phân biệt tuyệt đối được với ACK mới. Không coi
+điều kiện notification là bằng chứng chống mọi race; cần desktop QA trước beta.
+
+### Xóa Space vừa gõ để sửa tiếp từ — alpha.9, Direct
+
+Ví dụ: `coong` → Space → Backspace → `j` phải thành `cộng`; hoặc `ho` → Space →
+Backspace → `af` thành `hoà`. Với VNI: `co6ng` → Space → Backspace → `5` thành `cộng`.
+Chỉ phục hồi sau khi đã xóa hết khoảng trắng ngay sau từ đang được quản lý.
+
+Giới hạn: giữ một từ vừa kết thúc và tối đa 32 dấu cách ASCII liên tiếp, không
+lưu lịch sử cả tài liệu, không dò ngược từ đã nhập trước đó. Khi gõ từ mới, dấu
+câu, Tab/Enter, shortcut, đổi con trỏ/selection, đổi chế độ hoặc mất focus, lịch
+sử này bị bỏ. Dán/undo làm context khác cũng bỏ lịch sử; không tự dựng lại từ.
+Tính năng này chỉ áp dụng Direct, không thay hành vi Preedit dự phòng.
+
+Trước khi xóa Space, kiểm tra snapshot hiện tại và toàn bộ hậu tố gồm từ cũ cùng
+chuỗi dấu cách; xóa/sửa vẫn đợi ACK như các edit khác. Log `boundary-restored`
+ghi nhận bắt đầu khôi phục lịch sử sau Space cuối (không chứng minh edit đã ACK).
+Đã có test Telex/VNI, nhiều Space, Unicode, ACK trễ, đổi selection/caret/focus,
+giới hạn lịch sử. Người dùng đã thử hai ca hướng dẫn trên desktop và báo đúng
+mong đợi; chưa mở rộng nghiệm thu sang mọi ứng dụng/backend.
 
 ## Gỡ và nâng cấp
 
@@ -153,8 +262,8 @@ frontend giả. Không dùng sudo hoặc cài gói khi build/test.
 Các file đầu ra nằm trong `dist/linux/`. Muốn debug dependency và payload:
 
 ```bash
-dpkg-deb --info 'dist/linux/fcitx5-openkey_3.1.0~alpha.4-1_amd64.deb'
-dpkg-deb --contents 'dist/linux/fcitx5-openkey_3.1.0~alpha.4-1_amd64.deb'
+dpkg-deb --info 'dist/linux/fcitx5-openkey_3.1.0~alpha.9-1_amd64.deb'
+dpkg-deb --contents 'dist/linux/fcitx5-openkey_3.1.0~alpha.9-1_amd64.deb'
 ```
 
 Đã kiểm tra local trên Ubuntu 26.04 amd64: 7/7 CTest, checksum, payload,

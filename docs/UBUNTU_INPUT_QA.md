@@ -32,6 +32,75 @@ Ca nghiệm thu bổ sung: Ctrl+L hoặc click thanh địa chỉ, giữ selecti
 ngay Telex/VNI; thử cả bôi đen từ trái/phải, address rỗng và address có sẵn. Đổi
 qua lại ô nhập trong trang và address bar nhiều lần, không toggle EN–VI.
 
+### Bổ sung kết quả VS Code và chẩn đoán alpha.5
+
+Người dùng xác nhận Direct giữ nguyên `coongj`/`hoaf`, popup gợi ý code vẫn hiện;
+Preedit chuyển dấu được nhưng không hiện gợi ý trong lúc composition. Đã kiểm
+tra môi trường hiện tại: VMware, GNOME/Wayland, VS Code dùng backend Wayland.
+Log qua bridge `app=gnome-shell frontend=ibus` có `bypass:unconfirmed-edit` nhưng
+không định danh được ứng dụng đích; chưa xác nhận nguyên nhân cụ thể của VS Code.
+
+Alpha.5 chỉ bổ sung `edit-aborted` với cause/snapshot/pending và test headless
+cho diagnostics; không đổi thuật toán Direct hoặc thời gian chờ 250 ms.
+Cần thử riêng VS Code trong khoảng giờ xác định theo
+[hướng dẫn chẩn đoán](UBUNTU_INSTALL.md#chẩn-đoán-khi-direct-không-hoạt-động-trong-một-ứng-dụng).
+Chưa nghiệm thu Direct hoặc khả năng vừa chuyển dấu vừa giữ IntelliSense.
+
+### Alpha.5 retest và alpha.6
+
+Lần thử người dùng lúc 19:59:33–19:59:35 ghi nhận `direct:ready` xen kẽ
+`context-reset`; không có timeout/edit-aborted trong khoảng này. Vì alpha.5 log
+reset sau khi dọn tracker, chưa xác định snapshot đó là echo cũ hay context khác.
+
+Alpha.6 sửa một trường hợp tái hiện headless: ACK thành công, nhận lại snapshot
+cũ đã biết, rồi cache trở lại hiện tại trước phím kế tiếp. Giữ lịch sử trong
+khoảng này, nhưng vẫn reset nếu cache chưa khớp khi nhận phím mới. Test Telex/VNI
+xác nhận chuyển dấu và không preedit; test cache cũ tại phím mới vẫn không cho
+phép sửa từ cũ. Chưa kiểm thử lại trên desktop. Không coi đây là bằng chứng đã
+sửa VS Code; cần đọc `context-wait`/`context-invalidated` nếu lỗi tiếp diễn.
+
+### Alpha.6 retest và alpha.7 diagnostics
+
+Log lần thử alpha.6 lúc 20:05:40–20:05:48 vẫn reset do `surrounding-mismatch`,
+`snapshot=changed pending=0 notified=1`, không phải echo cũ đã được lưu.
+Không coi alpha.6 là đã sửa VS Code.
+
+Alpha.7 bổ sung cờ `text_changed`/`cursor_changed`/`anchor_changed`, chỉ có ý nghĩa
+khi `comparable=1`, kèm `reference=confirmed|expected|none`. Không log nội dung,
+hash, độ dài hoặc offset. Test helper và logger kiểm tra từng thành phần đổi riêng,
+snapshot thiếu và mốc expected chưa ACK; không thay đổi thuật toán Direct.
+Chưa có kết quả desktop alpha.7. Xem [hướng dẫn đọc log](UBUNTU_INSTALL.md).
+
+Cập nhật sau retest: alpha.7 vẫn reset với cả ba cờ thay đổi hoặc chỉ
+`text_changed=1`. XWayland gõ có gạch chân do thiếu surrounding capability và
+fallback Preedit, không phải Direct thành công. Ma trận đối chứng profile riêng
+và bằng chứng mã nguồn ở [điều tra VS Code](UBUNTU_VSCODE_INPUT_INVESTIGATION.md).
+
+### Profile accessible và alpha.8 correction
+
+Người dùng xác nhận cả hai profile có gợi ý, nhưng textarea/off không chuyển dấu
+(hành vi như English), textarea/accessibility on gõ đúng một lượt được `cộng hoà`,
+không gạch chân. Ca accessible chưa đạt sửa từ: Backspace rồi đặt dấu bị mất lịch sử.
+Log có `prepare-rejected snapshot=current`.
+
+Alpha.8 sửa ca headless `coongg` → Backspace → `j` thành `cộng`, cùng VNI,
+xóa/gõ lại và đổi dấu quay lại snapshot đã gặp. Cache matching không notification
+chưa giải phóng phím chờ; selection/context đổi vẫn giữ đường bảo vệ. Chưa có
+desktop retest; không coi cả ca Direct là đạt chỉ vì sửa headless qua test.
+
+### Alpha.8 desktop và alpha.9 Space correction
+
+Người dùng xác nhận alpha.8 sửa Backspace đúng mong đợi, rồi xác nhận Tab/Enter
+nhận gợi ý, undo/redo, đổi focus và gõ nhanh đúng mong đợi trên profile accessible.
+Không gán kết quả này cho mọi ứng dụng/backend hoặc các phiên bản khác.
+
+Yêu cầu mới: xóa Space gõ nhầm rồi đặt dấu tiếp. Alpha.9 giữ một từ trước boundary
+và tối đa 32 Space, phục hồi sau khi xóa hết Space trong context còn khớp.
+Test `coong` → Space → Backspace → `j` ra `cộng`, `ho` → Space → Backspace →
+`af` ra `hoà`, VNI tương đương. Có test ACK trễ và context/selection/caret/focus
+đổi để tránh sửa từ cũ. Người dùng đã xác nhận alpha.9 xóa Space rồi sửa tiếp từ
+đúng mong đợi trên profile accessible; chưa thay thế ma trận backend/ứng dụng.
+
 ## Ca bổ sung cho Direct
 
 - Chọn **Chế độ gõ / Input style → Direct** theo [hướng dẫn cài](UBUNTU_INSTALL.md).

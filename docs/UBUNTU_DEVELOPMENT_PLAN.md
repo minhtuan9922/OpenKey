@@ -10,7 +10,14 @@ Xây dựng phiên bản OpenKey cho Ubuntu với trải nghiệm gần giống 
 - Giữ lại engine, kiểu gõ, bảng mã, macro và chuyển mã.
 - Tích hợp phù hợp với X11, Wayland, Fcitx5 và IBus.
 
-Hiện phần Linux mới chỉ là placeholder “Coming soon” trong [Sources/OpenKey/linux/README.md](../Sources/OpenKey/linux/README.md). Engine đã có định nghĩa phím Linux trong [linux.h](../Sources/OpenKey/engine/platforms/linux.h), còn giao diện Windows đã có cấu trúc điều hướng tại [MainWindow.xaml](../Sources/OpenKey/win32/OpenKey/OpenKey.UI/MainWindow.xaml).
+Trạng thái hiện tại: đã có engine build/test Linux, addon Fcitx5 với Preedit/Direct
+và gói alpha.9. Người dùng đã kiểm thử các ca Direct trên VS Code với profile
+accessible; chưa nghiệm thu toàn bộ backend/ứng dụng. Đang triển khai nền tảng
+session service v0.3 với tray chỉ đọc tùy chọn (chưa nghiệm thu panel desktop),
+chưa có cửa sổ UI điều khiển. Xem [task đang theo dõi](UBUNTU_TASKS.md),
+[Linux README](../Sources/OpenKey/linux/README.md) và [service](UBUNTU_SERVICE.md).
+Giao diện Windows vẫn là tham chiếu tại
+[MainWindow.xaml](../Sources/OpenKey/win32/OpenKey/OpenKey.UI/MainWindow.xaml).
 
 ## 2. Kiến trúc đề xuất
 

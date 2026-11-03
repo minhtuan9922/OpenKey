@@ -2,7 +2,15 @@
 
 Nhánh `fix/ubuntu-direct-focus` có module Fcitx5 thử nghiệm với hai input
 method **OpenKey Telex** và **OpenKey VNI**, dùng engine C++ chung, cùng gói `.deb`
-alpha. Chưa có UI Fluent, tray riêng hoặc macro trong addon.
+alpha. Chưa có UI cấu hình hoàn chỉnh hoặc macro trong addon. Session service tùy chọn có
+tray riêng và [autostart opt-in](../../../docs/UBUNTU_SERVICE.md#tự-khởi-động-tray-sau-đăng-nhập--opt-in),
+chưa đưa vào gói addon alpha.9; build/install không tự bật autostart.
+
+Đã có [UI preview Qt Quick/QML v0.4](../../../docs/UBUNTU_UI.md) với sidebar
+theo Windows và theme sáng/tối. Build opt-in `OPENKEY_BUILD_UI=ON`; giao diện
+đọc trạng thái lấy mẫu từ service và cấu hình người dùng đã lưu; có Apply
+Preedit/Direct qua Fcitx5 và xác nhận runtime, chưa bảo đảm lưu bền;
+chưa mở từ tray hoặc đưa vào gói `.deb`. Có `--offline` để xem UI không đọc dữ liệu.
 
 Alpha.3 thêm lựa chọn **Preedit / Direct** trong cấu hình Fcitx5. Direct commit
 từng ký tự, không gửi preedit khi client hỗ trợ surrounding-text; Preedit vẫn là
@@ -22,6 +30,15 @@ Bản build trên Ubuntu 26.04 yêu cầu runtime của máy build; không mặc
 Ubuntu cũ hơn. CI có job build riêng trên Ubuntu 24.04, chưa chạy trên remote.
 
 ## Build và test
+
+Session service v0.3 (single-instance, monitor và tray trạng thái tùy chọn;
+có menu chuyển Telex/VNI/tiếng Anh (US), mở cấu hình Fcitx5 và thoát riêng tray;
+chưa có cửa sổ cài đặt riêng):
+[hướng dẫn service](../../../docs/UBUNTU_SERVICE.md). Build tùy chọn, tách khỏi addon;
+không cần cài lại alpha.9 để dùng bộ gõ đang hoạt động.
+Hotkey mở cấu hình X11 là prototype opt-in `OPENKEY_BUILD_X11_HOTKEY=ON` và
+`--run-tray --x11-settings-hotkey`; mặc định không bắt phím, không hỗ trợ Wayland.
+Xem [giới hạn và kiểm thử Xvfb](../../../docs/UBUNTU_SERVICE.md#hotkey-mở-cấu-hình-trên-x11--thử-nghiệm-opt-in).
 
 Công cụ: compiler C++20 cho addon, CMake >= 3.16, Ninja và SDK Fcitx5 >= 5.0.14.
 Engine vẫn dùng C++17. Trên Ubuntu, tên gói SDK core là `libfcitx5core-dev`:
@@ -91,7 +108,9 @@ cả thư mục Fcitx5 hoặc profile người dùng.
   selection, queue overflow hoặc timeout thì ngừng sửa. Chỉ chuyển tiếp phím gốc
   khi vị trí vẫn khớp snapshot đã biết; nếu context đã thay đổi thì giữ chữ chờ
   trong bảng phụ, cần Enter xác nhận chèn hoặc Escape hủy.
-  Các trường hợp mơ hồ (ví dụ Backspace quay lại snapshot cũ) ngừng theo dõi từ.
+  Từ alpha.8, edit quay lại snapshot cũ phải có notification sau edit, không chỉ
+  cache khớp. Alpha.9 giữ một từ và tối đa 32 Space để xóa Space rồi sửa tiếp từ;
+  đổi context/focus hoặc gõ từ mới sẽ bỏ lịch sử này.
   Đây không phải cam kết hỗ trợ mọi Electron/Wayland frontend hoặc undo grouping.
 - Chưa bật macro, cấu hình engine lưu bền, bảng mã legacy, smart-switch theo ứng dụng,
   global hotkey hay UI riêng. Fcitx5 quản lý chuyển input method ở giai đoạn này.

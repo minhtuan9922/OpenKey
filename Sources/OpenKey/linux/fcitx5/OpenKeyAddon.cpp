@@ -33,11 +33,14 @@ void popCharacter(std::string& text) {
 }
 struct State : fcitx::InputContextProperty {
     openkey::Composition composition;
+    std::optional<openkey::Composition> previousWord;
+    std::string trailingSpaces;
     openkey::DirectInput tracker;
     bool direct = false;
     bool bypass = false;
     bool emitting = false;
     bool active = false;
+    bool pendingNotified = false;
     std::string recovery;
     std::string lastReason;
     std::deque<QueuedKey> queue;
@@ -53,8 +56,10 @@ public:
             fcitx::EventWatcherPhase::InputMethod, [this](fcitx::Event& event) {
                 auto* ic = static_cast<fcitx::InputContextEvent&>(event).inputContext();
                 auto& state = *ic->propertyFor(&factory_);
-                if (!state.active || state.emitting) return;
-                if (state.direct) reconcile(ic);
+                if (!state.active) return;
+                if (state.direct && state.tracker.pending()) state.pendingNotified = true;
+                if (state.emitting) return;
+                if (state.direct) reconcile(ic, true);
                 else if (state.bypass && state.recovery.empty() && state.queue.empty() &&
                          openkey::Snapshot::read(ic->surroundingText(), true)) {
                     // A reused browser context must not require an EN-VI
@@ -134,7 +139,7 @@ public:
         }
         if (state.direct && state.tracker.pending()) {
             // Preserve original event order until the previous edit is ACKed.
-            if (state.queue.size() >= 64) abandon(ic);
+            if (state.queue.size() >= 64) abandon(ic, "queue-overflow");
             else {
                 state.queue.push_back({event.rawKey(), event.isRelease(), event.time()});
                 event.filterAndAccept();
@@ -234,16 +239,29 @@ private:
     fcitx::SimpleInputContextPropertyFactory<State> factory_;
     std::unique_ptr<fcitx::HandlerTableEntry<fcitx::EventHandler>> surroundingWatcher_;
 
-    void diagnose(fcitx::InputContext* ic, const char* reason) {
+    void diagnose(fcitx::InputContext* ic, const char* reason, const char* cause = "none") {
         if (!*config_.diagnostics) return;
         auto& state = *ic->propertyFor(&factory_);
-        if (state.lastReason == reason) return;
-        state.lastReason = reason;
-        // Only app/frontend identifiers and capability state. Never log text,
+        const auto snapshot = openkey::Snapshot::read(ic->surroundingText(), true);
+        const auto comparison = state.tracker.compare(snapshot);
+        const std::string signature = std::string(reason) + ":" + cause + ":" + comparison.reference +
+            std::to_string(comparison.comparable) + std::to_string(comparison.textChanged) +
+            std::to_string(comparison.cursorChanged) + std::to_string(comparison.anchorChanged);
+        if (state.lastReason == signature) return;
+        state.lastReason = signature;
+        // Only identifiers, enum classifications and boolean/capability state. Never log text,
         // keystrokes, URLs, selections, offsets or recovery contents.
         FCITX_INFO() << "OpenKey Direct: reason=" << reason << " app=" << ic->program()
                      << " frontend=" << ic->frontend() << " capabilities="
-                     << ic->capabilityFlags().toInteger();
+                     << ic->capabilityFlags().toInteger() << " cause=" << cause
+                     << " snapshot=" << state.tracker.snapshotStatus(snapshot)
+                     << " pending=" << state.tracker.pending()
+                     << " notified=" << state.pendingNotified
+                     << " reference=" << comparison.reference << " comparable=" << comparison.comparable
+                     << " text_changed=" << comparison.textChanged
+                     << " cursor_changed=" << comparison.cursorChanged
+                     << " anchor_changed=" << comparison.anchorChanged
+                     << " ack_requires_update=" << state.tracker.requiresFreshUpdate();
     }
 
     static void clearDirect(State& state) {
@@ -251,6 +269,9 @@ private:
         state.tracker.clear();
         state.queue.clear();
         state.direct = state.bypass = false;
+        state.pendingNotified = false;
+        state.previousWord.reset();
+        state.trailingSpaces.clear();
     }
 
     // Replay original queued keys rather than rewriting any text after loss of
@@ -282,8 +303,10 @@ private:
         state.emitting = emitting;
     }
 
-    void abandon(fcitx::InputContext* ic) {
+    void abandon(fcitx::InputContext* ic, const char* cause) {
         auto& state = *ic->propertyFor(&factory_);
+        // Inspect before settle()/clearDirect() change the pending state.
+        diagnose(ic, "edit-aborted", cause);
         settle(ic);
         clearDirect(state);
         state.composition.clear();
@@ -308,22 +331,27 @@ private:
         });
     }
 
-    void reconcile(fcitx::InputContext* ic) {
+    void reconcile(fcitx::InputContext* ic, bool fromUpdate = false) {
         auto& state = *ic->propertyFor(&factory_);
         const bool pending = state.tracker.pending();
-        const auto status = state.tracker.observe(openkey::Snapshot::read(ic->surroundingText(), true));
+        const auto snapshot = openkey::Snapshot::read(ic->surroundingText(), true);
+        const auto status = state.tracker.observe(snapshot, fromUpdate);
         if (status == openkey::DirectInput::Observation::Changed) {
             if (!pending && state.queue.empty()) {
+                diagnose(ic, "context-invalidated", snapshot ? "surrounding-mismatch" : "surrounding-invalid");
                 // Focus/selection/completion changes while idle end ownership
                 // of the old suffix, not Vietnamese input for the whole field.
                 clearDirect(state);
                 state.composition.clear();
                 diagnose(ic, "context-reset");
                 update(ic);
-            } else abandon(ic);
+            } else abandon(ic, snapshot ? "surrounding-mismatch" : "surrounding-invalid");
             return;
         }
-        if (status != openkey::DirectInput::Observation::Ready) return;
+        if (status != openkey::DirectInput::Observation::Ready) {
+            if (!pending) diagnose(ic, "context-wait", "late-known-echo");
+            return;
+        }
         if (state.timeout) state.timeout->setEnabled(false);
         auto queued = std::move(state.queue);
         state.queue.clear();
@@ -366,6 +394,8 @@ private:
         if (!(ic->capabilityFlags() & fcitx::CapabilityFlag::SurroundingText) ||
             state.tracker.observe(snapshot) != openkey::DirectInput::Observation::Ready) {
             if (!state.tracker.pending() && state.queue.empty()) {
+                diagnose(ic, "context-invalidated", !(ic->capabilityFlags() & fcitx::CapabilityFlag::SurroundingText)
+                    ? "capability-withdrawn" : (snapshot ? "key-snapshot-not-current" : "surrounding-invalid"));
                 clearDirect(state);
                 state.composition.clear();
                 if (!(ic->capabilityFlags() & fcitx::CapabilityFlag::SurroundingText) || !snapshot)
@@ -374,26 +404,66 @@ private:
                 state.tracker.observe(snapshot);
                 diagnose(ic, "context-reset");
             } else {
-                abandon(ic);
+                abandon(ic, !(ic->capabilityFlags() & fcitx::CapabilityFlag::SurroundingText)
+                    ? "capability-withdrawn" : (snapshot ? "surrounding-mismatch" : "surrounding-invalid"));
                 return false;
             }
         }
         diagnose(ic, snapshot && snapshot->cursor != snapshot->anchor ? "direct:selection-start" : "direct:ready");
         if (state.composition.full()) {
             state.composition.clear();
+            state.previousWord.reset();
+            state.trailingSpaces.clear();
             state.tracker.clear();
             state.tracker.observe(openkey::Snapshot::read(ic->surroundingText(), true));
         }
         auto candidate = state.composition;
-        const bool handled = delimiter || (textKey ? candidate.append(static_cast<char>(symbol)) : candidate.backspace());
+        const bool reopen = key.sym() == FcitxKey_BackSpace && candidate.empty() &&
+            state.previousWord && !state.trailingSpaces.empty();
+        std::string before = state.composition.text();
+        std::string after;
+        bool handled;
+        if (reopen) {
+            // Validate the ENTIRE retained word plus its spaces, not just one
+            // blank or a matching word somewhere else in the document.
+            before = state.previousWord->text() + state.trailingSpaces;
+            after = before.substr(0, before.size() - 1); // ASCII Space only.
+            if (state.trailingSpaces.size() == 1) candidate = *state.previousWord;
+            handled = true;
+        } else {
+            handled = delimiter || (textKey ? candidate.append(static_cast<char>(symbol)) : candidate.backspace());
+            after = delimiter ? before + fcitx::utf8::UCS4ToUTF8(symbol) : candidate.text();
+        }
         if (!handled) { clearDirect(state); return false; }
-        const auto edit = state.tracker.prepare(state.composition.text(),
-            delimiter ? state.composition.text() + fcitx::utf8::UCS4ToUTF8(symbol) : candidate.text());
-        if (!edit) { abandon(ic); return false; }
-        if (delimiter) candidate.clear();
+        const auto edit = state.tracker.prepare(before, after);
+        if (!edit) { abandon(ic, "prepare-rejected"); return false; }
+        if (reopen) {
+            state.trailingSpaces.pop_back();
+            if (state.trailingSpaces.empty()) {
+                state.previousWord.reset();
+                diagnose(ic, "boundary-restored");
+            }
+        } else if (delimiter) {
+            if (symbol == ' ' && !state.composition.empty()) {
+                state.previousWord = state.composition;
+                state.trailingSpaces = " ";
+            } else if (symbol == ' ' && state.previousWord && state.trailingSpaces.size() < 32) {
+                state.trailingSpaces.push_back(' ');
+            } else {
+                state.previousWord.reset();
+                state.trailingSpaces.clear();
+            }
+            candidate.clear();
+        } else {
+            // Starting the next word or deleting inside it ends this bounded
+            // one-word boundary history. Never scan/reconstruct arbitrary text.
+            state.previousWord.reset();
+            state.trailingSpaces.clear();
+        }
         state.composition = std::move(candidate);
         // Set pending before emitting: some frontends synchronously update
         // surrounding text from commit/delete callbacks.
+        state.pendingNotified = false;
         state.emitting = true;
         if (edit->removed) ic->deleteSurroundingText(-static_cast<int>(edit->removed), edit->removed);
         if (!edit->inserted.empty()) ic->commitString(edit->inserted);
@@ -404,14 +474,16 @@ private:
                     fcitx::now(CLOCK_MONOTONIC) + 250000, 0,
                     [this, weak = ic->watch()](fcitx::EventSourceTime* source, uint64_t) {
                         source->setEnabled(false);
-                        if (auto* context = weak.get()) abandon(context);
+                        if (auto* context = weak.get()) abandon(context, "ack-timeout");
                         return true;
                     });
             }
             state.timeout->setTime(fcitx::now(CLOCK_MONOTONIC) + 250000);
             state.timeout->setOneShot();
         }
-        reconcile(ic);
+        // Synchronous frontend notifications are observed by the watcher even
+        // while emitting; polling the cache without such an event is not ACK.
+        reconcile(ic, state.pendingNotified);
         return true;
     }
 
