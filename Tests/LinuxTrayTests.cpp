@@ -346,6 +346,7 @@ int main(int argc, char** argv) {
     sd_bus_message_unref(group);
     require(client.menuItemMatches(owner, 2000, "Thoát tray OpenKey (giữ bộ gõ)", true), "Invalid Quit menu");
     require(client.menuItemMatches(owner, 1001, "Cấu hình bộ gõ Fcitx5…", true), "Missing Fcitx settings menu");
+    require(client.menuItemMatches(owner, 1000, "Cài đặt OpenKey…", true), "Missing OpenKey settings menu");
     require(client.menuItemMatches(owner, 3, "Wayland: hotkey riêng chưa hỗ trợ", false) &&
             client.menuItemMatches(owner, 4, "Đổi phím tắt trong cấu hình Fcitx5", false), "Missing readonly Wayland hotkey guidance");
     require(client.event(owner, 3, "clicked") >= 0 && client.event(owner, 4, "clicked") >= 0,
@@ -353,7 +354,7 @@ int main(int argc, char** argv) {
     require(client.menuItemMatches(owner, 910, "Chuyển sang Telex", true) &&
             client.menuItemMatches(owner, 911, "Chuyển sang VNI", true), "Missing Telex/VNI actions");
     require(client.event(owner, 911, "hovered") >= 0 && client.event(owner, 920, "hovered") >= 0 &&
-            client.event(owner, 1001, "hovered") >= 0, "Hover must be inert");
+            client.event(owner, 1001, "hovered") >= 0 && client.event(owner, 1000, "hovered") >= 0, "Hover must be inert");
     require(client.menuItemMatches(owner, 2, openkey::actionLabel(openkey::ActionResult::Idle), false),
             "Hover must not dispatch an input action");
     require(client.event(owner, 911, "clicked") >= 0, "Input action must acknowledge the host");
@@ -369,6 +370,11 @@ int main(int argc, char** argv) {
         openkey::actionLabel(openkey::ActionResult::Unavailable), false); });
     require(client.status(owner, "english") && !tray.quitRequested,
             "Missing Fcitx must not change input status or stop the tray on Configure");
+    require(client.event(owner, 1000, "clicked") >= 0, "OpenKey settings must acknowledge host");
+    await([&] { return client.menuItemMatches(owner, 2,
+        openkey::actionLabel(openkey::ActionResult::SettingsUnavailable), false); });
+    require(client.status(owner, "english") && !tray.quitRequested,
+            "Missing UI must not change input status or stop tray");
     require(client.event(owner, 2000, "opened") >= 0 &&
             client.event(owner, 2000, "hovered") >= 0 &&
             client.event(owner, 2000, "closed") >= 0, "Non-click menu events must be acknowledged");

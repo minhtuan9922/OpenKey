@@ -565,6 +565,113 @@ int main(int argc, char** args) {
     require(otherIM.preedit() == "other input method", "Settings cleared another input method's preedit");
     style(*addon, "Direct");
 
+    // Config changes settle pending edits with the same safe forwarding path
+    // as InputStyle changes, then refresh both modes without reactivation.
+    Editor configTelex(instance.inputContextManager());
+    Editor configVni(instance.inputContextManager());
+    activate(*addon, telex, configTelex);
+    activate(*addon, vni, configVni);
+    configTelex.delayed = configVni.delayed = true;
+    type(*addon, telex, configTelex, "hoas");
+    type(*addon, vni, configVni, "hoa1");
+    require(configTelex.text() == "h" && configVni.text() == "h", "Pending config setup");
+    const auto setCompositionOptions = [&](const char* spelling, const char* modern) {
+        fcitx::RawConfig options;
+        options.setValueByPath("CheckSpelling", spelling);
+        options.setValueByPath("UseModernOrthography", modern);
+        addon->setConfig(options);
+    };
+    setCompositionOptions("False", "False");
+    require(configTelex.text() == "hoas" && configVni.text() == "hoa1" &&
+                !configTelex.deletions && !configVni.deletions,
+            "Option change lost queued keys or rewrote an unconfirmed edit");
+    configTelex.ackAll();
+    configVni.ackAll();
+    configTelex.delayed = configVni.delayed = false;
+    type(*addon, telex, configTelex, " hoas fas");
+    type(*addon, vni, configVni, " hoa1 fa1");
+    require(configTelex.text() == "hoas hóa fá" && configVni.text() == "hoa1 hóa fá",
+            "Active Direct contexts did not receive new options");
+    const auto telexCommits = configTelex.commits;
+    const auto vniCommits = configVni.commits;
+    setCompositionOptions("True", "True");
+    require(configTelex.commits == telexCommits && configVni.commits == vniCommits,
+            "Config change recommitted Direct text");
+    type(*addon, telex, configTelex, " hoas fas");
+    type(*addon, vni, configVni, " hoa1 fa1");
+    require(configTelex.text() == "hoas hóa fá hoá fas" && configVni.text() == "hoa1 hóa fá hoá fa1",
+            "Active Direct contexts did not restore enabled options");
+
+    const auto setQuick = [&](const char* value) {
+        fcitx::RawConfig options;
+        options.setValueByPath("QuickTelex", value);
+        addon->setConfig(options);
+    };
+    Editor quickIdle(instance.inputContextManager());
+    Editor quickVni(instance.inputContextManager());
+    activate(*addon, telex, quickIdle);
+    activate(*addon, vni, quickVni);
+    type(*addon, telex, quickIdle, "gg ");
+    require(quickIdle.text() == "gg ", "Direct QuickTelex default must be false");
+    setQuick("True");
+    type(*addon, telex, quickIdle, "gg ");
+    type(*addon, vni, quickVni, "gg ");
+    require(quickIdle.text() == "gg gi " && quickVni.text() == "gg ",
+            "QuickTelex change did not reach idle Direct contexts or affected VNI");
+    for (const auto& [input, output] : {
+            std::pair{"cc", "ch"}, {"gg", "gi"}, {"kk", "kh"}, {"nn", "ng"},
+            {"qq", "qu"}, {"pp", "ph"}, {"tt", "th"}}) {
+        Editor quick(instance.inputContextManager());
+        Editor numeric(instance.inputContextManager());
+        activate(*addon, telex, quick);
+        activate(*addon, vni, numeric);
+        quick.delayed = numeric.delayed = true;
+        type(*addon, telex, quick, input);
+        type(*addon, vni, numeric, input);
+        quick.ackAll();
+        numeric.ackAll();
+        require(quick.text() == output && numeric.text() == input &&
+                    !quick.nonemptyPreedits && !numeric.nonemptyPreedits,
+                "Delayed QuickTelex pairs / VNI isolation failed");
+        press(*addon, telex, quick, fcitx::Key(FcitxKey_BackSpace));
+        quick.ackAll();
+        require(quick.text() == std::string(output).substr(0, 1), "Direct QuickTelex Backspace");
+        type(*addon, telex, quick, std::string(input).substr(0, 1) + "a");
+        quick.ackAll();
+        require(quick.text() == std::string(output) + "a", "Direct QuickTelex replay after Backspace");
+    }
+    Editor quickCopy(instance.inputContextManager());
+    activate(*addon, telex, quickCopy);
+    type(*addon, telex, quickCopy, "GG ");
+    press(*addon, telex, quickCopy, fcitx::Key(FcitxKey_BackSpace));
+    type(*addon, telex, quickCopy, "a");
+    require(quickCopy.text() == "GIa" && !quickCopy.nonemptyPreedits,
+            "QuickTelex capitals or retained previous-word copy failed");
+
+    Editor quickPending(instance.inputContextManager());
+    activate(*addon, telex, quickPending);
+    quickPending.delayed = true;
+    type(*addon, telex, quickPending, "gg");
+    require(quickPending.text() == "g", "QuickTelex pending ACK setup");
+    const auto pendingDeletes = quickPending.deletions;
+    setQuick("False");
+    require(quickPending.text() == "gg" && quickPending.deletions == pendingDeletes,
+            "QuickTelex toggle lost queued key or rewrote pending text");
+    const auto pendingCommits = quickPending.commits;
+    quickPending.ackAll();
+    require(quickPending.text() == "gg" && quickPending.commits == pendingCommits,
+            "Late ACK duplicated QuickTelex text after toggle");
+    quickPending.delayed = false;
+    type(*addon, telex, quickPending, " gg");
+    require(quickPending.text() == "gg gg", "New word after disabling QuickTelex");
+    const auto beforeQuickEnable = quickPending.commits;
+    setQuick("True");
+    require(quickPending.text() == "gg gg" && quickPending.commits == beforeQuickEnable,
+            "Enabling QuickTelex recommitted Direct text");
+    type(*addon, telex, quickPending, " gg");
+    require(quickPending.text() == "gg gg gi", "New word after enabling QuickTelex without activation");
+    setQuick("False");
+
     require(logs.stream.str().find("OpenKey Direct:") == std::string::npos,
             "Disabled diagnostics must not log input events");
     fcitx::RawConfig diagnostics;

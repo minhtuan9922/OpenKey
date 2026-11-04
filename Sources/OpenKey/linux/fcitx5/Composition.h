@@ -13,7 +13,18 @@ class Composition {
 public:
     static constexpr std::size_t MaxEvents = 256;
 
-    explicit Composition(int mode = vTelex) : mode_(mode) {}
+    struct Options {
+        bool checkSpelling = true;
+        bool useModernOrthography = true;
+        bool quickTelex = false;
+    };
+
+    explicit Composition(int mode = vTelex) : Composition(mode, Options{}) {}
+    Composition(int mode, Options options) : mode_(mode), options_(options) {}
+    void setOptions(Options options) {
+        options_ = options;
+        if (!events_.empty()) render();
+    }
     bool empty() const { return text_.empty(); }
     bool full() const { return events_.size() >= MaxEvents; }
     const std::string& text() const { return text_; }
@@ -52,16 +63,18 @@ public:
 private:
     struct Stroke { Uint16 code; char visible; bool caps; };
     int mode_;
+    Options options_;
     std::vector<Stroke> events_;
     std::string text_;
 
     void render() {
         vInputType = mode_;
+        vQuickTelex = options_.quickTelex && mode_ == vTelex;
         vCodeTable = 0;
         vUseMacro = 0;
         vRestoreIfWrongSpelling = 0;
-        vCheckSpelling = 1;
-        vUseModernOrthography = 1;
+        vCheckSpelling = options_.checkSpelling;
+        vUseModernOrthography = options_.useModernOrthography;
         auto* state = static_cast<vKeyHookState*>(vKeyInit());
         startNewSession();
         std::wstring output;

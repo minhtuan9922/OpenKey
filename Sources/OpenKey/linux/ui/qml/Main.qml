@@ -16,6 +16,12 @@ ApplicationWindow {
     property bool sidebarExpanded: true
     property var overviewModel: null
     property var configController: null
+    property var hotkeyOverview: null
+    property var uiEnvironment: ({})
+    property var textConverter: null
+    property var aboutInfo: null
+    property var clipboardBridge: null
+    property var uiPreferences: null
     readonly property string sampledInput: overviewModel ? overviewModel.inputStatus : "unknown"
     readonly property string serviceState: overviewModel ? overviewModel.serviceState : "disabled"
     readonly property string savedStyle: overviewModel ? overviewModel.inputStyle : "unknown"
@@ -42,18 +48,22 @@ ApplicationWindow {
     ]
     readonly property var descriptions: [
         "",
-        "Các tùy chọn chính tả và gõ nhanh sẽ được nối với cấu hình Linux trong task sau. Chưa thể thay đổi thiết lập tại đây.",
-        "Trang cấu hình phím tắt chưa tích hợp backend. Không đăng ký hoặc thay đổi phím tắt hệ thống từ cửa sổ này.",
-        "Danh sách ứng dụng và chính sách tương thích chưa tích hợp. Bộ gõ Fcitx5 đang chạy độc lập với giao diện xem trước.",
-        "Các tùy chọn nâng cao chưa tích hợp. Trang Tổng quan chỉ đọc hai khóa cấu hình đã lưu; không ghi thay đổi.",
+        "Kiểm tra chính tả, đặt dấu kiểu mới và Gõ nhanh Telex được kết nối khi addon hỗ trợ schema. Các tùy chọn phụ âm đầu/cuối và khôi phục từ sai chưa tích hợp.",
+        "Hiển thị phím tắt runtime của Fcitx5, chỉ đọc. Không đăng ký hoặc thay đổi phím tắt hệ thống từ cửa sổ này.",
+        "Môi trường cửa sổ OpenKey, chế độ gõ chung và hướng dẫn tương thích. Chính sách riêng theo ứng dụng chưa tích hợp.",
+        "Chẩn đoán Direct đã hỗ trợ đọc và áp dụng qua Fcitx5. Các tùy chọn nâng cao khác chưa tích hợp.",
         "Trình quản lý gõ tắt chưa tích hợp. Chưa hỗ trợ thêm, sửa, xóa hoặc nhập bảng gõ tắt từ giao diện này.",
-        "Công cụ chuyển mã chưa tích hợp. Nội dung clipboard và tài liệu không được truy cập từ giao diện xem trước.",
+        "Công cụ Unicode thủ công: chuẩn hóa, đổi hoa/thường và bỏ dấu tiếng Việt. Chưa hỗ trợ VNI/TCVN3 hoặc tự chuyển clipboard.",
         "OpenKey cho Ubuntu — nền tảng giao diện v0.4 đang phát triển, chưa phải bản phát hành hoàn chỉnh.\n\nGiao diện Qt Quick/QML lấy bố cục điều hướng từ phiên bản Windows. Bộ gõ Fcitx5 và dịch vụ tray vẫn hoạt động độc lập."
     ]
     function selectPage(index) {
         if (index < 0 || index >= pages.length || index !== Math.floor(index))
             return false
-        pageIndex = index
+        if (pageIndex !== index) {
+            pageIndex = index
+            // Each page starts at its top; text drafts and runtime values remain intact.
+            if (scroll.contentItem) scroll.contentItem.contentY = 0
+        }
         return true
     }
     function focusPage(index) {
@@ -61,6 +71,24 @@ ApplicationWindow {
             const button = index === 7 ? aboutButton : navRepeater.itemAt(index)
             button.forceActiveFocus(Qt.TabFocusReason)
         }
+    }
+    function cyclePage(delta) {
+        focusPage((pageIndex + delta + pages.length) % pages.length)
+    }
+    Shortcut {
+        sequence: "Ctrl+Tab"
+        context: Qt.WindowShortcut
+        onActivated: root.cyclePage(1)
+    }
+    Shortcut {
+        sequence: "Ctrl+Shift+Tab"
+        context: Qt.WindowShortcut
+        onActivated: root.cyclePage(-1)
+    }
+    Shortcut {
+        sequence: "F1"
+        context: Qt.WindowShortcut
+        onActivated: root.focusPage(7)
     }
     SystemPalette { id: systemPalette; colorGroup: SystemPalette.Active }
     UiPalette {
@@ -95,14 +123,25 @@ ApplicationWindow {
                 RowLayout {
                     Layout.fillWidth: true
                     ToolButton {
+                        id: sidebarToggle
                         objectName: "sidebarToggle"
                         implicitWidth: 48
                         implicitHeight: 48
                         Accessible.name: root.sidebarExpanded ? "Thu gọn menu" : "Mở rộng menu"
+                        background: Rectangle {
+                            radius: ui.radius
+                            color: sidebarToggle.hovered ? ui.hover : "transparent"
+                            border.width: sidebarToggle.activeFocus ? 2 : 0
+                            border.color: ui.accent
+                        }
                         contentItem: Item {
                             NavIcon { anchors.centerIn: parent; width: 22; height: 22; symbol: "menu"; ink: ui.text }
                         }
-                        onClicked: root.sidebarExpanded = !root.sidebarExpanded
+                        onClicked: {
+                            root.sidebarExpanded = !root.sidebarExpanded
+                            if (root.uiPreferences !== null)
+                                root.uiPreferences.setSidebarExpanded(root.sidebarExpanded)
+                        }
                     }
                     Label {
                         visible: root.sidebarExpanded
@@ -167,6 +206,8 @@ ApplicationWindow {
                 spacing: 16
                 Label {
                     objectName: "pageTitle"
+                    Accessible.role: Accessible.Heading
+                    Accessible.name: text
                     Layout.fillWidth: true
                     text: root.pages[root.pageIndex].label
                     wrapMode: Text.WordWrap
@@ -181,12 +222,16 @@ ApplicationWindow {
                     model: ["Theo hệ thống", "Sáng", "Tối"]
                     Accessible.name: "Giao diện"
                     currentIndex: ["system", "light", "dark"].indexOf(root.themeMode)
-                    onActivated: index => root.themeMode = ["system", "light", "dark"][index]
+                    onActivated: index => {
+                        root.themeMode = ["system", "light", "dark"][index]
+                        if (root.uiPreferences !== null)
+                            root.uiPreferences.setThemeMode(root.themeMode)
+                    }
                 }
             }
             Label {
                 Layout.fillWidth: true
-                text: "Bản xem trước · chỉ đổi chế độ khi nhấn Áp dụng"
+                text: "Bản xem trước · chỉ gửi thay đổi khi nhấn Áp dụng"
                 wrapMode: Text.WordWrap
                 color: ui.muted
                 font.pixelSize: ui.bodySize
@@ -208,12 +253,21 @@ ApplicationWindow {
                         uiPalette: ui
                         heading: "Giao diện Ubuntu đang phát triển"
                         badge: "Bản xem trước"
-                        description: "Trang Tổng quan đọc trạng thái và cấu hình đã lưu. Bạn có thể đổi chế độ gõ bằng nút Áp dụng qua Fcitx5. Các trang thiết lập khác chưa tích hợp; giao diện không tự khởi động bộ gõ."
+                        description: "Trang Tổng quan đọc trạng thái và cấu hình đã lưu. Bạn có thể đổi chế độ gõ qua Fcitx5; trang Nâng cao có chẩn đoán Direct, trang Chính tả có hai quy tắc đặt dấu khi addon hỗ trợ. Giao diện không tự khởi động daemon."
                     }
-                    StyleSettings {
+                    CompatibilitySettings {
+                        visible: root.pageIndex === 0 || root.pageIndex === 3
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        controller: root.configController
+                        environment: root.uiEnvironment
+                        showDetails: root.pageIndex === 3
+                    }
+                    RuntimeStatus {
                         visible: root.pageIndex === 0
                         Layout.fillWidth: true
                         uiPalette: ui
+                        overview: root.overviewModel
                         controller: root.configController
                     }
                     GridLayout {
@@ -256,21 +310,89 @@ ApplicationWindow {
                         uiPalette: ui
                         heading: "Trạng thái tích hợp"
                         badge: "Tích hợp một phần"
-                        description: "Fcitx5 và icon tray hoạt động độc lập. Đóng cửa sổ không dừng bộ gõ. Giao diện không ghi trực tiếp file: nút Áp dụng gửi cấu hình chế độ qua Fcitx5 rồi đọc lại runtime. Các thiết lập khác chưa tích hợp."
+                        description: "Fcitx5 và icon tray hoạt động độc lập. Đóng cửa sổ không dừng bộ gõ. Nút Áp dụng gửi đúng một thiết lập qua Fcitx5 rồi đọc lại runtime. Các trang chưa có backend được ghi rõ."
                     }
                     InfoCard {
-                        visible: root.pageIndex !== 0
+                        visible: root.pageIndex === 5
                         Layout.fillWidth: true
                         uiPalette: ui
                         heading: root.pages[root.pageIndex].label
                         description: root.descriptions[root.pageIndex]
                         badge: root.pageIndex === 7 ? "UI preview" : "Chưa tích hợp"
                     }
+                    HotkeySettings {
+                        visible: root.pageIndex === 2
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        overview: root.hotkeyOverview
+                    }
+                    AboutSettings {
+                        visible: root.pageIndex === 7
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        info: root.aboutInfo
+                    }
+                    ConversionSettings {
+                        visible: root.pageIndex === 6
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        converter: root.textConverter
+                        clipboard: root.clipboardBridge
+                    }
+                    DiagnosticsSettings {
+                        visible: root.pageIndex === 4
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        controller: root.configController
+                    }
+                    PreferencesBackup {
+                        visible: root.pageIndex === 4
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        preferences: root.uiPreferences
+                        currentTheme: root.themeMode
+                        currentSidebarExpanded: root.sidebarExpanded
+                        onRestored: (theme, sidebarExpanded) => {
+                            root.themeMode = theme
+                            root.sidebarExpanded = sidebarExpanded
+                        }
+                    }
+                    SpellingOption {
+                        visible: root.pageIndex === 1
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        controller: root.configController
+                        settingKey: "CheckSpelling"
+                        heading: "Kiểm tra chính tả khi đặt dấu"
+                        description: "Kiểm tra âm tiết trong quá trình bộ gõ xử lý phím và đặt dấu. Đây không phải trình soát lỗi hay gạch đỏ cho toàn bộ tài liệu trong editor."
+                    }
+                    SpellingOption {
+                        visible: root.pageIndex === 1
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        controller: root.configController
+                        settingKey: "UseModernOrthography"
+                        heading: "Đặt dấu kiểu mới"
+                        description: "Bật: hoas/hoa1 → hoá; tắt: hoas/hoa1 → hóa. Chỉ áp dụng khi đã gõ xong từ vì thay đổi kết thúc context hiện tại."
+                    }
+                    SpellingOption {
+                        visible: root.pageIndex === 1
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        controller: root.configController
+                        settingKey: "QuickTelex"
+                        heading: "Gõ nhanh Telex"
+                        description: "Mặc định tắt. Bật để mở rộng cc → ch, gg → gi, kk → kh, nn → ng, qq → qu, pp → ph, tt → th khi gõ Telex. Không áp dụng cho VNI. Chỉ nhấn Áp dụng khi đã gõ xong từ; đây không phải gõ tắt/macro hay gõ nhanh phụ âm đầu/cuối."
+                    }
                 }
             }
             Label {
                 Layout.fillWidth: true
-                text: "Theme chỉ áp dụng cho cửa sổ này, không lưu sau khi thoát."
+                objectName: "uiPreferencesFeedback"
+                text: root.uiPreferences === null ? "Xem trước: theme/sidebar chỉ giữ trong phiên chạy." :
+                    root.uiPreferences.status === "error" ? "Không lưu được giao diện; thiết lập trong phiên có thể chưa được lưu." :
+                    root.uiPreferences.status === "invalid" ? "File giao diện không hợp lệ/không hỗ trợ; không ghi đè, lựa chọn mới chỉ giữ trong phiên chạy." :
+                    "Theme và sidebar được lưu riêng cho giao diện, không đổi cấu hình bộ gõ."
                 wrapMode: Text.WordWrap
                 color: ui.muted
                 font.pixelSize: ui.smallSize

@@ -126,6 +126,14 @@ Checklist nghiệm thu thủ công: [Ubuntu input QA](UBUNTU_INPUT_QA.md).
   `editcontext wayland`; chỉ đổi một yếu tố so với mốc textarea.
 - [ ] Dựa vào kết quả chọn đường tương thích hoặc xác nhận giới hạn API.
   Không bỏ guard, không dùng clipboard/global hook để lách thiếu capability.
+- [x] Đưa hồi quy trình chạy profile vào CTest Linux: 24 ca dùng CLI stub, sáu
+  mode/backend, profile riêng/không dùng lại, copy fixture và quyền, flag/exit
+  code, đường dẫn có khoảng trắng, help/guard không launch. TMPDIR tuyệt đối
+  được kiểm tra, umask 077; không mở editor thật hoặc thay profile chính.
+- [x] Sau tích hợp launcher: UI 13/13 và addon/service 17/17 CTest đạt.
+  Không tạo gói addon mới, không restart Fcitx5/tray hoặc đổi đường nhập editor.
+- [ ] Nghiệm thu gõ profile editcontext trên desktop; test launcher không thay
+  bằng chứng gõ/khả năng surrounding-text hoặc kết quả completion thực tế.
 
 Chi tiết, nguồn đối chiếu và cách thử:
 [VS Code input investigation](UBUNTU_VSCODE_INPUT_INVESTIGATION.md).
@@ -372,13 +380,19 @@ Người dùng đã cài SDK; xác minh Qt 6.10.2. UI preview opt-in
 `OPENKEY_BUILD_UI=ON`, mặc định OFF; không cần Qt cho engine/service khi UI tắt.
 Hướng dẫn mở và checklist desktop: [Ubuntu UI](UBUNTU_UI.md).
 Tổng quan có model chỉ đọc qua IPC + file cấu hình đã lưu và API áp dụng chế độ
-Preedit/Direct với xác nhận runtime sau explicit Apply;
-chưa thêm vào `.deb`, chưa thay đổi bộ gõ/tray đang chạy.
+Preedit/Direct và DirectDiagnostics với xác nhận runtime sau explicit Apply.
+UI/tray đã cài ở tài khoản thử, chưa thêm vào `.deb`; không restart Fcitx5.
 
 - [x] Chọn Qt 6/Qt Quick/QML (minimum khai báo 6.4, đã test SDK 6.10.2).
 - [x] Dựng cửa sổ chính, sidebar thu gọn và đủ 8 mục theo Windows.
 - [x] Dựng design tokens cho màu, spacing, typography và corner radius.
 - [x] Tạo theme sáng/tối/theo SystemPalette trong phiên chạy, chưa lưu bền.
+- [x] Lưu riêng theme/sidebar cho UI normal trong `openkey/ui.ini`, khôi phục
+  khi mở lại; ghi atomic, báo lỗi và không ghi đè file không hợp lệ. CLI theme
+  chỉ ghi đè phiên mới, offline/smoke/screenshot không đọc/ghi preferences.
+- [x] UI đạt 9/9 CTest với test preferences round-trip, file lỗi/phiên bản lạ,
+  special file và lỗi ghi; kiểm tra tương tác lưu/thông báo lỗi ở scale 100%/200%.
+- [ ] Nghiệm thu lưu/khôi phục theme và sidebar trên desktop thật.
 - [x] Test offscreen: điều hướng, sidebar, theme, bàn phím, 720×560 và scale 200%;
   resource QML đóng gói nạp được. Build UI đạt 5/5 CTest gồm 2 engine tests.
 - [ ] Nghiệm thu shell/theme trên GNOME thực tế, nhất là theme hệ thống khi đổi lúc chạy.
@@ -398,27 +412,202 @@ chưa thêm vào `.deb`, chưa thay đổi bộ gõ/tray đang chạy.
 - [x] Build UI đạt 7/7 CTest; controller có 34 ca QtTest trên bus mock riêng,
   gồm schema, partial patch, conflict, timeout, owner và readback; UI thử explicit
   Apply/không ghi khi chọn, khóa busy/offline ở scale 100% và 200%.
-- [ ] Nghiệm thu Apply hai chiều trên desktop và đối chiếu cấu hình đã lưu;
-  chưa dùng API ghi trên bộ gõ thật trong build/test.
+- [x] Người dùng xác nhận kiểm thử desktop sau sửa popup và chuyển task; nghiệm thu
+  cơ bản UI/đổi chế độ trong phiên thử. Không coi là kiểm chứng mọi backend/DPI
+  hoặc lưu bền khi addon gặp lỗi; build/test chỉ dùng mock cho API ghi.
 - [x] Sửa popup chọn chế độ/theme bị chữ trắng trên nền sáng ở dòng được chọn;
   test popup mở, các dòng/highlight có tương phản >= 4.5:1 trên sáng/tối và scale
   100%/200%, không tự Apply khi mở hoặc duyệt menu. UI đạt 7/7 CTest.
-- [ ] Port trang Tổng quan, Chính tả, Phím tắt và Tương thích.
-- [ ] Port trang Nâng cao, Macro, Chuyển mã và Giới thiệu.
-- [ ] Kiểm thử DPI, keyboard navigation và accessibility.
+- [x] Thêm menu “Cài đặt OpenKey…” riêng với cấu hình Fcitx5; khởi chạy qua D-Bus
+  activation khi click, không chạy shell hoặc thay chế độ gõ.
+- [x] UI normal single-instance theo session bus: lần mở sau gọi Show rồi thoát;
+  offline/smoke/screenshot không chiếm name, Wayland có thể hạn chế focus.
+- [x] UI 8/8 CTest, activation 17 ca private-bus (cold launch, owner/PID, forward,
+  offline), addon/service 16/16 (menu, launcher error/timeout/worker không chặn).
+- [x] Cài UI/activation file vào `~/.local`, cập nhật và restart riêng tray;
+  Fcitx5 giữ nguyên tiến trình. D-Bus nhận activation name sau ReloadConfig;
+  tray đang waiting-host, chưa xác nhận menu trên panel. Không tự mở GUI để test.
+- [ ] Nghiệm thu mở từ tray lần đầu, click lặp/minimize/đóng-mở trên desktop;
+  không dừng bộ gõ khi đóng UI.
+- [x] Trang Nâng cao: đọc runtime và bật/tắt DirectDiagnostics qua Fcitx5, chỉ
+  Apply mới ghi; patch một khóa giữ nguyên mode, xác thực schema, conflict theo
+  khóa đang sửa và readback. Không tự bật chẩn đoán, đọc hoặc tải log lên.
+- [x] Controller mở rộng có 62 ca QtTest; UI kiểm tra bật/tắt không tự Apply,
+  giữ mode, khóa busy/offline và tương phản popup diagnostics ở sáng/tối,
+  scale 100%/200%. Test launcher/menu cô lập activation dirs, không mở UI đã cài.
+- [ ] Nghiệm thu bật/tắt diagnostics trên desktop, xác nhận mode không đổi và
+  đối chiếu thiết lập đã lưu; các tùy chọn nâng cao khác chưa tích hợp.
+- [x] Trang Chính tả: nối CheckSpelling/UseModernOrthography từ UI qua API đến
+  engine, mặc định đều bật; Apply từng khóa, giữ mode và các thiết lập khác.
+- [x] Options riêng từng context Telex/VNI; cập nhật context active/idle sau đổi
+  cấu hình, kết thúc composition an toàn, không commit lặp phần Direct đã nhập.
+- [x] UI kiểm tra capability theo schema: addon cũ vẫn dùng mode/diagnostics,
+  nhóm chính tả thiếu/sai/trùng bị khóa. 160 ca controller QtTest, UI 9/9 CTest,
+  kiểm tra Apply hai hướng, busy/offline và popup sáng/tối 100%/200%.
+- [x] Tạo gói addon alpha.10 và SHA-256; 7/7 CTest, kiểm tra payload/dependency
+  và addon giải nén. Chưa tự cài addon hay restart Fcitx5 của desktop.
+- [x] Kiểm thử hồi quy addon/service sau mở rộng options: 16/16 CTest đạt;
+  kiểm tra ảnh trang Chính tả sáng/tối offscreen, không thay nghiệm thu desktop.
+- [x] Cài riêng UI mới vào tài khoản thử sau 9/9 CTest; addon đang cài vẫn
+  alpha.9, Fcitx5 không restart. Đóng UI cũ rồi mở lại để nhận trang mới.
+- [ ] Nghiệm thu alpha.10 desktop: hai tùy chọn Bật/Tắt, Telex/VNI,
+  Preedit/Direct, mode/khóa còn lại giữ nguyên; đối chiếu lưu bền sau mở lại.
+- [x] Trang Phím tắt có backend chỉ đọc tám danh sách runtime Fcitx5, không
+  đoán mặc định; Đọc lại bất đồng bộ, pin owner/no auto-start, xóa mẫu khi lỗi
+  hoặc đổi owner. Không ghi cấu hình/đăng ký hotkey hoặc bắt phím toàn cục.
+- [x] Model Phím tắt đạt 33 ca QtTest trên bus fixture, gồm schema/list lỗi,
+  timeout, owner đổi và cờ NO_AUTO_START trên wire. UI đạt 10/10 CTest, bao gồm
+  tương tác chỉ đọc, refresh bàn phím, khóa offline/loading và scale 200%.
+  Đã cài riêng UI mới; không cập nhật addon hoặc restart Fcitx5/tray.
+- [ ] Nghiệm thu trang Phím tắt desktop: so với Global Options, Đọc lại sau
+  thay đổi ngoài UI, cuộn cửa sổ nhỏ/scale 200%; không đánh đồng cấu hình với
+  việc desktop thật sự chuyển tổ hợp phím đến Fcitx5.
+- [x] Trang Tương thích tích hợp một phần: snapshot loại phiên và backend của
+  riêng UI qua whitelist, không suy ra backend ứng dụng đang focus; hướng dẫn
+  Direct/fallback và VS Code, không chạy script hoặc sửa cấu hình editor.
+- [x] Dùng chung một điều khiển InputStyle giữa Tổng quan/Tương thích, Apply
+  qua API hiện có; không có draft thứ hai hoặc tự ghi khi chuyển trang.
+- [x] UI đạt 11/11 CTest sau tích hợp Tương thích: whitelist môi trường, Apply
+  đúng mode/giữ thiết lập khác, trạng thái chưa xác nhận, offline/busy, cuộn cửa
+  sổ nhỏ và popup sáng/tối ở scale 100%/200%. Đã cài riêng UI mới, không thay
+  addon hoặc restart Fcitx5/tray; chờ kiểm thử desktop.
+- [ ] Nghiệm thu trang Tương thích desktop: môi trường UI, chuyển hai trang,
+  Apply mode chung, cuộn/DPI; không coi runtime Direct là kết quả gõ của app khác.
+- [ ] Hoàn thiện Tổng quan/Chính tả, thêm chỉnh sửa Phím tắt và chính sách theo app;
+  gõ nhanh phụ âm đầu/cuối và khôi phục từ sai vẫn chưa tích hợp.
+- [x] Gõ nhanh Telex: nối QuickTelex mặc định tắt từ UI/API đến replay riêng
+  context, chỉ Telex; kiểm thử Preedit/Direct, Backspace, caps, VNI không đổi,
+  đổi cấu hình/persistence và schema tương thích ngược. Tạo gói alpha.11.
+- [x] QuickTelex: UI 13/13 CTest (227 ca controller, tương tác/popup sáng/tối
+  ở 100%/200%), addon/service 17/17; gói alpha.11 qua 8/8 CTest và kiểm tra
+  payload/dependency/addon giải nén, SHA-256 đúng. Sửa đồng bộ picker khi schema
+  chuyển từ chưa hỗ trợ sang hỗ trợ; không dùng binding cũ trong changed handler.
+- [x] Cài riêng UI mới; addon desktop vẫn alpha.9, không restart Fcitx5/tray.
+  Nhóm chính tả/QuickTelex chỉ mở khi schema addon đang chạy hỗ trợ tương ứng.
+- [ ] Nghiệm thu alpha.11 desktop: bật/tắt QuickTelex, bảy cặp Telex, Backspace,
+  Preedit/Direct, VNI không đổi, mode/chính tả/diagnostics giữ nguyên và lưu bền.
+- [x] Trang Chuyển mã có công cụ Unicode thủ công: chuẩn hóa NFC/NFD, đổi
+  hoa/thường, bỏ dấu tiếng Việt; model Qt Core cục bộ, không dùng global options
+  của engine legacy hoặc API bộ gõ. Chỉ chuyển khi nhấn nút, nguồn giữ nguyên.
+- [x] Giới hạn/kiểm tra Unicode và options, xóa kết quả cũ khi đổi nguồn/tùy
+  chọn hoặc gặp lỗi; Xóa văn bản xóa cả hai ô, không lưu nội dung vào preferences.
+- [x] UI đạt 12/12 CTest, gồm model Unicode, thao tác chuyển đổi chủ động/giữ
+  nguồn/xóa kết quả cũ/giới hạn, popup sáng/tối và scale 100%/200%. Giảm giới hạn
+  đồng bộ xuống 8192 đơn vị UTF-16 sau ca Unicode dài xử lý chậm; bộ test model
+  sau giảm giới hạn đạt khoảng 0.06 giây trên máy thử. Đã cài riêng UI mới,
+  không cập nhật addon hoặc restart Fcitx5/tray.
+- [ ] Nghiệm thu công cụ Unicode desktop: NFC/NFD, hoa/thường, bỏ dấu, emoji,
+  chọn/sao chép kết quả thủ công, cuộn cửa sổ nhỏ, đóng/mở không giữ nội dung.
+- [x] Trang Giới thiệu: metadata binary UI/Qt, ghi nguồn engine/fork, URL dạng
+  PlainText, toàn văn LICENSE đóng trong Qt resource và chỉ đọc khi click.
+  Không suy ra phiên bản addon, chạy shell, mở browser hoặc kiểm tra cập nhật.
+- [x] UI đạt 14/14 CTest: metadata/Qt đúng bản build, resource khớp LICENSE,
+  nạp/ẩn/mở lại không lẫn model; tương tác chỉ đọc, cửa sổ nhỏ, sáng/tối và
+  scale 100%/200%. Đã cài riêng UI mới; không cập nhật addon hoặc restart bộ gõ.
+- [ ] Nghiệm thu Giới thiệu desktop: metadata, mở/ẩn/cuộn giấy phép, chọn địa
+  chỉ nguồn, cửa sổ nhỏ/theme và không ảnh hưởng bộ gõ khi đóng UI.
+- [ ] Hoàn thiện Nâng cao, Macro và chuyển mã legacy.
+- [x] Thêm job CI UI riêng trên Ubuntu 24.04, Qt từ APT, addon/service OFF;
+  offscreen/software/compose, toàn bộ CTest và HiDPI, JUnit/log giữ 7 ngày.
+  Kiểm tra cài component UI vào staging và chạy smoke, không cài vào hệ thống.
+- [x] Kiểm tra cấu trúc YAML và chạy tương đương job trong build tạm sạch:
+  Ubuntu 26.04/Qt 6.10.2 đạt 14/14, JUnit không có failure, staged install và
+  smoke binary đã cài đạt; không ghi vào bản UI đang cài hoặc restart bộ gõ.
+- [ ] Chạy/nghiệm thu job UI trên GitHub runner sau khi mã lên remote; chưa coi
+  kiểm thử cục bộ Ubuntu 26.04/Qt 6.10.2 là bằng chứng Ubuntu 24.04 đã đạt.
+- [x] Điều hướng bàn phím trong cửa sổ: Ctrl+Tab/Ctrl+Shift+Tab quay vòng trang,
+  F1 mở Giới thiệu; focus sidebar/menu thu gọn, tooltip và metadata accessible.
+  Test sáng/tối, bản nháp Chuyển mã, cuộn đầu trang và cửa sổ khác active;
+  không Apply/refresh/chuyển đổi/clipboard hoặc đăng ký hotkey hệ thống.
+- [x] Sau điều hướng bàn phím: 15/15 CTest đạt (UI 100%/200%); cài riêng
+  component UI, binary cài khớp bản build và smoke headless đạt. Không thay
+  addon hoặc restart Fcitx5/tray; đóng cửa sổ UI cũ rồi mở lại để dùng bản mới.
+- [ ] Nghiệm thu keyboard navigation trên desktop, DPI và Orca/AT-SPI;
+  test headless không thay kiểm chứng screen reader hoặc phím do compositor giữ.
 
 ## v0.5 — Tính năng nâng cao
 
 - [ ] Macro editor và import/export.
-- [ ] Chuyển mã clipboard.
+- [x] Clipboard thủ công cho Chuyển mã: Dán nguồn/Sao chép kết quả chỉ khi click,
+  giới hạn/Unicode/plain text, giữ bản nháp và clipboard khi lỗi; không poll,
+  không đọc lại khi copy, không tự dán hoặc sửa tài liệu ứng dụng khác.
+- [x] UI đạt 15/15 CTest, gồm clipboard bridge dùng fake backend, Unicode/MIME/
+  giới hạn và không có GUI application, Dán/Copy chỉ theo thao tác, giữ bản nháp
+  khi lỗi và khóa kết quả cũ; tương tác 100%/200%. Không test clipboard thật.
+  Đã cài riêng UI mới sau kiểm thử; không thay addon hoặc restart Fcitx5/tray.
+- [ ] Nghiệm thu clipboard native Wayland/X11, transfer/owner chậm và history;
+  test fake không thay kiểm chứng clipboard thật. Hotkey chuyển clipboard nhanh
+  toàn cục và timeout/fetch worker riêng vẫn chưa triển khai.
+- [x] Chuyển Unicode sang worker Qt Concurrent, tối đa một tác vụ/model,
+  có Hủy; sửa nguồn/tùy chọn hoặc Xóa vô hiệu hóa kết quả muộn. Không chạy
+  lại tự động, không dùng QObject UI trong worker. Nâng giới hạn nguồn lên
+  65536/kết quả 262144 đơn vị UTF-16, clipboard dùng cùng giới hạn.
+- [x] Sau worker: UI 15/15 CTest đạt, model chuyển đổi 104 ca QtTest,
+  UI 45 ca ở mỗi scale 100%/200%; thêm 13 ca lifecycle/cancel/clear/destruction
+  đạt với ASan/UBSan (bật leak detection). Không dùng clipboard/Fcitx5 thật.
+- [x] Cài riêng component UI mới sau kiểm thử; binary cài khớp bản build,
+  smoke headless đạt. Không thay addon hoặc restart Fcitx5/tray; đóng UI cũ
+  rồi mở lại để dùng worker và nút Hủy.
+- [ ] Nghiệm thu chuyển đổi nền trên desktop: Unicode dài, Hủy/sửa nguồn/
+  tùy chọn/Xóa, chuyển trang khi đang xử lý, đóng/mở UI và clipboard native.
+  Hủy không ngắt giữa một lời gọi Qt; chờ worker cũ trước khi nhận tác vụ mới.
+- [ ] Tài liệu trên 65536 đơn vị UTF-16, tiến trình riêng/hủy CPU tức thời và
+  timeout xử lý Unicode; hiện vẫn giới hạn bộ nhớ, chưa có đọc/ghi file lớn.
 - [ ] Cấu hình theo ứng dụng.
-- [ ] Lưu/khôi phục cấu hình.
-- [ ] Thông báo lỗi và trạng thái engine.
+- [x] Phần UI của lưu/khôi phục: tạo JSON theme/sidebar trong Nâng cao,
+  kiểm tra/xem trước rồi xác nhận; sửa JSON khóa khôi phục đến khi xem lại.
+  Kiểm tra schema/giới hạn, lưu hai giá trị atomic một lần; lỗi không thay
+  lựa chọn giao diện. Không tự đọc/ghi file sao lưu hoặc clipboard.
+- [x] Sau JSON giao diện: 15/15 CTest đạt, preferences 67 ca QtTest,
+  UI 48 ca mỗi scale 100%/200%. Đã cài riêng UI mới, binary khớp bản build
+  và smoke headless đạt; không thay addon hoặc restart Fcitx5/tray.
+- [ ] Nghiệm thu JSON giao diện desktop: chọn/sao chép/dán thủ công, xem
+  trước, khôi phục hai theme/menu, lỗi file/quyền, đóng/mở và DPI.
+- [ ] Lưu/khôi phục cấu hình bộ gõ Fcitx5, macro và hotkey; JSON giao diện
+  không phải bản sao toàn bộ OpenKey. File picker/xuất file riêng chưa có.
+- [x] Tổng quan có bảng kết nối/lỗi: phân biệt mẫu service/input method,
+  API cấu hình runtime và file đã lưu; hướng dẫn cho conflict/unconfirmed/
+  unsupported, service timeout/protocol-error và file lỗi. Không coi thiếu
+  service là bộ gõ đã dừng hoặc có dữ liệu là engine đã nghiệm thu.
+- [x] Nút Đọc lại trạng thái chỉ refresh model và reload API theo click,
+  khóa khi đang đọc/áp dụng; không tự Apply, retry write, restart hoặc dùng
+  clipboard. Enum không nhận diện chỉ hiện thông báo cố định, không in dữ liệu lạ.
+- [x] Sau bảng trạng thái: 15/15 CTest đạt, UI 50 ca mỗi scale 100%/200%,
+  dùng nguồn giả cho lỗi/kết nối, refresh theo bàn phím và không ghi cấu hình.
+  Đã cài riêng UI mới, binary khớp bản build và smoke headless đạt; không
+  thay addon hoặc restart Fcitx5/tray.
+- [ ] Nghiệm thu bảng trạng thái desktop khi service/API mất rồi kết nối lại,
+  Apply chưa xác nhận/xung đột và file lỗi. Đây chưa phải giám sát sức khỏe
+  engine, theo dõi log hoặc thông báo native/toast toàn hệ thống.
 
 ## v0.6 — Đóng gói
 
 - [ ] Tạo AppImage thử nghiệm.
 - [x] Tạo gói `.deb` alpha cho addon Fcitx5 (chưa có UI).
+- [x] Đóng gói UI độc lập `openkey-settings` preview.1: component riêng,
+  launcher menu ứng dụng và D-Bus activation; khai báo Qt/QML runtime,
+  không kèm addon/tray, không bật autostart hoặc restart bộ gõ.
+- [x] Thêm script build/test/CPack và verifier UI: SHA-256, dependency,
+  payload đúng sáu file, không maintainer script, desktop entry hợp lệ và
+  smoke binary giải nén. CI UI tạo/upload gói riêng; chưa chạy trên remote.
+- [x] Build Ubuntu 26.04/Qt 6.10.2: 15/15 CTest đạt; gói UI preview.1 amd64
+  qua kiểm tra dependency, sáu file đúng, desktop entry, SHA-256 và smoke
+  binary giải nén. Guard từ chối UI OFF, addon ON và prefix khác `/usr`.
+  Chưa cài gói/không restart Fcitx5/tray; checksum addon alpha.11 giữ nguyên.
+- [ ] Nghiệm thu APT/UI desktop: cài mới/nâng cấp/gỡ, launcher, singleton,
+  dữ liệu người dùng giữ nguyên và bản `~/.local` không che bản `/usr`.
+- [x] Thêm kiểm thử vòng đời payload UI bằng dpkg trong root/database/log
+  tạm: unpack, cài đè cùng bản, nâng phiên bản QA, remove, unpack lại và purge;
+  đối chiếu sáu file và hash cấu hình giả lập sau từng bước. Không configure,
+  giải dependency bằng APT hoặc thay gói/cấu hình hệ thống thật.
+- [x] Guard lifecycle không chạy root, không dùng script-chrootless/
+  force-depends; từ chối hook/path filter/tùy chọn dpkg ngoài allowlist.
+  Script build và CI chạy kiểm tra riêng sau khi tạo gói, không xóa build cũ.
+- [x] Chạy lifecycle trên Ubuntu 26.04, UID thường: cả sáu bước đạt,
+  payload đủ 6/6 khi unpack và còn 0/6 sau remove/purge; 5/5 hash fixture
+  giữ nguyên. Guard từ chối parent `/`, đường tương đối và gói addon.
+  Đối chiếu trước/sau: database/log dpkg hệ thống, UI local và cấu hình
+  OpenKey/Fcitx5 không đổi. Không đánh dấu nghiệm thu APT/desktop ở trên.
 - [x] Kiểm tra dependency, payload và nạp addon từ gói đã giải nén.
 - [ ] Tạo Flatpak.
 - [ ] Kiểm tra cài mới, nâng cấp, gỡ cài đặt và giữ cấu hình.

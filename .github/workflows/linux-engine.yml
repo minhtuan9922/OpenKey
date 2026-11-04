@@ -51,3 +51,78 @@ jobs:
             dist/linux/*.deb
             dist/linux/*.deb.sha256
           if-no-files-found: error
+
+  ui-build-and-test:
+    name: Qt UI / Ubuntu 24.04
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      QT_QPA_PLATFORM: offscreen
+      QT_QUICK_BACKEND: software
+      QT_IM_MODULE: compose
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt SDK and headless test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build \
+            qt6-base-dev qt6-declarative-dev dpkg-dev desktop-file-utils \
+            qml6-module-qtquick qml6-module-qtquick-controls \
+            qml6-module-qtquick-layouts qml6-module-qtquick-window \
+            qml6-module-qtquick-templates qml6-module-qtqml-workerscript \
+            dbus-daemon dbus-bin fonts-dejavu-core
+
+      - name: Configure UI independently of addon and service
+        run: |
+          cmake -S . -B build/linux-ui -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr -DOPENKEY_BUILD_UI=ON \
+            -DOPENKEY_BUILD_SMOKE_TESTS=ON -DOPENKEY_WARNINGS_AS_ERRORS=ON \
+            -DOPENKEY_BUILD_FCITX5=OFF -DOPENKEY_BUILD_SERVICE=OFF \
+            -DOPENKEY_BUILD_DEB=OFF -DOPENKEY_BUILD_X11_HOTKEY=OFF \
+            -DOPENKEY_BUILD_UI_DEB=ON
+
+      - name: Build UI and tests
+        run: cmake --build build/linux-ui --parallel 2
+
+      - name: Test UI, private D-Bus and HiDPI
+        working-directory: build/linux-ui
+        run: ctest --parallel 2 --output-on-failure --output-junit ui-results.xml
+
+      - name: Check staged UI installation
+        run: |
+          DESTDIR="$RUNNER_TEMP/openkey-ui-stage" cmake --install build/linux-ui --component openkey_ui
+          test -x "$RUNNER_TEMP/openkey-ui-stage/usr/bin/openkey-settings"
+          test -f "$RUNNER_TEMP/openkey-ui-stage/usr/share/dbus-1/services/org.openkey.Settings.service"
+          desktop-file-validate "$RUNNER_TEMP/openkey-ui-stage/usr/share/applications/org.openkey.Settings.desktop"
+          "$RUNNER_TEMP/openkey-ui-stage/usr/bin/openkey-settings" --smoke-test
+
+      - name: Package and verify standalone UI DEB
+        run: |
+          cpack --config build/linux-ui/CPackConfig.cmake
+          cmake --build build/linux-ui --target verify_linux_ui_deb
+          cmake --build build/linux-ui --target verify_linux_ui_deb_lifecycle
+
+      - name: Upload standalone UI package
+        uses: actions/upload-artifact@v4
+        with:
+          name: openkey-settings-ubuntu-24.04
+          path: |
+            dist/linux/openkey-settings_*.deb
+            dist/linux/openkey-settings_*.deb.sha256
+          if-no-files-found: error
+
+      - name: Upload UI test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openkey-ui-ubuntu-24.04-test-reports
+          path: |
+            build/linux-ui/ui-results.xml
+            build/linux-ui/Testing/Temporary/LastTest.log
+            build/linux-ui/Testing/Temporary/LastTestsFailed.log
+            build/linux-ui/ui-deb-lifecycle/**/commands.log
+            build/linux-ui/ui-deb-lifecycle/**/dpkg.log
+          if-no-files-found: warn
+          retention-days: 7

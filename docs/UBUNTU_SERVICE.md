@@ -135,7 +135,7 @@ không phụ thuộc font/icon theme. `T` là OpenKey Telex active, `N` là Open
 `E` là `keyboard-us`, `-` là inactive, `O` là IM khác; unknown/unavailable đều hiện
 `?` nhưng title/tooltip và dòng menu phân biệt nguyên nhân. Menu có dòng trạng
 thái disabled, **Chuyển sang Telex**, **Chuyển sang VNI**, **Chuyển sang tiếng Anh (US)**,
-**Cấu hình bộ gõ Fcitx5…**, dòng kết quả thao tác
+**Cài đặt OpenKey…**, **Cấu hình bộ gõ Fcitx5…**, dòng kết quả thao tác
 và hướng dẫn giới hạn phím tắt, cùng lệnh **Thoát tray OpenKey (giữ bộ gõ)**. Click trực tiếp icon/
 scroll không đổi input method hoặc cấu hình.
 
@@ -149,7 +149,8 @@ Chỉ `Event(2000, "clicked", ...)` yêu cầu thoát; hover/open/close hoặc c
 trạng thái/root không tác động. Trả lời host trước khi main loop thoát sạch,
 không gọi `exit()` từ callback D-Bus. Cùng UID có thể gọi lệnh qua session bus,
 tương tự IPC `--quit`. Chưa port các lệnh bật/tắt tiếng Việt, chính tả, macro, chuyển mã,
-cửa sổ cài đặt hoặc theme; không hiện lệnh giả/chưa hỗ trợ. Đây vẫn là subset
+theme và các trang cấu hình đầy đủ; UI riêng hiện mở được từ mục 1000 sau khi
+cài component UI. Không hiện lệnh giả/chưa hỗ trợ. Đây vẫn là subset
 dbusmenu, chưa hỗ trợ `EventGroup` hay chứng nhận mọi host. Đối chiếu
 [giao thức libdbusmenu](https://sources.debian.org/src/libdbusmenu/18.10.20180917~bzr492%2Brepack1-2/libdbusmenu-glib/dbus-menu.xml).
 
@@ -196,10 +197,27 @@ gõ vào nhóm trước. Nếu thiếu `keyboard-us`, chọn tiếng Anh cũng b
 không tự đổi layout khác hay deactivate Fcitx5. Đây không phải nút tắt daemon.
 Để thử VNI, người dùng mở cấu hình Fcitx5, thêm **OpenKey VNI** vào nhóm đang dùng;
 không tự thêm chỉ để chạy test. Có thể mở cấu hình từ menu bên dưới; chưa có
-cửa sổ OpenKey riêng.
+cửa sổ chọn kiểu gõ trong UI OpenKey; UI mới chỉ áp dụng chế độ Preedit/Direct.
 Test tự động chỉ đổi IM trên mock/private D-Bus; không chuyển bộ gõ người dùng.
 
 ### Mở cấu hình Fcitx5 từ tray
+
+Mục mới **Cài đặt OpenKey…** (1000) mở UI Qt riêng, không thay thế mục 1001 bên
+dưới. Gọi `org.openkey.Settings1.Show` qua session bus, cho phép D-Bus activation
+chỉ với thao tác click; worker không chạy shell hoặc tìm executable qua PATH.
+Thiếu UI/activation file thì báo lỗi, không tự cài hoặc khởi động Fcitx5.
+ACK không bảo đảm compositor đưa cửa sổ lên trước. UI giữ một cửa sổ cho phiên
+normal, đóng UI không thoát tray/bộ gõ. Hướng dẫn cài và giới hạn Wayland:
+[Ubuntu UI](UBUNTU_UI.md#mở-từ-tray-và-một-cửa-sổ-mỗi-phiên).
+
+UI request chia sẻ slot với các lệnh chuyển IM/cấu hình Fcitx5, timeout 3 giây,
+không tự retry. Hotkey X11 hiện vẫn mở cấu hình Fcitx5, chưa đổi sang UI OpenKey.
+Service build hiện đạt 16/16 CTest; launcher có test Show, thiếu UI, lỗi/timeout,
+slot busy và không chặn event loop trên private bus; menu test giữ nguyên trạng
+thái bộ gõ/tiến trình tray khi UI không có. UI có private-bus cold-activation và
+single-instance tests riêng, chưa thay nghiệm thu panel/focus trên desktop.
+Launcher/menu tests dùng [bus config không có activation dirs](../Tests/fixtures/dbus/no-activation.conf)
+để tình huống “thiếu UI” không vô tình khởi động executable đã cài ở tài khoản.
 
 Mục **Cấu hình bộ gõ Fcitx5…** dùng ID 1001 riêng Linux, khác với control panel
 OpenKey Windows ID 1000. Chỉ `clicked` gửi controller `Configure` đến unique
@@ -304,7 +322,8 @@ với [Ubuntu AppIndicator](https://github.com/ubuntu/gnome-shell-extension-appi
 Giao thức/encoding theo [SNI specification](https://specifications.freedesktop.org/status-notifier-item/latest/status-notifier-item.html)
 và [KDE interface](https://github.com/KDE/kstatusnotifieritem/blob/master/src/org.kde.StatusNotifierItem.xml).
 Chưa chứng nhận mọi host hoặc toàn bộ dbusmenu contract. Chưa có menu bật/tắt tiếng Việt,
-cửa sổ điều khiển, hotkey hay TrayContract Windows đầy đủ.
+hotkey/theme Windows hoặc các trang điều khiển đầy đủ. UI Qt là preview riêng,
+không phải port toàn bộ TrayContract Windows.
 
 ### Ẩn tray Fcitx5
 

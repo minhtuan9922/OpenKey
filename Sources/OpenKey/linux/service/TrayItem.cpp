@@ -14,8 +14,9 @@ constexpr const char* menuInterface = "com.canonical.dbusmenu";
 constexpr int quitMenuId = 2000; // POPUP_OPENKEY_EXIT in Tests/TrayContract.json.
 constexpr int englishMenuId = 920; // Linux-only explicit selector, not Windows' toggle command 900.
 constexpr int configurationMenuId = 1001; // Opens Fcitx settings, not Windows' OpenKey control panel.
+constexpr int settingsMenuId = 1000; // OpenKey's own settings window.
 bool inputMenuId(int id) { return id == 910 || id == 911 || id == englishMenuId; }
-bool validMenuId(int id) { return (id >= 0 && id <= 4) || inputMenuId(id) || id == configurationMenuId || id == quitMenuId; }
+bool validMenuId(int id) { return (id >= 0 && id <= 4) || inputMenuId(id) || id == configurationMenuId || id == settingsMenuId || id == quitMenuId; }
 int emptyPixmaps(sd_bus_message* reply) {
     int result = sd_bus_message_open_container(reply, 'a', "(iiay)");
     return result < 0 ? result : sd_bus_message_close_container(reply);
@@ -93,6 +94,7 @@ int menuFields(sd_bus_message* reply, int id, const std::string& title, ActionRe
         else if (id == 911) text = "Chuyển sang VNI";
         else if (id == englishMenuId) text = "Chuyển sang tiếng Anh (US)";
         else if (id == configurationMenuId) text = "Cấu hình bộ gõ Fcitx5…";
+        else if (id == settingsMenuId) text = "Cài đặt OpenKey…";
         else if (id == 2) text = actionLabel(action);
         else if (id == 3) text = hotkeyHint(session, hotkey);
         else if (id == 4) text = "Đổi phím tắt trong cấu hình Fcitx5";
@@ -123,7 +125,7 @@ int menuFields(sd_bus_message* reply, int id, const std::string& title, ActionRe
         if (result >= 0) result = sd_bus_message_append(reply, "s", "enabled");
         if (result >= 0) result = sd_bus_message_open_container(reply, 'v', "b");
         if (result >= 0) result = sd_bus_message_append(reply, "b", id == quitMenuId ||
-            ((inputMenuId(id) || id == configurationMenuId) && action != ActionResult::Busy));
+            ((inputMenuId(id) || id == configurationMenuId || id == settingsMenuId) && action != ActionResult::Busy));
         if (result >= 0) result = sd_bus_message_close_container(reply);
         if (result >= 0) result = sd_bus_message_close_container(reply);
     }
@@ -136,7 +138,7 @@ int menuNode(sd_bus_message* reply, int id, int depth, const std::string& title,
     if (result >= 0) result = menuFields(reply, id, title, action, status, session, hotkey);
     if (result >= 0) result = sd_bus_message_open_container(reply, 'a', "v");
     if (result >= 0 && id == 0 && depth != 0) {
-        for (const int child : {1, 910, 911, englishMenuId, 2, configurationMenuId, 3, 4, quitMenuId}) {
+        for (const int child : {1, 910, 911, englishMenuId, 2, settingsMenuId, configurationMenuId, 3, 4, quitMenuId}) {
             if (result >= 0) result = sd_bus_message_open_container(reply, 'v', "(ia{sv}av)");
             if (result >= 0) result = menuNode(reply, child, 0, title, action, status, session, hotkey);
             if (result >= 0) result = sd_bus_message_close_container(reply);
@@ -223,6 +225,8 @@ int TrayItem::menuEvent(sd_bus_message* message, void* data, sd_bus_error*) {
                                   id == 911 ? InputMethod::Vni : InputMethod::English);
         } else if (!self.quitRequested_ && id == configurationMenuId) {
             self.actions_.requestConfiguration();
+        } else if (!self.quitRequested_ && id == settingsMenuId) {
+            self.actions_.requestSettings();
         }
     }
     return result;

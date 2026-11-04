@@ -35,7 +35,7 @@ SettingsController::SettingsController(const QDBusConnection& bus, QObject* pare
             ++generation_; // Outstanding replies from the old owner must not re-enable Apply.
             const bool uncertain = writing_;
             owner_.clear();
-            style_.clear();
+            values_.clear();
             finish(uncertain ? "unconfirmed" : "unavailable");
         });
 }
@@ -65,11 +65,16 @@ void SettingsController::finish(const QString& result, bool ready) {
     writing_ = false;
     ready_ = ready;
     result_ = result;
-    if (!ready) style_.clear();
+    if (!ready) values_.clear();
     emit changed();
 }
 
-bool SettingsController::decode(const QDBusMessage& reply, QString& style) {
+void SettingsController::accept(const QString& result, const QVariantMap& values) {
+    values_ = values;
+    finish(result, true);
+}
+
+bool SettingsController::decode(const QDBusMessage& reply, QVariantMap& values) {
     if (reply.type() != QDBusMessage::ReplyMessage || reply.signature() != "va(sa(sssva{sv}))" ||
         reply.arguments().size() != 2) return false;
     const auto raw = variantMap(reply.arguments()[0].value<QDBusVariant>().variant());
@@ -80,6 +85,10 @@ bool SettingsController::decode(const QDBusMessage& reply, QString& style) {
     const auto schema = reply.arguments()[1].value<QDBusArgument>();
     if (schema.currentSignature() != "a(sa(sssva{sv}))") return false;
     bool foundStyle = false, foundDiagnostics = false;
+    int spellingEntries = 0, modernEntries = 0;
+    bool optionalTypesValid = true;
+    int quickTelexEntries = 0;
+    bool quickTelexTypeValid = true;
     int types = 0, options = 0;
     schema.beginArray();
     while (!schema.atEnd()) {
@@ -106,6 +115,13 @@ bool SettingsController::decode(const QDBusMessage& reply, QString& style) {
             } else if (name == "DirectDiagnostics") {
                 if (foundDiagnostics || type != "Boolean") return false;
                 foundDiagnostics = true;
+            } else if (name == "QuickTelex") {
+                ++quickTelexEntries;
+                quickTelexTypeValid = quickTelexTypeValid && type == "Boolean";
+            } else if (name == "CheckSpelling" || name == "UseModernOrthography") {
+                if (name == "CheckSpelling") ++spellingEntries;
+                else ++modernEntries;
+                optionalTypesValid = optionalTypesValid && type == "Boolean";
             }
         }
         schema.endArray();
@@ -113,7 +129,18 @@ bool SettingsController::decode(const QDBusMessage& reply, QString& style) {
     }
     schema.endArray();
     if (!foundStyle || !foundDiagnostics) return false;
-    style = value.toString();
+    values = {{"InputStyle", value}, {"DirectDiagnostics", diagnostics}};
+    const auto check = raw.value("CheckSpelling"), modern = raw.value("UseModernOrthography");
+    if (spellingEntries == 1 && modernEntries == 1 && optionalTypesValid &&
+        (stringValue(check, "True") || stringValue(check, "False")) &&
+        (stringValue(modern, "True") || stringValue(modern, "False"))) {
+        values.insert("CheckSpelling", check);
+        values.insert("UseModernOrthography", modern);
+    }
+    const auto quickTelex = raw.value("QuickTelex");
+    if (quickTelexEntries == 1 && quickTelexTypeValid &&
+        (stringValue(quickTelex, "True") || stringValue(quickTelex, "False")))
+        values.insert("QuickTelex", quickTelex);
     return true;
 }
 
@@ -123,52 +150,68 @@ void SettingsController::reload() {
     busy_ = true;
     ready_ = false;
     writing_ = false;
-    style_.clear();
+    values_.clear();
     result_ = "loading";
     emit changed();
     resolve([this](const QDBusMessage& reply) {
         owner_ = replyOwner(reply);
         if (owner_.isEmpty()) { finish("unavailable"); return; }
         read([this](const QDBusMessage& config) {
-            QString style;
-            if (!decode(config, style)) { finish("error"); return; }
-            style_ = style;
-            finish("loaded", true);
+            QVariantMap values;
+            if (!decode(config, values)) { finish("error"); return; }
+            accept("loaded", values);
         });
     });
 }
 
 void SettingsController::apply(const QString& target) {
+    applyValue("InputStyle", target);
+}
+void SettingsController::applyDiagnostics(const QString& target) {
+    applyValue("DirectDiagnostics", target);
+}
+void SettingsController::applySpelling(const QString& target) { applyValue("CheckSpelling", target); }
+void SettingsController::applyModernOrthography(const QString& target) { applyValue("UseModernOrthography", target); }
+void SettingsController::applyQuickTelex(const QString& target) { applyValue("QuickTelex", target); }
+void SettingsController::applyValue(const QString& key, const QString& target) {
     if (busy_) return;
-    if (!validStyle(target)) { finish("invalid"); return; }
+    const bool styleField = key == "InputStyle";
+    const bool spellingField = key == "CheckSpelling" || key == "UseModernOrthography";
+    const bool optionalField = spellingField || key == "QuickTelex";
+    if (!(styleField ? validStyle(target) : (key == "DirectDiagnostics" || optionalField) && (target == "True" || target == "False"))) {
+        finish("invalid"); return;
+    }
     if (!ready_ || owner_.isEmpty()) { finish("unavailable"); return; }
-    const auto expected = style_;
+    if (spellingField && !spellingSupported()) { finish("unsupported"); return; }
+    if (key == "QuickTelex" && !quickTelexSupported()) { finish("unsupported"); return; }
+    const auto expected = values_.value(key).toString();
     busy_ = true;
     ready_ = false;
     result_ = "applying";
     emit changed();
-    resolve([this, expected, target](const QDBusMessage& reply) {
+    resolve([this, key, optionalField, expected, target](const QDBusMessage& reply) {
         if (replyOwner(reply) != owner_) { finish("unavailable"); return; }
-        read([this, expected, target](const QDBusMessage& fresh) {
-            QString current;
-            if (!decode(fresh, current)) { finish("error"); return; }
+        read([this, key, optionalField, expected, target](const QDBusMessage& fresh) {
+            QVariantMap values;
+            if (!decode(fresh, values)) { finish("error"); return; }
+            if (optionalField && !values.contains(key)) { finish("unsupported"); return; }
+            const auto current = values.value(key).toString();
             if (current != expected) { finish("conflict"); return; }
-            if (current == target) { style_ = current; finish("confirmed", true); return; }
-            // Patch only InputStyle. config_.load(raw, true) retains other options.
-            const QVariantMap patch{{"InputStyle", target}};
+            if (current == target) { accept("confirmed", values); return; }
+            // Patch one validated key. Partial load retains the other options.
+            const QVariantMap patch{{key, target}};
             writing_ = true; // Set may take effect even if its reply is lost.
             call(owner_, "SetConfig", {uri, QVariant::fromValue(QDBusVariant(patch))},
-                [this, target](const QDBusMessage& ack) {
+                [this, key, target](const QDBusMessage& ack) {
                     if (ack.type() != QDBusMessage::ReplyMessage || !ack.arguments().isEmpty()) {
                         finish("unconfirmed"); return;
                     }
-                    read([this, target](const QDBusMessage& confirmation) {
-                        QString actual;
-                        if (!decode(confirmation, actual) || actual != target) {
+                    read([this, key, target](const QDBusMessage& confirmation) {
+                        QVariantMap actual;
+                        if (!decode(confirmation, actual) || actual.value(key).toString() != target) {
                             finish("unconfirmed"); return;
                         }
-                        style_ = actual;
-                        finish("confirmed", true);
+                        accept("confirmed", actual);
                     });
                 });
         });

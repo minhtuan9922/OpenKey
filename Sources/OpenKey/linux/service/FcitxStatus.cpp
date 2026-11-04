@@ -143,7 +143,10 @@ ActionResult openFcitxConfiguration() {
 }
 const char* actionLabel(ActionResult result) {
     switch (result) {
-    case ActionResult::Busy: return "Đang gửi yêu cầu đến Fcitx5…";
+    case ActionResult::Busy: return "Đang xử lý yêu cầu…";
+    case ActionResult::SettingsRequested: return "Đã gửi yêu cầu hiện cài đặt OpenKey";
+    case ActionResult::SettingsUnavailable: return "Chưa mở được UI; kiểm tra cài đặt openkey-settings";
+    case ActionResult::SettingsUnconfirmed: return "Chưa xác nhận mở UI; kiểm tra cửa sổ trước khi thử lại";
     case ActionResult::Changed: return "Đã xác nhận kiểu gõ từ Fcitx5";
     case ActionResult::ConfigurationRequested: return "Đã gửi yêu cầu mở cấu hình Fcitx5";
     case ActionResult::Unavailable: return "Fcitx5 chưa chạy; không tự khởi động";
@@ -158,6 +161,7 @@ bool FcitxActions::request(InputMethod method) {
     return submit([method] { return switchFcitxInputMethod(method); });
 }
 bool FcitxActions::requestConfiguration() { return submit(openFcitxConfiguration); }
+bool FcitxActions::requestSettings() { return submit(openOpenKeySettings); }
 bool FcitxActions::submit(std::function<ActionResult()> task) {
     if (pending_.valid()) return false;
     try {

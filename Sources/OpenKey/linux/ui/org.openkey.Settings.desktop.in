@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=OpenKey Settings
+Name[vi]=Cài đặt OpenKey
+Comment=OpenKey settings preview; input method installed separately
+Comment[vi]=Giao diện cấu hình OpenKey thử nghiệm; bộ gõ được cài riêng
+Exec="@CMAKE_INSTALL_PREFIX@/bin/openkey-settings"
+Icon=preferences-desktop-keyboard
+Terminal=false
+StartupNotify=false
+Categories=Settings;

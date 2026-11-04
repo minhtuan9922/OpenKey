@@ -4,13 +4,39 @@ Nhánh `fix/ubuntu-direct-focus` có module Fcitx5 thử nghiệm với hai inpu
 method **OpenKey Telex** và **OpenKey VNI**, dùng engine C++ chung, cùng gói `.deb`
 alpha. Chưa có UI cấu hình hoàn chỉnh hoặc macro trong addon. Session service tùy chọn có
 tray riêng và [autostart opt-in](../../../docs/UBUNTU_SERVICE.md#tự-khởi-động-tray-sau-đăng-nhập--opt-in),
-chưa đưa vào gói addon alpha.9; build/install không tự bật autostart.
+chưa đưa vào gói addon alpha.11; build/install không tự bật autostart.
 
 Đã có [UI preview Qt Quick/QML v0.4](../../../docs/UBUNTU_UI.md) với sidebar
 theo Windows và theme sáng/tối. Build opt-in `OPENKEY_BUILD_UI=ON`; giao diện
 đọc trạng thái lấy mẫu từ service và cấu hình người dùng đã lưu; có Apply
-Preedit/Direct qua Fcitx5 và xác nhận runtime, chưa bảo đảm lưu bền;
-chưa mở từ tray hoặc đưa vào gói `.deb`. Có `--offline` để xem UI không đọc dữ liệu.
+Preedit/Direct và DirectDiagnostics qua Fcitx5 và xác nhận runtime, chưa bảo đảm lưu bền;
+trang Chính tả có CheckSpelling và UseModernOrthography khi addon hỗ trợ schema
+(từ alpha.10), mặc định đều bật; addon cũ vẫn dùng được mode/diagnostics;
+Gõ nhanh Telex dùng schema QuickTelex từ alpha.11, mặc định tắt, VNI không đổi;
+trang Phím tắt đọc runtime toàn cục Fcitx5, không sửa hay đăng ký hotkey;
+trang Tương thích hiển thị môi trường riêng UI, chia sẻ điều khiển mode với Tổng
+quan và hướng dẫn giới hạn Direct/VS Code, chưa có chính sách theo ứng dụng;
+trang Chuyển mã có chuẩn hóa Unicode/hoa-thường/bỏ dấu thủ công, không tự đọc
+clipboard hoặc sửa tài liệu, chưa hỗ trợ chuyển bảng mã legacy;
+chuyển đổi chạy bằng worker Qt Concurrent, nguồn tối đa 64 Ki đơn vị UTF-16,
+có Hủy và không nhận kết quả cũ sau khi sửa nguồn/tùy chọn;
+hai nút clipboard Dán/Sao chép chỉ chạy khi người dùng bấm, không theo dõi nền;
+trang Giới thiệu có metadata riêng UI/Qt và giấy phép offline, không kiểm tra
+cập nhật hoặc suy ra phiên bản addon đang nạp;
+Nâng cao có JSON sao lưu theme/sidebar, xem trước rồi xác nhận khôi phục,
+không sao lưu cấu hình Fcitx5, macro hoặc văn bản và không tự ghi file sao lưu;
+Tổng quan phân biệt lỗi service/API runtime/file đã lưu, có Đọc lại chỉ đọc,
+không coi dữ liệu đã lấy mẫu là kiểm tra sức khỏe engine;
+mở từ menu tray sau khi cài component UI hoặc gói riêng `openkey-settings`
+preview.1 (không kèm addon/tray). UI normal dùng
+một cửa sổ/session bus; có `--offline` để xem UI không đọc dữ liệu.
+Điều hướng trong cửa sổ dùng Ctrl+Tab/Ctrl+Shift+Tab và F1, không đăng ký
+hotkey hệ thống; xem [phạm vi và giới hạn](../../../docs/UBUNTU_UI.md#điều-hướng-bàn-phím-trong-ui).
+
+Workflow Linux có job UI headless riêng trên Ubuntu 24.04 (Qt từ APT), tắt
+addon/service, chạy CTest và kiểm tra staged install; không phát hành UI trong
+gói addon; có bước tạo/kiểm tra gói UI độc lập. [Phạm vi CI và giới hạn](../../../docs/UBUNTU_UI.md#ci-giao-diện-độc-lập).
+Chưa nghiệm thu job này trên remote; kết quả local không thay kiểm thử runner.
 
 Alpha.3 thêm lựa chọn **Preedit / Direct** trong cấu hình Fcitx5. Direct commit
 từng ký tự, không gửi preedit khi client hỗ trợ surrounding-text; Preedit vẫn là
@@ -32,8 +58,8 @@ Ubuntu cũ hơn. CI có job build riêng trên Ubuntu 24.04, chưa chạy trên 
 ## Build và test
 
 Session service v0.3 (single-instance, monitor và tray trạng thái tùy chọn;
-có menu chuyển Telex/VNI/tiếng Anh (US), mở cấu hình Fcitx5 và thoát riêng tray;
-chưa có cửa sổ cài đặt riêng):
+có menu chuyển Telex/VNI/tiếng Anh (US), mở cấu hình Fcitx5, mở UI OpenKey nếu đã
+cài component UI và thoát riêng tray):
 [hướng dẫn service](../../../docs/UBUNTU_SERVICE.md). Build tùy chọn, tách khỏi addon;
 không cần cài lại alpha.9 để dùng bộ gõ đang hoạt động.
 Hotkey mở cấu hình X11 là prototype opt-in `OPENKEY_BUILD_X11_HOTKEY=ON` và
@@ -41,6 +67,8 @@ Hotkey mở cấu hình X11 là prototype opt-in `OPENKEY_BUILD_X11_HOTKEY=ON` v
 Xem [giới hạn và kiểm thử Xvfb](../../../docs/UBUNTU_SERVICE.md#hotkey-mở-cấu-hình-trên-x11--thử-nghiệm-opt-in).
 
 Công cụ: compiler C++20 cho addon, CMake >= 3.16, Ninja và SDK Fcitx5 >= 5.0.14.
+CTest Linux có thêm kiểm thử trình chạy profile VS Code bằng Bash/coreutils/grep,
+dùng stub nên không cần cài hoặc mở VS Code. Xem [hồi quy launcher](../../../docs/UBUNTU_VSCODE_INPUT_INVESTIGATION.md#hồi-quy-trình-chạy--cập-nhật-2026-11-04).
 Engine vẫn dùng C++17. Trên Ubuntu, tên gói SDK core là `libfcitx5core-dev`:
 
 ```bash

@@ -14,7 +14,10 @@ Button {
     hoverEnabled: true
     Accessible.name: text
     Accessible.description: selected ? "Trang đang chọn" : "Mở trang " + text
-    ToolTip.visible: hovered && !expanded
+    Accessible.checkable: true
+    Accessible.checked: selected
+    ToolTip.visible: (hovered || visualFocus) && !expanded
+    ToolTip.delay: 300
     ToolTip.text: text
     background: Rectangle {
         radius: button.uiPalette.radius

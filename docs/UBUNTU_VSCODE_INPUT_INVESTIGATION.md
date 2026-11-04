@@ -123,3 +123,45 @@ Trạng thái: đã đọc mã nguồn; Bash syntax, JSON và display/argument g
 sáu mode/backend qua CLI stub đạt (không mở GUI), 7/7 CTest hiện tại đạt.
 Đã có phản hồi desktop cho textarea/accessible; profile editcontext chưa nghiệm thu.
 Profile tạm được giữ lại để xem settings; không tự xóa hoặc đụng profile chính.
+
+## Hồi quy trình chạy — cập nhật 2026-11-04
+
+[Launcher tests](../Tests/LinuxVscodeLauncherTests.sh) được đưa vào CTest Linux
+với tên `openkey_vscode_launcher_tests`, chạy cả khi UI/Fcitx5 build OFF. Test
+dùng [launcher giả](../Tests/fixtures/vscode-input/code-stub.sh), display không
+tồn tại và runtime/config riêng; không mở editor thật, không cần desktop và
+không đọc/ghi clipboard hoặc gọi bộ gõ.
+
+24 ca bao phủ:
+
+- Sáu tổ hợp mode/backend, backend mặc định Wayland, profile mới khi chạy lại.
+- Copy đúng settings/file mẫu, quyền profile 0700 và file 0600, thư mục extension
+  riêng; các flag disable extensions/new-window/wait/goto được chuyển nguyên vẹn.
+- Đường dẫn checkout, launcher và thư mục profile có khoảng trắng.
+- Giữ profile sau khi launcher kết thúc và trả đúng exit code khác 0.
+- Help, tham số sai/thừa/thiếu, thiếu display, launcher thiếu/không executable,
+  TMPDIR không hợp lệ: không gọi stub và không tạo profile thêm.
+- Sentinel profile chính trong fixture không bị thay đổi.
+
+Chạy riêng từ root repository sau khi đã configure build:
+
+```bash
+ctest --test-dir build/ubuntu-ui -R '^openkey_vscode_launcher_tests$' --output-on-failure
+# Hoặc chạy trực tiếp, không cần Qt/Fcitx5:
+bash Tests/LinuxVscodeLauncherTests.sh "$PWD"
+```
+
+CI Linux hiện có bước chạy toàn bộ CTest nên tự bao gồm test này sau khi mã
+được đưa lên remote; chưa chạy CI remote trong lượt này. Cần Bash và công cụ
+GNU thông thường trên Ubuntu (coreutils, grep), không cần VS Code để chạy test.
+Test tự xóa riêng cây fixture mới tạo; không dọn các profile thử desktop trước đó.
+
+Trình chạy thật vẫn giữ profile để kiểm tra. Có thể đặt `TMPDIR` tới thư mục
+tạm **tuyệt đối, tồn tại và ghi được**; mặc định `/tmp`. Thư mục/file mới dùng
+umask 077. Không dùng TMPDIR tương đối hoặc đoán/export display để chạy thật.
+Không thay launcher desktop hay profile VS Code chính.
+
+Đây là nghiệm thu **trình chạy**, không chứng minh Telex/VNI, Direct, completion
+hoặc một backend cụ thể hoạt động trên desktop. Kết quả accessible trước đó vẫn
+giữ nguyên; profile `editcontext` chưa có nghiệm thu gõ. Không tạo addon alpha
+mới, không tăng timeout hoặc nới guard Direct trong thay đổi này.

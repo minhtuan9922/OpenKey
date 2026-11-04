@@ -12,18 +12,14 @@ Pane {
     readonly property string result: controller !== null ? controller.result : "offline"
     readonly property string runtimeStyle: controller !== null ? controller.runtimeStyle : ""
     readonly property string requestedStyle: picker.currentIndex === 1 ? "Direct" : "Preedit"
-    readonly property string feedback: ({offline: "Đang offline; không đọc hoặc áp dụng cấu hình.",
-        loading: "Đang đọc cấu hình từ Fcitx5…", loaded: "Đã đọc cấu hình runtime của addon OpenKey.",
-        applying: "Đang áp dụng và đọc lại để xác nhận…",
-        confirmed: "Đã xác nhận chế độ trong runtime. Xem riêng cấu hình đã lưu; chưa xác nhận lưu file thành công.",
-        conflict: "Cấu hình đã đổi ở nơi khác. Nhấn Đọc lại trước khi thử tiếp.",
-        unavailable: "Không kết nối được Fcitx5 hiện có. Giao diện không tự khởi động bộ gõ.",
-        error: "Không đọc được cấu hình/schema tương thích. Chưa gửi thay đổi.",
-        unconfirmed: "Chưa xác nhận kết quả; thay đổi có thể đã được áp dụng. Nhấn Đọc lại, không tự gửi lại.",
-        invalid: "Giá trị chế độ không hợp lệ. Nhấn Đọc lại."})[result] || "Chưa xác định"
+    ConfigFeedback { id: statusFeedback; result: card.result }
+    readonly property string feedback: statusFeedback.text
     function syncPicker() {
+        if (!picker) return
         if (controller !== null && controller.ready)
             picker.currentIndex = controller.runtimeStyle === "Direct" ? 1 : 0
+        else if (controller === null || !controller.busy)
+            picker.currentIndex = -1
     }
     Component.onCompleted: syncPicker()
     onControllerChanged: syncPicker()
@@ -73,43 +69,19 @@ Pane {
         }
         RowLayout {
             spacing: 12
-            Button {
-                id: applyButton
+            SettingsButton {
+                uiPalette: card.uiPalette
+                primary: true
                 objectName: "applyInputStyle"
                 text: "Áp dụng"
-                implicitHeight: 36
-                leftPadding: 18
-                rightPadding: 18
                 enabled: card.ready && !card.busy && picker.currentIndex >= 0 && card.requestedStyle !== card.runtimeStyle
-                background: Rectangle {
-                    radius: 5
-                    color: applyButton.enabled ? card.uiPalette.accent : card.uiPalette.hover
-                    border.width: applyButton.visualFocus ? 2 : 0
-                    border.color: card.uiPalette.text
-                }
-                contentItem: Label {
-                    text: applyButton.text
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    color: applyButton.enabled ? card.uiPalette.accentText : card.uiPalette.muted
-                }
                 onClicked: card.controller.apply(card.requestedStyle)
             }
-            Button {
-                id: reloadButton
+            SettingsButton {
+                uiPalette: card.uiPalette
                 objectName: "reloadInputStyle"
                 text: "Đọc lại"
-                implicitHeight: 36
-                leftPadding: 18
-                rightPadding: 18
                 enabled: card.controller !== null && !card.busy
-                opacity: enabled ? 1 : 0.6
-                background: Rectangle {
-                    radius: 5
-                    color: card.uiPalette.card
-                    border.width: reloadButton.visualFocus ? 2 : 1
-                    border.color: reloadButton.visualFocus ? card.uiPalette.accent : card.uiPalette.stroke
-                }
                 onClicked: card.controller.reload()
             }
             BusyIndicator { running: card.busy; visible: running; implicitWidth: 24; implicitHeight: 24 }

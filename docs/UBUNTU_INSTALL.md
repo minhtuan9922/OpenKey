@@ -5,7 +5,10 @@ Gói `fcitx5-openkey` cung cấp hai input method **OpenKey Telex (Experimental)
 hợp Linux của bản fork. Mã nguồn/giấy phép: GPL-3.0, xem
 <https://github.com/minhtuan9922/OpenKey>.
 
-Đây là bản alpha, chưa có giao diện Fluent giống Windows, tray riêng hoặc macro.
+Đây là bản alpha. Gói `fcitx5-openkey` chỉ chứa addon, không kèm UI/tray hoặc macro.
+UI Qt Quick có gói preview riêng `openkey-settings`; tray vẫn build/cài riêng.
+Xem [Ubuntu UI](UBUNTU_UI.md)
+và [Ubuntu service](UBUNTU_SERVICE.md).
 Từ alpha.3 có lựa chọn Preedit/Direct được lưu trong cấu hình Fcitx5.
 Kiểm thử người dùng trên GNOME/Wayland, alpha.7: profile textarea thông thường
 giữ gợi ý nhưng không chuyển dấu; profile textarea với accessibility support bật
@@ -14,6 +17,10 @@ sửa từ bằng Backspace đúng mong đợi; các ca Tab/Enter, undo/redo, đ
 nhanh cũng được báo đạt trong profile accessible này (không thay toàn bộ ma trận QA).
 Alpha.9 bổ sung xóa Space vừa gõ để sửa tiếp từ trước đó; người dùng đã xác nhận
 các ca hướng dẫn đạt mong đợi trên profile accessible này.
+Alpha.10 bổ sung hai thiết lập chung cho Telex/VNI: kiểm tra chính tả và đặt dấu
+kiểu mới, mặc định đều bật để giữ hành vi trước đây. Chưa nghiệm thu desktop alpha.10.
+Alpha.11 thêm `QuickTelex`, mặc định tắt, chỉ mở rộng cặp phụ âm khi dùng Telex;
+VNI không đổi. Chưa nghiệm thu desktop alpha.11.
 
 ## Cài gói
 
@@ -21,8 +28,8 @@ Từ root repository, sau khi đã có gói và checksum trong `dist/linux/`:
 
 ```bash
 cd dist/linux
-sha256sum -c 'fcitx5-openkey_3.1.0~alpha.9-1_amd64.deb.sha256'
-sudo apt install './fcitx5-openkey_3.1.0~alpha.9-1_amd64.deb'
+sha256sum -c 'fcitx5-openkey_3.1.0~alpha.11-1_amd64.deb.sha256'
+sudo apt install './fcitx5-openkey_3.1.0~alpha.11-1_amd64.deb'
 ```
 
 APT sẽ xử lý dependency được khai báo trong gói. Bản build trên Ubuntu 26.04
@@ -33,6 +40,76 @@ mục tiêu nếu APT báo không đáp ứng phiên bản thư viện.
 Gói chỉ đặt module và descriptor vào hệ thống; không có maintainer script,
 không đổi profile, không bật autostart, không dừng/chạy lại daemon hoặc thay IBus.
 Không có mục mở ứng dụng OpenKey riêng trong launcher ở bản alpha này.
+
+## Gói giao diện riêng — preview.1
+
+Gói `openkey-settings` không cài kèm addon/tray và không thay profile, bật
+autostart hoặc restart Fcitx5. Có mục **OpenKey Settings / Cài đặt OpenKey**
+trong menu ứng dụng, executable và D-Bus activation. Theme/sidebar và cấu hình
+người dùng không nằm trong payload; chưa phát hành trên kho APT.
+
+Tạo gói từ root repository (cần SDK Qt theo [Ubuntu UI](UBUNTU_UI.md), cùng
+`dpkg-dev`, `desktop-file-utils`, Ninja và công cụ build):
+
+```bash
+bash scripts/build-linux-ui-deb.sh
+```
+
+Script build/test và giải nén để kiểm tra, **không cài gói**. Sau khi đã có
+gói/checksum, người dùng có thể cài chủ động:
+
+```bash
+cd dist/linux
+sha256sum -c 'openkey-settings_3.1.0~preview.1-1_amd64.deb.sha256'
+sudo apt install './openkey-settings_3.1.0~preview.1-1_amd64.deb'
+```
+
+Không bỏ qua dependency Qt/QML hoặc cài gói Ubuntu 26.04 vào bản Ubuntu cũ
+bằng force. Build trên Ubuntu mục tiêu; job Ubuntu 24.04 mới được cấu hình,
+chưa nghiệm thu trên remote. UI vẫn mở được khi thiếu addon, nhưng các phần
+runtime sẽ báo chưa kết nối/chưa hỗ trợ. Gói không tự cài hoặc bật bộ gõ.
+
+Đóng UI cũ trước khi mở bản mới. Máy từng cài component vào `~/.local` có thể
+còn binary, desktop entry hoặc D-Bus service người dùng ưu tiên hơn bản `/usr`.
+Kiểm tra `type -a openkey-settings` và đường Exec trong
+`~/.local/share/dbus-1/services/org.openkey.Settings.service` nếu có. Để thử
+đúng gói, đóng cửa sổ cũ rồi chạy `/usr/bin/openkey-settings`; nếu muốn chuyển
+hẳn sang gói hệ thống, sao lưu/di chuyển riêng các launcher/activation cũ có
+chủ đích. Gói và script không tự xóa bản cài local của bạn.
+
+### Kiểm tra vòng đời payload trong root tạm
+
+Sau khi có gói, target sau dùng `dpkg` với root, database và log nằm riêng
+trong thư mục build. Chạy bằng tài khoản thường, không dùng sudo:
+
+```bash
+cmake --build build/ubuntu-ui-deb --target verify_linux_ui_deb_lifecycle
+```
+
+Kiểm tra lần lượt giải nén gói mới, giải nén lại, nâng lên gói phiên bản QA
+tổng hợp chỉ trong root tạm, remove, giải nén lại rồi purge. So sánh payload
+và các file cấu hình giả lập sau từng bước. Gói QA không phải bản phát hành
+và không được cài vào máy thật. Fixture/database/log được giữ trong thư mục
+`build/ubuntu-ui-deb/ui-deb-lifecycle/run-*` để kiểm tra, không tự xóa build cũ.
+Script build UI và job CI cũng chạy target này sau khi tạo/kiểm tra gói.
+
+Guard từ chối chạy root và các tùy chọn dpkg mặc định không nằm trong danh
+sách cho phép, đặc biệt invoke hook, path filter hoặc force flag. Log dpkg
+được trỏ riêng vào root tạm; không chạy maintainer script/trigger, không
+đổi HOME, không dùng `force-depends` hoặc `script-chrootless`. Nếu guard báo
+cấu hình dpkg không hỗ trợ, không tắt guard hoặc sửa cấu hình máy thật chỉ
+để chạy test; dùng môi trường thử riêng.
+
+Đây là kiểm chứng **unpack/remove/purge và giữ file**, không configure gói,
+không giải dependency bằng APT, không cài Qt vào root tạm hay mở desktop.
+Không thay nghiệm thu launcher, singleton, nâng cấp thật và cài/gỡ bằng APT.
+Chỉ dùng gói build từ nguồn tin cậy; root tạm không phải sandbox bảo mật cho
+binary lạ (verifier có chạy smoke test từ executable trong gói).
+
+Gỡ riêng UI trên hệ thống thật: `sudo apt remove openkey-settings`. Không xóa addon/tray hoặc
+cấu hình trong thư mục người dùng. Vòng đời cài mới/nâng cấp/gỡ bằng APT và
+launcher trên desktop vẫn cần nghiệm thu; kiểm tra gói giải nén không thay
+cho các bước này. AppImage/Flatpak vẫn chưa có.
 
 ## Bật bộ gõ
 
@@ -49,6 +126,53 @@ giống nhau cho mọi GNOME/KDE/Wayland session.
 
 Thử Telex `tieengs vieetj` hoặc VNI `tie6ng1 vie6t5`, rồi Space. Kỳ vọng:
 `tiếng việt `. Kiểm tra thêm đổi focus không làm lặp từ.
+
+## Chính tả và đặt dấu — alpha.10
+
+Sau khi nâng cấp gói, module cũ vẫn nằm trong tiến trình Fcitx5 đang chạy.
+Lưu công việc và khởi động lại framework theo desktop hoặc đăng xuất/đăng nhập
+để nạp addon mới. Không cần đổi profile hay cài lại tray.
+
+Trong UI đã cập nhật, mở **Chính tả & gõ nhanh**, nhấn **Đọc lại** rồi chọn
+Bật/Tắt và **Áp dụng** riêng từng thiết lập. Với addon cũ thiếu schema, hai
+điều khiển mới bị khóa; Preedit/Direct và diagnostics vẫn dùng được.
+
+| Thiết lập | Mặc định | Ví dụ Telex / VNI |
+| --- | --- | --- |
+| `CheckSpelling` | `True` | Bật: `fas` / `fa1` giữ nguyên; tắt: chuyển thành `fá` |
+| `UseModernOrthography` | `True` | Bật: `hoas` / `hoa1` → `hoá`; tắt → `hóa` |
+
+Đây là quy tắc xử lý dấu của engine, không phải gạch đỏ kiểm lỗi tài liệu.
+Áp dụng chung Preedit/Direct và Telex/VNI; không chuyển EN/VI. Chỉ thay đổi khi
+đã gõ xong từ vì addon kết thúc context hiện tại. UI xác nhận runtime, không
+bảo đảm ghi đĩa nếu addon gặp lỗi lưu. Hai khóa lưu cùng cấu hình OpenKey;
+khóa lạ được giữ khi lưu. Gõ nhanh/khôi phục từ sai chưa được nối vào addon.
+
+## Gõ nhanh Telex — alpha.11
+
+Trong **Chính tả & gõ nhanh → Gõ nhanh Telex**, chọn Bật rồi **Áp dụng** khi đã
+gõ xong từ. `QuickTelex=False` là mặc định, không thay hành vi trước đây.
+
+| Cặp Telex | Khi bật |
+| --- | --- |
+| `cc` | `ch` |
+| `gg` | `gi` |
+| `kk` | `kh` |
+| `nn` | `ng` |
+| `qq` | `qu` |
+| `pp` | `ph` |
+| `tt` | `th` |
+
+Chỉ áp dụng OpenKey Telex, cả Preedit/Direct; OpenKey VNI không dùng mở rộng
+này kể cả khi cấu hình bật. Đây không phải macro hay gõ nhanh phụ âm đầu/cuối.
+Tùy chọn lưu chung trong cấu hình OpenKey và không tự chuyển EN/VI/Telex/VNI.
+Apply chỉ đổi một khóa, giữ mode/chính tả/diagnostics. Runtime xác nhận không
+bảo đảm ghi đĩa thành công nếu addon báo lỗi lưu cấu hình.
+
+UI yêu cầu schema `QuickTelex` Boolean và giá trị chuỗi hợp lệ. Addon alpha.10
+vẫn cho dùng hai tùy chọn chính tả, nhưng khóa Gõ nhanh Telex. Sau nâng cấp gói,
+lưu công việc rồi nạp lại framework theo desktop hoặc đăng xuất/đăng nhập để
+module mới có hiệu lực; đóng UI cũ, mở lại và Đọc lại. Không tự restart daemon.
 
 ## Chọn có/không gạch chân
 

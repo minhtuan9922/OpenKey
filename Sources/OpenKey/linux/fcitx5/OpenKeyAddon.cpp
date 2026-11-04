@@ -20,6 +20,9 @@ FCITX_CONFIG_ENUM(InputStyle, Preedit, Direct);
 FCITX_CONFIGURATION(InputConfig,
     fcitx::Option<InputStyle> style{this, "InputStyle", "Chế độ gõ / Input style", InputStyle::Preedit};
     fcitx::Option<bool> diagnostics{this, "DirectDiagnostics", "Direct diagnostics (no text content)", false};
+    fcitx::Option<bool> quickTelex{this, "QuickTelex", "Gõ nhanh Telex / Quick Telex", false};
+    fcitx::Option<bool> checkSpelling{this, "CheckSpelling", "Kiểm tra chính tả / Check spelling", true};
+    fcitx::Option<bool> useModernOrthography{this, "UseModernOrthography", "Đặt dấu kiểu mới / Modern tone placement", true};
 );
 struct QueuedKey { fcitx::Key key; bool release; int time; };
 bool printable(uint32_t value) {
@@ -74,16 +77,24 @@ public:
 
     const fcitx::Configuration* getConfig() const override { return &config_; }
     void setConfig(const fcitx::RawConfig& raw) override {
-        const auto previous = *config_.style;
+        const auto previous = config_;
         config_.load(raw, true);
-        if (*config_.style != previous) finishContexts();
-        if (!fcitx::safeSaveAsIni(config_, "conf/openkey.conf"))
-            FCITX_WARN() << "OpenKey could not save input style";
+        if (compositionConfigChanged(previous)) finishContexts();
+        // Keep future/third-party keys when applying a partial settings update.
+        fcitx::RawConfig saved;
+        fcitx::readAsIni(saved, "conf/openkey.conf");
+        raw.visitSubItems([&saved](const fcitx::RawConfig& item, const std::string& path) {
+            saved.setValueByPath(path, item.value());
+            return true;
+        }, "", true);
+        config_.save(saved);
+        if (!fcitx::safeSaveAsIni(saved, "conf/openkey.conf"))
+            FCITX_WARN() << "OpenKey could not save configuration";
     }
     void reloadConfig() override {
-        const auto previous = *config_.style;
+        const auto previous = config_;
         fcitx::readAsIni(config_, "conf/openkey.conf");
-        if (*config_.style != previous) finishContexts();
+        if (compositionConfigChanged(previous)) finishContexts();
     }
 
     void activate(const fcitx::InputMethodEntry& entry, fcitx::InputContextEvent& event) override {
@@ -91,7 +102,8 @@ public:
         state->active = true;
         state->lastReason.clear();
         clearDirect(*state);
-        state->composition = openkey::Composition(entry.uniqueName() == "openkey-vni" ? vVNI : vTelex);
+        state->composition = openkey::Composition(entry.uniqueName() == "openkey-vni" ? vVNI : vTelex,
+                                                  compositionOptions());
         update(event.inputContext());
     }
 
@@ -239,6 +251,16 @@ private:
     fcitx::SimpleInputContextPropertyFactory<State> factory_;
     std::unique_ptr<fcitx::HandlerTableEntry<fcitx::EventHandler>> surroundingWatcher_;
 
+    openkey::Composition::Options compositionOptions() const {
+        return {*config_.checkSpelling, *config_.useModernOrthography, *config_.quickTelex};
+    }
+    bool compositionConfigChanged(const InputConfig& previous) const {
+        return *config_.style != *previous.style ||
+            *config_.checkSpelling != *previous.checkSpelling ||
+            *config_.useModernOrthography != *previous.useModernOrthography ||
+            *config_.quickTelex != *previous.quickTelex;
+    }
+
     void diagnose(fcitx::InputContext* ic, const char* reason, const char* cause = "none") {
         if (!*config_.diagnostics) return;
         auto& state = *ic->propertyFor(&factory_);
@@ -319,13 +341,16 @@ private:
         instance_->inputContextManager().foreach([this](fcitx::InputContext* ic) {
             auto& state = *ic->propertyFor(&factory_);
             if (!state.active) return true;
-            if (state.composition.empty() && !state.direct && !state.bypass && state.queue.empty())
+            if (state.composition.empty() && !state.direct && !state.bypass && state.queue.empty()) {
+                state.composition.setOptions(compositionOptions());
                 return true; // Never clear the panel owned by another input method.
+            }
             if (state.direct) {
                 settle(ic, state.bypass);
                 state.composition.clear();
             } else commit(ic);
             clearDirect(state);
+            state.composition.setOptions(compositionOptions());
             update(ic);
             return true;
         });

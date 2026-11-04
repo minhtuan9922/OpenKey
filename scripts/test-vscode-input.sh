@@ -10,9 +10,10 @@ usage() {
         'Creates a fresh temporary profile, disables extensions, and waits for its window to close.' \
         'Does not modify the normal VS Code profile, IM settings, or desktop launcher.' \
         'Temporary profile is retained for inspection; its path is printed at startup.' \
+        'TMPDIR may select an existing absolute temporary directory (default /tmp).' \
         'Optional OPENKEY_VSCODE_BIN must name a local VS Code launcher executable.'
 }
-if [[ ${1:-} == --help || ${1:-} == -h ]]; then usage; exit 0; fi
+if [[ $# == 1 && (${1:-} == --help || ${1:-} == -h) ]]; then usage; exit 0; fi
 if [[ $# -lt 1 || $# -gt 2 ]]; then usage >&2; exit 2; fi
 mode=$1
 backend=${2:-wayland}
@@ -29,7 +30,13 @@ if [[ ! -x $vscode_bin ]]; then
     printf 'Local VS Code launcher not found: %s\n' "$vscode_bin" >&2
     exit 2
 fi
-profile_dir=$(mktemp -d /tmp/openkey-vscode-input.XXXXXXXX)
+profile_root=${TMPDIR:-/tmp}
+if [[ $profile_root != /* || ! -d $profile_root || ! -w $profile_root ]]; then
+    printf 'TMPDIR must be an existing writable absolute directory.\n' >&2
+    exit 2
+fi
+umask 077
+profile_dir=$(mktemp -d "$profile_root/openkey-vscode-input.XXXXXXXX")
 mkdir -p -- "$profile_dir/User" "$profile_dir/extensions"
 install -m 600 "$repo_dir/Tests/fixtures/vscode-input/$mode.json" "$profile_dir/User/settings.json"
 install -m 600 "$repo_dir/Tests/fixtures/vscode-input/input-test.js" "$profile_dir/input-test.js"
