@@ -24,12 +24,23 @@ VNI không đổi. Chưa nghiệm thu desktop alpha.11.
 
 ## Cài gói
 
+Alpha.34 là **bản sửa thử** cho lỗi mất từ đầu khi focus vào terminal VS Code
+Wayland, mở rộng alpha.33 vốn chỉ khởi động native sau Enter. Ibus + Direct
+nay bắt đầu mỗi từ ASCII nguyên dạng bằng phím native và giữ chuỗi nối thêm
+nguyên dạng đi native (`ls`, `git`, `cd`), không đòi gõ Space trước. Chỉ nhận
+quyền sửa từ nếu surrounding xác nhận đúng chữ vừa nhập. Không synthesize phím.
+Biến đổi từ ngay phím đầu (Telex `w` → `ư`) vẫn dùng nhánh chuyển dấu hiện có.
+Nếu không có ACK, từ đầu đi nguyên bản đến ranh giới (có thể không chuyển dấu).
+Áp dụng đường ibus Direct, không tự phân biệt terminal/editor; Preedit và frontend
+khác không đổi. Chưa nghiệm thu desktop; **chưa sửa** lỗi dấu `def` → `deè`
+do xterm.js không áp dụng deleteSurroundingText xuống shell. Không cần extension.
+
 Từ root repository, sau khi đã có gói và checksum trong `dist/linux/`:
 
 ```bash
 cd dist/linux
-sha256sum -c 'fcitx5-openkey_3.1.0~alpha.11-1_amd64.deb.sha256'
-sudo apt install './fcitx5-openkey_3.1.0~alpha.11-1_amd64.deb'
+sha256sum -c 'fcitx5-openkey_3.1.0~alpha.34-1_amd64.deb.sha256'
+sudo apt install './fcitx5-openkey_3.1.0~alpha.34-1_amd64.deb'
 ```
 
 APT sẽ xử lý dependency được khai báo trong gói. Bản build trên Ubuntu 26.04

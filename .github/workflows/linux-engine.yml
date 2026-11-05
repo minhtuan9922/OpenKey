@@ -52,6 +52,31 @@ jobs:
             dist/linux/*.deb.sha256
           if-no-files-found: error
 
+  vscode-terminal-english:
+    name: VS Code terminal English / headless
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools/vscode-terminal-english
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tools/vscode-terminal-english/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm audit --audit-level=moderate
+      - name: Test AT-SPI helper policy (no desktop or Fcitx5 mutations)
+        run: python3 -m unittest discover -s helper -v
+      - run: npm run package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openkey-terminal-english-vsix
+          path: tools/vscode-terminal-english/*.vsix
+          if-no-files-found: error
+
   ui-build-and-test:
     name: Qt UI / Ubuntu 24.04
     runs-on: ubuntu-24.04

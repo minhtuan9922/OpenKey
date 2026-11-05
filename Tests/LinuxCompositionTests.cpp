@@ -9,6 +9,15 @@ void type(openkey::Composition& value, const std::string& input) {
     for (char ch : input) require(value.append(ch));
 }
 int main() {
+    for (int mode : {vTelex, vVNI}) {
+        for (const auto* command : {"ls", "git", "cd"}) {
+            openkey::Composition shellWord(mode);
+            type(shellWord, command);
+            if (shellWord.text() != command)
+                throw std::runtime_error("Command mode=" + std::to_string(mode) + " input=" +
+                                         command + " output=" + shellWord.text());
+        }
+    }
     require(!openkey::Composition::Options{}.quickTelex);
     for (const auto& [input, output] : {
             std::pair{"cc", "ch"}, {"gg", "gi"}, {"kk", "kh"}, {"nn", "ng"},

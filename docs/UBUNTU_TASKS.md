@@ -527,6 +527,55 @@ UI/tray đã cài ở tài khoản thử, chưa thêm vào `.deb`; không restar
 
 ## v0.5 — Tính năng nâng cao
 
+- [ ] Ưu tiên sửa trực tiếp lỗi mất từ đầu trong terminal VS Code: ca người
+  dùng `tieengs vieetj` → `' vieêt'`. Người dùng xác nhận Wayland, lỗi lặp sau
+  mỗi Enter chạy lệnh, Space mới gõ tiếp. Ca Telex/VNI lặp Enter headless đạt
+  trên bản cũ, chưa tái hiện native. Cần đối chứng ASCII/chuyển dấu và log mới;
+  đối chứng mới `abc def` → `' deè'`. Candidate alpha.32 cho phím đầu sau Enter
+  đi native; chỉ nhận ownership khi ACK đúng, không ACK thì raw hết từ đầu.
+  Regression mới FAIL với alpha.31, PASS bản mới; chờ desktop nghiệm thu,
+  chưa sửa lỗi dấu `deè`. Build alpha.32 đạt 8/8 CTest, verifier payload/
+  dependency/addon giải nén và checksum; chưa tự cài/restart daemon.
+  Desktop alpha.32: `abc xyz` đạt, `ls` chỉ còn `l`. Candidate alpha.33 giữ
+  chuỗi ASCII nối thêm nguyên dạng đi native; test `ls/git/cd` FAIL bản cũ,
+  PASS bản mới, 8/8 CTest/verifier gói đạt; chờ nghiệm thu desktop alpha.33.
+  Alpha.33 desktop vẫn mất từ đầu khi focus từ app khác/editor vào terminal.
+  Candidate alpha.34 bắt đầu mọi từ ASCII nguyên dạng bằng native (không cần
+  Enter), giữ ACK chính xác và fallback raw; test focus/refocus/context tái
+  sử dụng FAIL bản cũ, PASS bản mới. 8/8 CTest, verifier gói/addon giải nén và
+  checksum đạt; còn chờ desktop alpha.34. Không tự cài/restart daemon.
+  Desktop alpha.34: `pwd` chỉ hiện `p`. Engine Telex đổi `pw` → `pư`, rời
+  native-append và gặp lại giới hạn chuyển dấu của xterm.js. Không coi các
+  lệnh có phím dấu là ASCII nguyên dạng, không thêm allowlist riêng từng lệnh.
+  Chưa có bản sửa cho ca này; cần chọn semantics nếu bỏ shortcut standalone W,
+  hoặc dùng EN khi nhập lệnh. Không tự đổi cấu hình/ngôn ngữ người dùng.
+  Dừng phát triển extension/helper; giữ bản
+  thử dưới đây để tham khảo, không coi là giải pháp được nghiệm thu.
+
+- [x] Extension VS Code thử nghiệm chuyển EN khi vào terminal qua Ctrl+`,
+  quay editor khôi phục OpenKey Telex/VNI trước đó nếu còn sở hữu trạng thái.
+  Opt-in User Setting, local UI host Linux, không tự nhận diện chuột, không
+  đọc nội dung terminal/editor hoặc thay addon/profile. Không ép ghi đè nếu
+  người dùng đã chọn IM khác; busy không xếp hàng, mất focus/disable thì hủy.
+- [x] Extension TypeScript 0.1.0 có 75 test giả lập cho core, process bridge
+  và adapter VS Code; đóng VSIX tám file, không kèm node_modules/test.
+  npm audit không báo lỗ hổng tại lần kiểm tra; CI Node 22 build/test/đóng gói,
+  chưa chạy remote. Chưa cài VSIX, chưa đổi EN/VI hoặc restart Fcitx5 thật.
+- [ ] Nghiệm thu VSIX trên desktop Ubuntu: Telex/VNI/English, Ctrl+` hai
+  chiều, nhiều terminal, đổi IM thủ công, mất focus giữa thao tác, Wayland/
+  XWayland và Remote SSH. Delay focus không phải ACK frontend Fcitx5.
+  Xem [hướng dẫn extension](../tools/vscode-terminal-english/README.md).
+- [x] Prototype chuột bằng helper AT-SPI chạy riêng từ source: probe chỉ đọc
+  mặc định, `--switch` opt-in, khóa một helper/desktop, giới hạn PID Code chính
+  thức và cùng frame. Chỉ đọc role/class/focus/process; unknown/mất focus/lỗi
+  quên lịch sử, không đọc Text/Value/name/description, không sửa VS Code.
+  Có 21 test policy/bridge giả lập; 75 test extension cũ vẫn đạt. Probe thật
+  trên Ubuntu đăng ký listener và dừng sạch, chưa bật chuyển EN/VI thật.
+- [ ] Nghiệm thu metadata và chuột trên desktop: bật accessibility nếu cần,
+  probe phải phân biệt editor/terminal kể cả click lại cùng terminal; sau đó
+  mới thử `--switch` với Telex/VNI/English, nhiều cửa sổ, Quick Open, Alt+Tab,
+  đổi IM thủ công, Wayland/XWayland. Nếu class DOM không expose thì unknown,
+  chưa coi hỗ trợ chuột hoàn tất. Tắt extension keyboard khi dùng helper.
 - [ ] Macro editor và import/export.
 - [x] Clipboard thủ công cho Chuyển mã: Dán nguồn/Sao chép kết quả chỉ khi click,
   giới hạn/Unicode/plain text, giữ bản nháp và clipboard khi lỗi; không poll,

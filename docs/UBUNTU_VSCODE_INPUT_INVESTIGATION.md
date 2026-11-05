@@ -1,5 +1,137 @@
 # Điều tra Direct trên VS Code
 
+## Ưu tiên hiện tại — mất từ đầu tiên trong terminal (2026-11-05)
+
+Người dùng yêu cầu dừng hướng extension/helper, tập trung sửa addon. Giữ các
+bản thử để tham khảo, không yêu cầu bật extension hoặc AT-SPI để khắc phục.
+Ca đã báo: gõ `tieengs vieetj` trong terminal VS Code cho kết quả `' vieêt'`.
+Người dùng xác nhận VS Code chạy **Wayland**: sau mỗi Enter chạy lệnh, từ
+tiếp theo bị nuốt; Space mới cho gõ tiếp. Không chỉ xuất hiện khi focus ban đầu.
+Đối chứng mới: `abc def` → `' deè'`. Từ ASCII đầu cũng bị mất, không chỉ khi
+chuyển dấu. Phần `deè` là lỗi rewrite còn lại, không đồng nhất với mất từ đầu.
+
+### Alpha.32 — candidate native prime sau Enter
+
+Kết quả desktop người dùng: sau khi cài đúng alpha.32, `abc xyz` được giữ,
+nhưng `ls` chỉ hiện `l`. Chưa đạt nghiệm thu terminal.
+
+### Alpha.33 — giữ chuỗi nối thêm nguyên dạng đi native
+
+Composition engine tự nó trả `ls` đúng; không phải phím dấu `s` bị engine bỏ.
+Alpha.32 chỉ cho ký tự đầu đi native rồi chuyển ký tự sau sang commitString.
+Candidate alpha.33 tiếp tục cho phím đi native nếu composition mới đúng bằng
+từ đang giữ + ký tự vừa gõ, với surrounding đã xác nhận chính xác. Mỗi phím
+native lại cập nhật expected snapshot. Không ACK thì giữ fallback raw; có
+chuyển dấu thật thì rời chuỗi native và dùng rewrite cũ (hạn chế xterm còn đó).
+
+Test mới `Enter → ls/git/cd`: mọi chữ unaccepted, không có commitString xen
+vào, không lặp/mất ký tự; FAIL alpha.32 trước patch và PASS bản mới. Có test
+Composition riêng cho các từ trên; Telex/VNI nhiều dòng cũ vẫn đạt. Build
+alpha.33 qua 8/8 CTest và verifier gói/addon giải nén. Chờ người dùng desktop
+thử lại; không tự cài hoặc restart daemon.
+
+### Alpha.34 — mở rộng native start cho focus-entry
+
+Người dùng báo alpha.33 vẫn mất cả từ đầu khi từ app khác hoặc editor focus
+vào terminal VS Code; Space mới gõ được. Đã đối chiếu dpkg: alpha.33 đang cài.
+Native start trước đó chỉ được arm bởi Enter, nên chưa bao phủ lượt focus mới.
+
+Candidate alpha.34: mọi từ mới bắt đầu bằng ASCII nguyên dạng trong ibus Direct
+đều dùng native start, không cần Enter. Chuỗi nối thêm nguyên dạng tiếp tục
+native. Baseline surrounding chỉ để dự đoán; chỉ snapshot chính xác ở phím
+tiếp mới nhận quyền sửa. GNOME có thể báo capability SurroundingText trễ;
+không bỏ từ chỉ vì bit này trễ khi snapshot vẫn có thể xác nhận native text.
+Snapshot không khớp/không có thì raw phần còn lại của từ. Biến đổi ngay phím
+đầu (Telex w → ư) giữ nhánh cũ, không đổi sang raw vô điều kiện.
+
+Test mới Telex/VNI: focus mới không Enter → `ls abc`, refocus → `git`, context
+tái sử dụng đang giữ từ native của editor rồi chuyển sang prompt mới → `ls`;
+không xóa từ cũ vào đích mới, không commit trùng khi focus-out. Test focus-entry
+FAIL alpha.33 trước patch và PASS bản mới; 8/8 CTest đạt. Mô hình giả lập không
+chứng minh browser thật đã sửa. Editor/chat ibus cũng chịu thay đổi; cần retest
+chuyển dấu/gợi ý/Backspace, GNOME ACK trễ và chuyển focus. Lỗi rewrite xterm.js
+(`deè`) và mọi tình huống đổi field giữa một từ đã chuyển dấu chưa được tuyên bố
+đã giải quyết. Không triển khai lại extension hoặc nhận diện terminal heuristic.
+
+### Alpha.34 — `pwd` chỉ hiện `p`
+
+Dpkg xác nhận alpha.34. Người dùng gõ `pwd`, chỉ thấy `p`; chữ tiếp không hiện.
+Khác `ls`: engine Telex đổi `pw` thành `pư` qua shortcut standalone W; `pwd`
+được Composition render thành `pưd`, nên không còn là chuỗi nối thêm nguyên
+dạng để alpha.34 cho đi native. Nhánh chuyển dấu/commit của terminal vẫn lỗi.
+Kiểm tra chính tả đang bật không ngăn shortcut này; bảng engine còn cho phép
+P làm phụ âm đầu, không được khẳng định đây là từ sai đã được checker nhận diện.
+
+Không sửa riêng allowlist lệnh `pwd`, không tự ép English hoặc thêm heuristic
+nhận diện terminal. Có thể thêm tùy chọn Telex không standalone W (engine đã
+có biến thể SimpleTelex1), nhưng phải kiểm chứng đầy đủ và cần người dùng chọn:
+nó đổi semantics `w` → `ư`, ảnh hưởng cả editor ibus, không tự giải quyết mọi
+lệnh khác có phím dấu Telex. Chưa tạo alpha.35 hoặc sửa engine/setting cho ca này.
+
+### Chi tiết candidate alpha.32 (lịch sử)
+
+Đường ibus Direct kết thúc ownership khi Enter đi native, đánh dấu lượt tiếp
+theo. Phím chữ đầu sau Enter đi nguyên bản/unaccepted, không commitString,
+không accept+forwardKey. Surrounding phải khớp chính xác snapshot dự đoán trước
+khi addon nhận quyền sửa chữ đó. Không ACK/capability thì cả phần còn lại của
+từ đi raw đến boundary: ưu tiên không nuốt/xóa nhầm; có thể chưa chuyển dấu.
+Focus/reset/đổi cấu hình/method/shortcut quên ownership này.
+
+Không nhận diện terminal qua capabilities=82; đường này tác động cả editor ibus
+sau Enter. Cần retest editor/chat, suggestions, Backspace và native Wayland.
+Không xử lý toàn bộ hạn chế rewrite của xterm.js, không claim sửa `deè`.
+
+Test mới yêu cầu phím đầu sau Enter unaccepted, không double-commit và kiểm
+Telex/VNI nhiều dòng. Fault injection: IM commits bị bỏ sau Enter cho đến native
+text key; không phải mô hình browser đầy đủ. Chạy binary test mới với **bản sao**
+addon alpha.31 trong thư mục tạm thất bại tại assert native-prime; addon mới đạt.
+Không dùng test này làm bằng chứng native đã PASS. Gói alpha.32 chờ người dùng
+cài thử; không tự cài/restart Fcitx5 trong lượt phát triển.
+
+Đã thêm ca headless Telex/VNI lặp ba chu kỳ `abc` → Enter → `tiếng việt` →
+Enter, kiểm Enter unaccepted và không có client preedit. Ca này đạt trên
+alpha.31 **trước khi sửa addon**: fake document không tái hiện được lỗi xterm.js,
+không được dùng làm bằng chứng đã sửa native. Sau đó bổ sung native-prime như
+candidate alpha.32 ở trên, không đổi kết luận về khả năng tái hiện browser thật.
+
+Đã loại giả thuyết cần lọc preedit rỗng lặp lại trong addon: Fcitx5 5.1.19
+đã thực hiện việc này trong
+[InputContext::updatePreedit](https://github.com/fcitx/fcitx5/blob/5.1.19/src/lib/fcitx/inputcontext.cpp#L440).
+
+Kiểm tra môi trường: daemon đang nạp addon hệ thống; dpkg báo alpha.31.
+Diagnostics đã bật nhưng stdout/stderr daemon hiện ra terminal desktop;
+journal chỉ có log của phiên cũ, không dùng làm bằng chứng cho lần tái hiện mới.
+Không restart daemon hoặc sửa cấu hình người dùng trong lần kiểm tra này.
+
+Trước khi sửa cần đối chứng, cùng một prompt mới: `abc def`, `tieengs vieetj`,
+và lặp `tieengs vieetj` sau khi xóa dòng bằng Ctrl+U. Không nhấn Enter để tránh
+chạy nội dung thử như lệnh shell. Ghi mất từ xảy ra chỉ khi vừa focus terminal
+hay cả mỗi dòng mới, cùng backend Wayland/XWayland hiện dùng.
+
+Direct ibus hiện dùng deleteSurroundingText + commitString. Đây là rủi ro đã
+biết với xterm.js, nhưng chưa chứng minh nguyên nhân cụ thể của việc mất cả
+từ đầu. Không thêm heuristic capabilities=82 để coi mọi editor là terminal;
+không đánh dấu lỗi đã sửa chỉ dựa trên fake frontend bỏ lần xóa.
+
+## Hướng cũ đã dừng — extension chuyển EN qua phím tắt
+
+Addon alpha.31 vẫn có giới hạn terminal không được frontend phân biệt với
+editor. Có [extension thử nghiệm](../tools/vscode-terminal-english/README.md)
+riêng, opt-in: Ctrl+` từ editor chuyển terminal và deactivate IM; Ctrl+` từ
+terminal quay editor và khôi phục OpenKey Telex/VNI trước đó khi còn phù hợp.
+Không sửa thuật toán Direct hay bật chế độ commit-only bằng heuristic.
+
+Extension chỉ chạy trên local UI host Linux có Fcitx5, không trên máy SSH
+remote tùy ý. Không theo dõi chuột, không đọc terminal/editor/clipboard hoặc
+chạy shell. Mỗi lời gọi dùng `/usr/bin/fcitx5-remote --check`, có timeout,
+readback, hủy bước còn chờ khi mất focus và không retry tự động. Giữa lệnh
+focus VS Code và context Fcitx5 có delay ngắn, chưa có ACK đồng bộ; cần test
+desktop, không coi test giả lập là bằng chứng đã sửa terminal native.
+
+Nguồn API: [when contexts](https://code.visualstudio.com/api/references/when-clause-contexts),
+[activeTerminal](https://code.visualstudio.com/api/references/vscode-api#window.activeTerminal),
+[local UI extensions](https://code.visualstudio.com/api/advanced-topics/remote-extensions).
+
 ## Kết quả đã quan sát — 2026-11-03
 
 Môi trường: Ubuntu trong VMware, GNOME/Wayland, VS Code 1.144.1

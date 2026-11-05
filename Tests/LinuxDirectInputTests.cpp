@@ -43,6 +43,10 @@ public:
     unsigned deletions = 0, commits = 0, nonemptyPreedits = 0;
     bool dropNonAsciiDeletes = false;
     bool dropAllDeletes = false;
+    // Behavioral fault injection for the reported post-Enter loss, NOT a full
+    // Chromium/xterm.js implementation. A native text key reopens IM delivery.
+    bool requireNativeAfterEnter = false;
+    bool waitingForNativeText = false;
     struct Notification { std::string text; unsigned cursor, anchor; };
     std::deque<Notification> notifications;
     std::string text() const { return openkey::utf8(document); }
@@ -95,9 +99,11 @@ public:
             document.replace(start, std::max(cursor, anchor) - start, 1, U'\n');
             cursor = anchor = start + 1;
             report();
+            if (requireNativeAfterEnter) waitingForNativeText = true;
         } else {
             const auto ch = fcitx::Key::keySymToUnicode(key.sym());
             if (ch >= 32 && ch < 127) {
+                waitingForNativeText = false;
                 const auto start = std::min(cursor, anchor);
                 document.replace(start, std::max(cursor, anchor) - start, 1, ch);
                 cursor = anchor = start + 1;
@@ -108,6 +114,7 @@ public:
 private:
     void commitStringImpl(const std::string& text) override {
         ++commits;
+        if (waitingForNativeText) return;
         const auto value = openkey::codepoints(text);
         const auto start = std::min(cursor, anchor);
         document.replace(start, std::max(cursor, anchor) - start, value);
@@ -602,6 +609,46 @@ int main(int argc, char** args) {
             "chees must convert when Direct surrounding text is unusable");
 
     // Direct on ibus must show the composed word before Space and must not underline.
+    // The focus-entry bug is independent of Enter: an IM-only word may be
+    // ignored until Space. Fault injection captures that observation, not the
+    // complete Chromium event protocol. No synthetic keys are permitted.
+    for (const auto* entry : {&telex, &vni}) {
+        Editor focused(instance.inputContextManager());
+        focused.frontendName = "ibus";
+        focused.waitingForNativeText = true;
+        activate(*addon, *entry, focused);
+        const auto commits = focused.commits;
+        type(*addon, *entry, focused, "ls abc");
+        require(focused.text() == "ls abc" && focused.commits == commits,
+                "focus-entry ASCII words must be native, without a leading Space");
+        fcitx::InputContextEvent out(&focused, fcitx::EventType::InputContextFocusOut);
+        addon->deactivate(*entry, out);
+        require(focused.text() == "ls abc", "focus-out must not duplicate native text");
+        focused.document.clear(); focused.cursor = focused.anchor = 0; focused.report();
+        focused.waitingForNativeText = true;
+        activate(*addon, *entry, focused);
+        type(*addon, *entry, focused, "git");
+        require(focused.text() == "git", "refocus must not require Space or Enter first");
+
+        // Reused context: moving from an unfinished native editor word to a
+        // new field need not send activate(). A mismatching ACK must abandon
+        // the old word without deleting it into the new destination.
+        focused.document = U"prompt> "; focused.cursor = focused.anchor = 8; focused.report();
+        focused.waitingForNativeText = true;
+        const auto deletes = focused.deletions;
+        type(*addon, *entry, focused, "ls");
+        require(focused.text() == "prompt> ls" && focused.deletions == deletes,
+                "reused focus context must not delete old editor text in the terminal");
+    }
+
+    {
+        Editor shapedFirst(instance.inputContextManager());
+        shapedFirst.frontendName = "ibus";
+        activate(*addon, telex, shapedFirst);
+        type(*addon, telex, shapedFirst, "w");
+        require(shapedFirst.text() == "ư", "fresh-word native path must preserve first-key Telex transformations");
+    }
+
     Editor cursorChat(instance.inputContextManager());
     cursorChat.frontendName = "ibus";
     activate(*addon, telex, cursorChat);
@@ -625,6 +672,100 @@ int main(int argc, char** args) {
         !cursorChat.preedit().empty())
         throw std::runtime_error("ibus Direct sentence: [" + cursorChat.text() + "] preedit [" +
                                  cursorChat.preedit() + "]");
+
+    // Boundary regression only: the document frontend retains the first word
+    // across repeated Enter cycles. This is NOT an xterm.js/browser event model
+    // and does not reproduce or prove a fix for the native Wayland report.
+    {
+        for (const auto* entry : {&telex, &vni}) {
+            Editor afterEnter(instance.inputContextManager());
+            afterEnter.frontendName = "ibus";
+            activate(*addon, *entry, afterEnter);
+            for (unsigned line = 0; line < 3; ++line) {
+                type(*addon, *entry, afterEnter, "abc");
+                require(!press(*addon, *entry, afterEnter, fcitx::Key(FcitxKey_Return)),
+                        "ibus Enter must remain native");
+                const auto commitsBeforePrime = afterEnter.commits;
+                require(!press(*addon, *entry, afterEnter, fcitx::Key(FcitxKey_t)),
+                        "ibus first post-Enter key must be delivered natively");
+                require(afterEnter.commits == commitsBeforePrime,
+                        "ibus native prime must not also commit the same character");
+                type(*addon, *entry, afterEnter,
+                     entry == &telex ? "ieengs vieetj " : "ie6ng1 vie6t5 ");
+                require(afterEnter.preedit().empty() && afterEnter.nonemptyPreedits == 0,
+                        "ibus post-Enter must not start client composition");
+                require(!press(*addon, *entry, afterEnter, fcitx::Key(FcitxKey_Return)),
+                        "ibus second Enter must remain native");
+            }
+            require(afterEnter.text() == "abc\ntiếng việt \nabc\ntiếng việt \nabc\ntiếng việt \n",
+                    "ibus post-Enter first word regression");
+        }
+    }
+
+    // Reported ASCII symptom: after every Enter, IM-only commits disappear
+    // until a native text key (previously Space). The first character must
+    // itself be that native key, with no synthesized events or duplicate text.
+    {
+        Editor terminalGate(instance.inputContextManager());
+        terminalGate.frontendName = "ibus";
+        terminalGate.requireNativeAfterEnter = true;
+        activate(*addon, telex, terminalGate);
+        for (unsigned line = 0; line < 3; ++line) {
+            require(!press(*addon, telex, terminalGate, fcitx::Key(FcitxKey_Return)),
+                    "post-Enter gate: Enter native");
+            type(*addon, telex, terminalGate, "abc xyz");
+        }
+        require(terminalGate.text() == "\nabc xyz\nabc xyz\nabc xyz",
+                "post-Enter native prime must preserve the first ASCII word");
+
+        for (const auto* command : {"ls", "git", "cd"}) {
+            press(*addon, telex, terminalGate, fcitx::Key(FcitxKey_Return));
+            const auto before = terminalGate.text();
+            const auto commits = terminalGate.commits;
+            for (char ch : std::string(command))
+                require(!press(*addon, telex, terminalGate, fcitx::Key(fcitx::Key::keySymFromUnicode(ch))),
+                        "post-Enter unchanged ASCII must stay native, not only the first letter");
+            require(terminalGate.text() == before + command,
+                    "post-Enter shell command must remain intact");
+            require(terminalGate.commits == commits,
+                    "post-Enter unchanged ASCII command must not use commitString");
+        }
+
+        // No ACK: pass raw keys, do not delete or claim ownership of a word
+        // whose first native character has not been confirmed by surrounding.
+        Editor latePrime(instance.inputContextManager());
+        latePrime.frontendName = "ibus";
+        activate(*addon, telex, latePrime);
+        press(*addon, telex, latePrime, fcitx::Key(FcitxKey_Return));
+        latePrime.delayed = true;
+        type(*addon, telex, latePrime, "abc xyz ");
+        require(latePrime.text() == "\nabc xyz " && latePrime.deletions == 0,
+                "unconfirmed native prime must not swallow keys or delete text");
+
+        Editor emptyLines(instance.inputContextManager());
+        emptyLines.frontendName = "ibus";
+        activate(*addon, telex, emptyLines);
+        press(*addon, telex, emptyLines, fcitx::Key(FcitxKey_KP_Enter));
+        press(*addon, telex, emptyLines, fcitx::Key(FcitxKey_Return));
+        require(!press(*addon, telex, emptyLines, fcitx::Key(FcitxKey_Shift_L)),
+                "modifier must not consume the post-Enter native prime");
+        require(!press(*addon, telex, emptyLines, fcitx::Key(FcitxKey_a)),
+                "empty lines and modifiers must preserve the native prime");
+        fcitx::InputContextEvent resetPrime(&emptyLines, fcitx::EventType::InputContextReset);
+        addon->reset(telex, resetPrime);
+        type(*addon, telex, emptyLines, "bc ");
+        require(emptyLines.text() == "\n\nabc ", "reset must not reinsert a native prime");
+
+        Editor noAckCapability(instance.inputContextManager());
+        noAckCapability.frontendName = "ibus";
+        activate(*addon, telex, noAckCapability);
+        press(*addon, telex, noAckCapability, fcitx::Key(FcitxKey_Return));
+        noAckCapability.setCapabilityFlags(fcitx::CapabilityFlag::Preedit);
+        type(*addon, telex, noAckCapability, "abc ");
+        require(noAckCapability.text() == "\nabc " && noAckCapability.commits == 0 &&
+                    noAckCapability.deletions == 0,
+                "missing surrounding capability must keep the whole first word native");
+    }
 
     // Every Direct field except URL/email bars must get precomposed NFC letters,
     // never a base letter plus a combining mark (mẻ, tiếng, bằng).

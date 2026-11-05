@@ -338,3 +338,60 @@ Alpha.31 (`3.1.0~alpha.31` / addon `0.2.22`):
 - Rủi ro: lỗi `băngằng` thỉnh thoảng có thể quay lại trong Cursor chat; ô Chrome có chính tả có thể ra `goô`. Terminal vẫn FAIL.
 
 Headless 16/16: `mer bawngf tieengs vieetj nooij ddaay` ra đúng NFC, không có ký tự U+0300–U+036F, với cap thường, hoa đầu câu, hoa đầu câu + SpellCheck.
+
+## Alpha.32 — candidate mất từ đầu sau Enter trên VS Code Wayland
+
+Người dùng xác nhận sau mỗi Enter chạy lệnh, từ tiếp theo bị nuốt cho đến Space.
+Đối chứng `abc def` → `' deè'`: mất cả ASCII đầu, không chỉ lỗi chuyển dấu.
+
+Candidate alpha.32 / addon 0.2.23: đường ibus Direct cho phím chữ đầu sau Enter
+đi native, không commitString hoặc synthesize phím. Chỉ nhận lại ownership nếu
+surrounding khớp chính xác chữ native vừa nhập; không ACK thì raw phần còn lại
+của từ để tránh nuốt/xóa nhầm, có thể không chuyển dấu từ đó. Không đoán terminal
+bằng capability; tác động cả editor/chat ibus sau Enter. Không sửa lỗi `deè`.
+
+Test boundary cũ đạt cả alpha.31, nên không tái hiện native. Regression mới yêu
+cầu phím đầu unaccepted + không double-commit và fault injection bỏ IM commits
+sau Enter cho đến native text key. Binary test mới với bản sao alpha.31 trong
+thư mục tạm FAIL tại assert native-prime; candidate đạt. Mô hình này không phải
+xterm.js thật, không được coi là desktop PASS.
+
+Build alpha.32: 8/8 CTest, gói DEB/SHA-256, verifier dependency/payload và test
+addon giải nén đạt. Không cài gói/restart Fcitx5. Nghiệm thu desktop còn chờ:
+Enter → `abc xyz`, lặp nhiều dòng; Telex/VNI; ACK trễ; editor/chat, gợi ý và
+Backspace. Không dùng gói thử cho lệnh quan trọng trước khi kiểm chứng.
+
+## Alpha.33 — `ls` chỉ hiện `l` trên alpha.32
+
+Người dùng xác nhận cài alpha.32: `abc xyz` giữ được từ đầu; `ls` chỉ hiện `l`.
+Đây là FAIL còn lại, không coi alpha.32 đạt nghiệm thu terminal.
+
+Engine Composition trả `ls` đúng. Candidate alpha.33 giữ toàn bộ chuỗi nối
+thêm nguyên dạng đi native sau Enter, thay vì chỉ ký tự đầu rồi commitString.
+Mỗi ký tự phải có surrounding ACK chính xác trước khi giữ quyền sửa từ;
+không ACK thì raw như alpha.32. Gặp chuyển dấu thật vẫn dùng rewrite hiện có,
+không tuyên bố sửa toàn bộ tiếng Việt trên xterm.js hoặc lỗi `deè`.
+
+Regression `Enter → ls/git/cd` yêu cầu từng chữ unaccepted và không commit
+trùng; FAIL alpha.32 trước patch, PASS bản mới. Test Composition độc lập các
+từ trên đạt. Build alpha.33/addon 0.2.24: 8/8 CTest, verifier dependency/payload/
+addon giải nén đạt. Chưa cài gói hoặc restart daemon; desktop còn chờ người dùng.
+
+## Alpha.34 — mất từ đầu khi focus vào terminal
+
+Desktop alpha.33: focus từ app khác hoặc editor vào terminal VS Code thì từ
+đầu không hiển thị, Space mới gõ được. Dpkg xác nhận alpha.33 đang cài.
+
+Candidate alpha.34/addon 0.2.25 mở rộng native start từ sau Enter sang mọi từ
+ASCII nguyên dạng mới, vẫn giữ exact surrounding ACK và raw fallback khi
+không xác nhận được. Không force English cho mọi từ; Telex/VNI chuyển dấu
+thực sự vẫn qua rewrite cũ. Không claim sửa toàn bộ tiếng Việt trên xterm.js.
+
+Regression focus-entry Telex/VNI FAIL alpha.33 trước patch, PASS bản mới:
+không Enter trước `ls abc`, refocus `git`, đổi tài liệu trên cùng context khi
+còn native draft, không double-commit khi focus-out. 8/8 CTest đạt ở lần đầu;
+thêm guard biến đổi phím đầu `w` → `ư` vào lần đóng gói cuối và vẫn đạt 8/8.
+Verifier dependency/payload/addon giải nén và checksum alpha.34 đạt; không tự
+cài hoặc restart daemon. Desktop còn chờ:
+click terminal từ app khác/editor, gõ `ls` ngay không Space; lặp nhiều lần,
+Enter nhiều dòng, và retest editor/chat, completion, Backspace, Telex/VNI.

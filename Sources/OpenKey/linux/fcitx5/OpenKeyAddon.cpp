@@ -152,6 +152,9 @@ struct State : fcitx::InputContextProperty {
     bool forcePreedit = false; // this context must not return to Direct
     bool hiddenPreedit = false; // append-only client: never send a client preedit
     bool plainCommit = false; // ibus Direct word is already in the document; do not underline or insert it again
+    bool ibusAfterEnter = false;
+    bool ibusNativeWord = false; // unconfirmed native prime: pass the remaining word through
+    std::optional<openkey::Snapshot> ibusPrimeExpected;
     std::string placed; // UTF-8 of that word currently in the document
     bool preeditDrifted = false; // surrounding changed; keep the syllable until Enter leaves it
     bool repairNativePrime = false;
@@ -561,9 +564,82 @@ public:
                 word.bypass = false;
                 update(ic);
             };
-            if (shortcutKey(key)) {
-                if (!composition.empty()) releaseWord(false);
+            if (enterKey(key)) {
+                // End ALL ownership before the native Enter reaches the app.
+                // On the next line, do not begin with commitString: xterm.js
+                // on Wayland can ignore IM-only text until a native text key.
+                releaseWord(false);
+                clearDirect(state);
+                state.ibusAfterEnter = true;
+                diagnose(ic, "ibus:enter-native-prime-armed");
                 return;
+            }
+            if (shortcutKey(key)) {
+                releaseWord(false);
+                clearDirect(state);
+                return;
+            }
+            if (state.ibusNativeWord) {
+                // No surrounding ACK for the first native character. Never
+                // pretend we own it or delete text at an unconfirmed caret.
+                if (!textKey && key.sym() != FcitxKey_BackSpace) {
+                    clearDirect(state);
+                    composition.clear();
+                }
+                return;
+            }
+            std::optional<openkey::Snapshot> nativeAppendBase;
+            if (state.ibusPrimeExpected) {
+                const auto snapshot = openkey::Snapshot::read(ic->surroundingText());
+                if (!snapshot || !(*snapshot == *state.ibusPrimeExpected)) {
+                    clearDirect(state);
+                    composition.clear();
+                    state.ibusNativeWord = textKey || key.sym() == FcitxKey_BackSpace;
+                    diagnose(ic, "ibus:post-enter-native-unconfirmed");
+                    return;
+                }
+                nativeAppendBase = snapshot;
+                state.ibusPrimeExpected.reset();
+            }
+            // Enter is not the only entry point: focus from another app or
+            // from the editor may start a word without any Enter event here.
+            // Begin ordinary ASCII words natively too, while retaining real
+            // first-key transformations (e.g. standalone Telex w -> ư).
+            bool freshNativeWord = false;
+            if (textKey && composition.empty()) {
+                auto first = composition;
+                freshNativeWord = first.append(static_cast<char>(symbol)) &&
+                    first.text() == fcitx::utf8::UCS4ToUTF8(symbol);
+            }
+            if (state.ibusAfterEnter || freshNativeWord) {
+                state.ibusAfterEnter = false;
+                if (textKey) {
+                    const auto snapshot = openkey::Snapshot::read(ic->surroundingText());
+                    clearDirect(state);
+                    composition.clear();
+                    // GNOME may advertise SurroundingText late after focus.
+                    // The cached baseline alone never authorizes a rewrite:
+                    // the NEXT key must see the exact native result, or the
+                    // rest of this word stays raw. No timeout/optimistic ACK.
+                    if (!snapshot || !composition.append(static_cast<char>(symbol)) ||
+                        composition.text() != fcitx::utf8::UCS4ToUTF8(symbol)) {
+                        composition.clear();
+                        state.ibusNativeWord = true;
+                        diagnose(ic, "ibus:native-start-unconfirmed");
+                        return;
+                    }
+                    auto expected = *snapshot;
+                    expected.text.insert(expected.cursor, 1, static_cast<char32_t>(symbol));
+                    ++expected.cursor;
+                    expected.anchor = expected.cursor;
+                    state.ibusPrimeExpected = std::move(expected);
+                    state.placed = composition.text();
+                    state.ownedLen = 1;
+                    state.plainCommit = true;
+                    diagnose(ic, "ibus:word-prime-native");
+                    // Not accept+forwardKey: leave the original event native.
+                    return;
+                }
             }
             if (key.sym() == FcitxKey_Escape && !composition.empty()) {
                 releaseWord(true);
@@ -582,6 +658,25 @@ public:
             if (textKey) {
                 if (!composition.append(static_cast<char>(symbol))) {
                     releaseWord(false);
+                    return;
+                }
+                // alpha.32 only passed the first post-Enter character natively.
+                // Even an unchanged suffix ('s' in 'ls') then re-entered the
+                // IM commit path and could disappear in xterm.js. Keep the
+                // original events native for exact ASCII appends. A genuine
+                // Telex/VNI transformation still uses the existing rewrite
+                // path; do not silently force the entire word to English.
+                if (nativeAppendBase &&
+                    composition.text() == state.placed + fcitx::utf8::UCS4ToUTF8(symbol)) {
+                    auto expected = *nativeAppendBase;
+                    expected.text.insert(expected.cursor, 1, static_cast<char32_t>(symbol));
+                    ++expected.cursor;
+                    expected.anchor = expected.cursor;
+                    state.ibusPrimeExpected = std::move(expected);
+                    state.placed = composition.text();
+                    state.ownedLen = static_cast<unsigned>(openkey::codepoints(state.placed).size());
+                    state.plainCommit = true;
+                    diagnose(ic, "ibus:post-enter-append-native");
                     return;
                 }
                 state.bypass = false;
@@ -802,6 +897,9 @@ private:
         state.ownedSkip = 0;
         state.forcePreedit = false;
         state.plainCommit = false;
+        state.ibusAfterEnter = false;
+        state.ibusNativeWord = false;
+        state.ibusPrimeExpected.reset();
         state.placed.clear();
         state.preeditDrifted = false;
         state.repairNativePrime = false;

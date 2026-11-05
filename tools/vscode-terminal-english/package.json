@@ -1,0 +1,68 @@
+{
+  "name": "openkey-terminal-english",
+  "displayName": "OpenKey Terminal English",
+  "description": "Opt-in keyboard navigation that disables Fcitx5 in the terminal and restores OpenKey in the editor.",
+  "version": "0.1.0",
+  "publisher": "openkey-local",
+  "license": "GPL-3.0-only",
+  "private": true,
+  "overrides": { "@vscode/vsce": { "minimatch": "^11.0.1" } },
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node --test dist/*.test.js",
+      "package": "npm test && vsce package --no-dependencies --allow-missing-repository --out openkey-terminal-english-0.1.0.vsix"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "openkeyTerminalEnglish.focusTerminal",
+        "title": "OpenKey: Focus Terminal in English",
+        "enablement": "isLinux && config.openkeyTerminalEnglish.enabled"
+      },
+      {
+        "command": "openkeyTerminalEnglish.focusEditor",
+        "title": "OpenKey: Return to Editor and Restore",
+        "enablement": "isLinux && config.openkeyTerminalEnglish.enabled"
+      }
+    ],
+    "configuration": {
+      "title": "OpenKey Terminal English",
+      "properties": {
+        "openkeyTerminalEnglish.enabled": {
+          "type": "boolean",
+          "default": false,
+          "scope": "application",
+          "description": "Opt in to Ctrl+` navigation with Fcitx5 switching on the local Linux UI machine. Mouse focus is not tracked."
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "key": "ctrl+`",
+        "command": "openkeyTerminalEnglish.focusTerminal",
+        "when": "isLinux && config.openkeyTerminalEnglish.enabled && editorTextFocus"
+      },
+      {
+        "key": "ctrl+`",
+        "command": "openkeyTerminalEnglish.focusEditor",
+        "when": "isLinux && config.openkeyTerminalEnglish.enabled && terminalFocus"
+      }
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/vscode": "^1.100.0",
+    "@vscode/vsce": "^4.1.0",
+    "typescript": "^7.0.2"
+  }
+}
