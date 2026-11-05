@@ -4,7 +4,7 @@ Nhánh `fix/ubuntu-direct-focus` có module Fcitx5 thử nghiệm với hai inpu
 method **OpenKey Telex** và **OpenKey VNI**, dùng engine C++ chung, cùng gói `.deb`
 alpha. Chưa có UI cấu hình hoàn chỉnh hoặc macro trong addon. Session service tùy chọn có
 tray riêng và [autostart opt-in](../../../docs/UBUNTU_SERVICE.md#tự-khởi-động-tray-sau-đăng-nhập--opt-in),
-chưa đưa vào gói addon alpha.11; build/install không tự bật autostart.
+gói addon hiện tại alpha.27; alpha.11; build/install không tự bật autostart.
 
 Đã có [UI preview Qt Quick/QML v0.4](../../../docs/UBUNTU_UI.md) với sidebar
 theo Windows và theme sáng/tối. Build opt-in `OPENKEY_BUILD_UI=ON`; giao diện

@@ -35,8 +35,17 @@ public:
     }
     bool send(fcitx::Key key) {
         fcitx::KeyEvent event(this, key);
-        const bool handled = keyEvent(event);
-        return handled;
+        if (keyEvent(event)) return true;
+        // Unaccepted keys reach the client (Preedit Space, Direct boundary keys).
+        if (!directDocument || key.isModifier() ||
+            (key.states() & fcitx::KeyStates{fcitx::KeyState::Ctrl, fcitx::KeyState::Alt,
+                                             fcitx::KeyState::Super}))
+            return false;
+        const auto ch = fcitx::Key::keySymToUnicode(key.sym());
+        if (ch < 32 || ch >= 127) return false;
+        committed += fcitx::utf8::UCS4ToUTF8(ch);
+        report();
+        return true;
     }
     void type(const std::string& text) {
         for (unsigned char ch : text) {

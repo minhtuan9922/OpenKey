@@ -101,6 +101,12 @@ Test `coong` → Space → Backspace → `j` ra `cộng`, `ho` → Space → Bac
 đổi để tránh sửa từ cũ. Người dùng đã xác nhận alpha.9 xóa Space rồi sửa tiếp từ
 đúng mong đợi trên profile accessible; chưa thay thế ma trận backend/ứng dụng.
 
+## Alpha.12 — Word boundary / first key / Wayland passthrough (headless)
+
+Headless Direct bổ sung: Enter/Space/dấu câu cắt từ, Home/End và Ctrl+A không bị nuốt khi pending ACK;
+ký tự Direct đầu tiên dùng native key; Direct không Preedit capability thì passthrough.
+**Chưa** thay thế kết quả desktop 2026-11-05; cần retest LibreOffice/Qt/browser/terminal.
+
 ## Ca bổ sung cho Direct
 
 - Chọn **Chế độ gõ / Input style → Direct** theo [hướng dẫn cài](UBUNTU_INSTALL.md).

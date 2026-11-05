@@ -27,18 +27,22 @@ struct LogCapture {
 };
 class Editor : public fcitx::InputContext {
 public:
-    explicit Editor(fcitx::InputContextManager& manager) : InputContext(manager) {
+    explicit Editor(fcitx::InputContextManager& manager, const std::string& program = {})
+        : InputContext(manager, program) {
         created();
         setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
                                                fcitx::CapabilityFlag::SurroundingText});
         report();
     }
     ~Editor() override { destroy(); }
-    const char* frontend() const override { return "openkey-direct-test"; }
+    const char* frontendName = "openkey-direct-test";
+    const char* frontend() const override { return frontendName; }
     bool delayed = false;
     std::u32string document;
     unsigned cursor = 0, anchor = 0;
     unsigned deletions = 0, commits = 0, nonemptyPreedits = 0;
+    bool dropNonAsciiDeletes = false;
+    bool dropAllDeletes = false;
     struct Notification { std::string text; unsigned cursor, anchor; };
     std::deque<Notification> notifications;
     std::string text() const { return openkey::utf8(document); }
@@ -60,15 +64,37 @@ public:
             notify(value);
         }
     }
+    unsigned forwarded = 0;
+    bool dropUnaccepted = false;
     void raw(const fcitx::Key& key, bool release = false) {
         if (release || key.isModifier()) return;
+        ++forwarded;
         if (key.states() & fcitx::KeyStates{fcitx::KeyState::Ctrl, fcitx::KeyState::Alt,
-                                           fcitx::KeyState::Super}) return;
+                                           fcitx::KeyState::Super}) {
+            if ((key.states() & fcitx::KeyState::Ctrl) && key.sym() == FcitxKey_a) {
+                anchor = 0;
+                cursor = static_cast<unsigned>(document.size());
+                report();
+            }
+            return;
+        }
         if (key.sym() == FcitxKey_BackSpace) {
             if (cursor) { document.erase(--cursor, 1); anchor = cursor; report(); }
         } else if (key.sym() == FcitxKey_Left) {
             if (cursor) --cursor;
             anchor = cursor; report();
+        } else if (key.sym() == FcitxKey_Right) {
+            if (cursor < document.size()) ++cursor;
+            anchor = cursor; report();
+        } else if (key.sym() == FcitxKey_Home) {
+            cursor = anchor = 0; report();
+        } else if (key.sym() == FcitxKey_End) {
+            cursor = anchor = static_cast<unsigned>(document.size()); report();
+        } else if (key.sym() == FcitxKey_Return || key.sym() == FcitxKey_KP_Enter) {
+            const auto start = std::min(cursor, anchor);
+            document.replace(start, std::max(cursor, anchor) - start, 1, U'\n');
+            cursor = anchor = start + 1;
+            report();
         } else {
             const auto ch = fcitx::Key::keySymToUnicode(key.sym());
             if (ch >= 32 && ch < 127) {
@@ -90,8 +116,14 @@ private:
     }
     void deleteSurroundingTextImpl(int offset, unsigned size) override {
         require(cursor == anchor, "Deletion must never operate on a selection");
-        require(offset <= 0 && -offset <= static_cast<int>(cursor) && size <= cursor,
-                "Invalid deletion range");
+        // A client with no character before the caret ignores the request.
+        if (offset > 0 || -offset > static_cast<int>(cursor) || size > cursor) return;
+        if (dropAllDeletes) return;
+        if (dropNonAsciiDeletes) {
+            const auto at = static_cast<unsigned>(static_cast<int>(cursor) + offset);
+            for (unsigned i = 0; i < size && at + i < document.size(); ++i)
+                if (document[at + i] > 127) return;
+        }
         ++deletions;
         document.erase(static_cast<unsigned>(static_cast<int>(cursor) + offset), size);
         cursor -= size; anchor = cursor;
@@ -105,17 +137,19 @@ void style(fcitx::InputMethodEngine& addon, const char* value) {
     config.setValueByPath("InputStyle", value);
     // Deterministic across reruns, including after an interrupted diagnostics test.
     config.setValueByPath("DirectDiagnostics", "False");
+    config.setValueByPath("QuickTelex", "False");
     addon.setConfig(config);
 }
 void activate(fcitx::InputMethodEngine& addon, const fcitx::InputMethodEntry& entry, Editor& editor) {
     fcitx::InputContextEvent event(&editor, fcitx::EventType::InputContextFocusIn);
     addon.activate(entry, event);
 }
-void press(fcitx::InputMethodEngine& addon, const fcitx::InputMethodEntry& entry,
+bool press(fcitx::InputMethodEngine& addon, const fcitx::InputMethodEntry& entry,
            Editor& editor, fcitx::Key key, bool release = false) {
     fcitx::KeyEvent event(&editor, key, release);
     addon.keyEvent(entry, event);
-    if (!event.accepted()) editor.raw(key, release);
+    if (!event.accepted() && !editor.dropUnaccepted) editor.raw(key, release);
+    return event.accepted();
 }
 void type(fcitx::InputMethodEngine& addon, const fcitx::InputMethodEntry& entry,
           Editor& editor, const std::string& value) {
@@ -362,16 +396,21 @@ int main(int argc, char** args) {
     activate(*addon, telex, burst);
     burst.delayed = true;
     type(*addon, telex, burst, "tieengs");
-    require(burst.text() == "t" && burst.deletions == 0, "Must serialize edits pending ACK");
-    // Duplicate old snapshots cannot authorize another deletion.
+    // The unaccepted t stays in the document. The rest of the syllable is preedit
+    // immediately, including ee → ê, so a chat box does not wait on commitString.
+    require(burst.text() == "t" && burst.preedit() == "tiếng" && burst.nonemptyPreedits > 0 &&
+                !burst.deletions,
+            "UnACKed burst must show the syllable as preedit");
     burst.notify({"", 0, 0});
-    require(burst.text() == "t", "Old snapshot advanced pending keys");
+    require(burst.text() == "t" && burst.preedit() == "tiếng", "Old snapshot cleared the preedit");
     burst.ackAll();
-    require(burst.text() == "tiếng", "Queued burst lost/reordered characters");
-    require(burst.nonemptyPreedits == 0, "Delayed Direct unexpectedly used preedit");
+    require(burst.text() == "t" && burst.preedit() == "tiếng",
+            "Replaying notifications cleared the preedit");
     burst.delayed = false;
-    press(*addon, telex, burst, fcitx::Key(FcitxKey_BackSpace));
-    require(burst.text() == "tiến", "Backspace must remove one visible character");
+    require(press(*addon, telex, burst, fcitx::Key(FcitxKey_BackSpace)),
+            "Backspace must edit the preedit");
+    require(burst.text() == "t" && burst.preedit() == "tiến",
+            "Backspace must remove one composed character");
 
     Editor reopenWord(instance.inputContextManager());
     activate(*addon, telex, reopenWord);
@@ -412,7 +451,7 @@ int main(int argc, char** args) {
     press(*addon, telex, reopenDelayed, fcitx::Key(FcitxKey_BackSpace));
     type(*addon, telex, reopenDelayed, "j");
     reopenDelayed.ackAll();
-    require(reopenDelayed.text() == "cộng" && !reopenDelayed.nonemptyPreedits,
+    require(reopenDelayed.text() == "cộng" && reopenDelayed.preedit().empty(),
             "Queued Space/Backspace/tone sequence must wait for ACK and preserve order");
 
     Editor reopenMoved(instance.inputContextManager());
@@ -481,15 +520,19 @@ int main(int argc, char** args) {
     activate(*addon, telex, boundary);
     boundary.delayed = true;
     type(*addon, telex, boundary, "tieengs vieetj");
+    require(boundary.text() == "tiếng v" && boundary.preedit() == "việt",
+            "Space lost/reordered queued input or disabled conversion");
     boundary.ackAll();
-    require(boundary.text() == "tiếng việt", "Space lost/reordered queued input or disabled conversion");
+    require(boundary.text() == "tiếng v", "Replaying notifications erased the committed syllable");
 
     Editor punctuation(instance.inputContextManager());
     activate(*addon, telex, punctuation);
     punctuation.delayed = true;
     type(*addon, telex, punctuation, "a,tieengs.vieetj");
+    require(punctuation.text() == "a,tiếng.v" && punctuation.preedit() == "việt",
+            "Punctuation disabled conversion of queued suffixes");
     punctuation.ackAll();
-    require(punctuation.text() == "a,tiếng.việt", "Punctuation disabled conversion of queued suffixes");
+    require(punctuation.text() == "a,tiếng.v", "Replaying notifications erased the committed syllable");
 
     Editor moved(instance.inputContextManager());
     activate(*addon, telex, moved);
@@ -513,27 +556,258 @@ int main(int argc, char** args) {
     pendingSelection.report(); activate(*addon, telex, pendingSelection);
     pendingSelection.delayed = true;
     type(*addon, telex, pendingSelection, "ti");
-    require(pendingSelection.text() == "SAFE t", "Pending selection setup");
+    require(pendingSelection.text() == "SAFE t" && pendingSelection.preedit() == "ti",
+            "Second letter must show as preedit before ACK");
+    const auto pendingSelectionDeletes = pendingSelection.deletions;
     pendingSelection.anchor = 0; pendingSelection.cursor = 5;
     pendingSelection.notify({pendingSelection.text(), 5, 0});
-    require(pendingSelection.text() == "SAFE t", "Queued text overwrote a new selection");
-    require(pendingSelection.inputPanel().auxUp().toString().find("i") != std::string::npos,
-            "Queued text must remain available for explicit recovery");
-    press(*addon, telex, pendingSelection, fcitx::Key(FcitxKey_Return));
-    require(pendingSelection.text() == "SAFE t", "Recovery must not overwrite a highlighted region");
-    press(*addon, telex, pendingSelection, fcitx::Key(FcitxKey_Escape));
-    require(pendingSelection.text() == "SAFE t" && pendingSelection.inputPanel().auxUp().empty(),
-            "Recovery cancellation changed the selected document");
+    require(pendingSelection.text() == "SAFE t" && pendingSelection.preedit() == "ti" &&
+                pendingSelection.deletions == pendingSelectionDeletes,
+            "Selection change must not commit the preedit");
+    pendingSelection.dropUnaccepted = true;
+    require(!press(*addon, telex, pendingSelection, fcitx::Key(FcitxKey_Return)),
+            "Enter must stay unaccepted");
+    require(pendingSelection.text() == "SAFE t", "Enter must not be replayed over the selection");
 
     Editor recovery(instance.inputContextManager());
     activate(*addon, telex, recovery);
     recovery.delayed = true;
     type(*addon, telex, recovery, "ti");
+    require(recovery.text() == "t" && recovery.preedit() == "ti",
+            "Fast second letter must show as preedit");
     recovery.document = U"SAFE "; recovery.cursor = recovery.anchor = 5;
     recovery.notify({recovery.text(), 5, 5});
-    require(recovery.text() == "SAFE ", "Context change replayed queued text implicitly");
-    press(*addon, telex, recovery, fcitx::Key(FcitxKey_Return));
-    require(recovery.text() == "SAFE i", "Explicit recovery lost pending text");
+    require(recovery.text() == "SAFE " && recovery.preedit() == "ti",
+            "Surrounding noise must not erase the syllable being typed");
+    require(!press(*addon, telex, recovery, fcitx::Key(FcitxKey_Return)),
+            "Enter after a context change must stay unaccepted");
+    require(recovery.text() == "SAFE \n" && recovery.preedit().empty(),
+            "Enter must insert a newline instead of replaying the word");
+
+    Editor continued(instance.inputContextManager());
+    activate(*addon, telex, continued);
+    continued.delayed = true;
+    type(*addon, telex, continued, "ti");
+    continued.document = U"OTHER"; continued.cursor = continued.anchor = 5;
+    continued.notify({continued.text(), 5, 5});
+    type(*addon, telex, continued, "eengs");
+    require(continued.preedit() == "tiếng", "Surrounding update split tieengs into the raw tail");
+
+    Editor unusable(instance.inputContextManager());
+    activate(*addon, telex, unusable);
+    unusable.surroundingText().setText(std::string(65537, 'x'), 0, 0);
+    unusable.updateSurroundingText();
+    type(*addon, telex, unusable, "chees");
+    require(unusable.preedit() == "chế" && unusable.text().find("chees") == std::string::npos,
+            "chees must convert when Direct surrounding text is unusable");
+
+    // Direct on ibus must show the composed word before Space and must not underline.
+    Editor cursorChat(instance.inputContextManager());
+    cursorChat.frontendName = "ibus";
+    activate(*addon, telex, cursorChat);
+    type(*addon, telex, cursorChat, "keets");
+    require(openkey::nfcVietnamese(cursorChat.text()) == "kết" && cursorChat.preedit().empty() &&
+                cursorChat.nonemptyPreedits == 0,
+            "ibus Direct hid the word until Space");
+    require(!press(*addon, telex, cursorChat, fcitx::Key(FcitxKey_space)),
+            "Space must stay unaccepted");
+    type(*addon, telex, cursorChat, "vieetj soanj ");
+    if (openkey::nfcVietnamese(cursorChat.text()) != "kết việt soạn " || !cursorChat.preedit().empty())
+        throw std::runtime_error("ibus Direct words: [" + cursorChat.text() + "] preedit [" +
+                                 cursorChat.preedit() + "]");
+    type(*addon, telex, cursorChat, "gox tieengs vieetj trong chees ddooj khoong gachj chaan");
+    require(cursorChat.preedit().empty() && cursorChat.nonemptyPreedits == 0,
+            "Direct ibus showed an underline while typing");
+    require(!press(*addon, telex, cursorChat, fcitx::Key(FcitxKey_Return)),
+            "Enter must stay unaccepted");
+    if (openkey::nfcVietnamese(cursorChat.text()) !=
+            "kết việt soạn gõ tiếng việt trong chế độ không gạch chân\n" ||
+        !cursorChat.preedit().empty())
+        throw std::runtime_error("ibus Direct sentence: [" + cursorChat.text() + "] preedit [" +
+                                 cursorChat.preedit() + "]");
+
+    // Every Direct field except URL/email bars must get precomposed NFC letters,
+    // never a base letter plus a combining mark (mẻ, tiếng, bằng).
+    {
+        const fcitx::CapabilityFlags nfcCaps[] = {
+            fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::FormattedPreedit,
+                                   fcitx::CapabilityFlag::SurroundingText},
+            fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::FormattedPreedit,
+                                   fcitx::CapabilityFlag::SurroundingText, fcitx::CapabilityFlag::UppwercaseSentences},
+            fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::FormattedPreedit,
+                                   fcitx::CapabilityFlag::SurroundingText, fcitx::CapabilityFlag::UppwercaseSentences,
+                                   fcitx::CapabilityFlag::SpellCheck},
+        };
+        for (const auto& caps : nfcCaps) {
+            Editor nfc(instance.inputContextManager());
+            nfc.frontendName = "ibus";
+            nfc.setCapabilityFlags(caps);
+            activate(*addon, telex, nfc);
+            type(*addon, telex, nfc, "mer bawngf tieengs vieetj nooij ddaay ");
+            const std::string want = "mẻ bằng tiếng việt nội đây ";
+            bool combining = false;
+            for (auto ch : openkey::codepoints(nfc.text())) combining |= (ch >= 0x300 && ch <= 0x36F);
+            if (nfc.text() != want || combining || !nfc.preedit().empty())
+                throw std::runtime_error("NFC Direct caps=" + std::to_string(caps.toInteger()) + ": [" +
+                                         nfc.text() + "]");
+        }
+    }
+
+    // a/e/i/o/u/y must be the precomposed letter. Quick Telex is off here:
+    // icsc is ícc. ích is ichs. With Quick Telex, the second c is h (see below).
+    Editor exact(instance.inputContextManager());
+    exact.frontendName = "ibus";
+    activate(*addon, telex, exact);
+    type(*addon, telex, exact, "gox ichs icsc");
+    if (exact.text() != "gõ ích ícc" || exact.text().find("\u0301") != std::string::npos ||
+        exact.text().find("\u0303") != std::string::npos || !exact.preedit().empty())
+        throw std::runtime_error("ibus precomposed tone: [" + exact.text() + "]");
+    Editor shaped(instance.inputContextManager());
+    shaped.frontendName = "ibus";
+    activate(*addon, telex, shaped);
+    type(*addon, telex, shaped, "goo ");
+    if (shaped.text() != "gô " || shaped.text().find("\u0302") != std::string::npos ||
+        !shaped.preedit().empty())
+        throw std::runtime_error("ibus precomposed goo: [" + shaped.text() + "]");
+
+    // Chrome advertises sentence-case and ignores every surrounding delete, so
+    // committing ô after o produces goô. Attach U+0302 instead.
+    Editor chrome(instance.inputContextManager());
+    chrome.frontendName = "ibus";
+    chrome.dropAllDeletes = true;
+    chrome.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+                                                     fcitx::CapabilityFlag::FormattedPreedit,
+                                                     fcitx::CapabilityFlag::SurroundingText,
+                                                     fcitx::CapabilityFlag::Url});
+    activate(*addon, telex, chrome);
+    type(*addon, telex, chrome, "goo");
+    if (openkey::nfcVietnamese(chrome.text()) != "gô" || chrome.text().find("goô") != std::string::npos ||
+        chrome.text().find("\u00f4") != std::string::npos || !chrome.preedit().empty())
+        throw std::runtime_error("chrome goo: [" + chrome.text() + "]");
+    type(*addon, telex, chrome, "x aa ee ow uw aw ");
+    if (openkey::nfcVietnamese(chrome.text()) != "gỗ â ê ơ ư ă " || !chrome.preedit().empty())
+        throw std::runtime_error("chrome shapes: [" + chrome.text() + "] nfc [" +
+                                 openkey::nfcVietnamese(chrome.text()) + "]");
+
+    // VS Code/Cursor terminal (xterm.js): deletes never reach the shell, so a
+    // Direct rewrite leaves noô/laà and loses đ/ă/tones. Its textarea reports
+    // WordCompletion (no autocomplete="off"); some terminals report no
+    // surrounding text or the Terminal flag. Use a client preedit there.
+    {
+        const fcitx::CapabilityFlags terminalCaps[] = {
+            fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::SurroundingText,
+                                   fcitx::CapabilityFlag::Terminal},
+        };
+        for (const auto& caps : terminalCaps) {
+            Editor terminal(instance.inputContextManager());
+            terminal.frontendName = "ibus";
+            terminal.dropAllDeletes = true;
+            terminal.setCapabilityFlags(caps);
+            activate(*addon, telex, terminal);
+            // xterm.js diffs its textarea and appends every change: a client
+            // preedit leaks as dđaây/laà. Those clients get only a final commit.
+            const bool appendOnly = static_cast<bool>(caps & fcitx::CapabilityFlag::Terminal);
+            type(*addon, telex, terminal, "ddaay");
+            const auto shown = appendOnly ? terminal.inputPanel().preedit().toString() : terminal.preedit();
+            require(shown == "đây" && terminal.text().empty(),
+                    "terminal word must stay unsent until a boundary");
+            if (appendOnly)
+                require(terminal.preedit().empty() && terminal.nonemptyPreedits == 0,
+                        "append-only terminal must never get a client preedit (dđaây)");
+            type(*addon, telex, terminal, " laf nooij dung nhaapj bawngf tieengs vieetj");
+            require(!press(*addon, telex, terminal, fcitx::Key(FcitxKey_Return)),
+                    "terminal Enter must stay unaccepted");
+            if (terminal.text() != "đây là nội dung nhập bằng tiếng việt\n" || !terminal.preedit().empty() ||
+                terminal.deletions != 0 || (appendOnly && terminal.nonemptyPreedits != 0) ||
+                terminal.text().find("dđ") != std::string::npos || terminal.text().find("laà") != std::string::npos)
+                throw std::runtime_error("terminal Telex: [" + terminal.text() + "] preedit [" +
+                                         terminal.preedit() + "]");
+            require(!press(*addon, telex, terminal, fcitx::Key(FcitxKey_space)),
+                    "terminal Space must stay unaccepted");
+            type(*addon, telex, terminal, "ls");
+            require((appendOnly ? terminal.inputPanel().preedit().toString() : terminal.preedit()) == "ls",
+                    "terminal ASCII word");
+            press(*addon, telex, terminal, fcitx::Key(FcitxKey_Return));
+            require(terminal.text() == "đây là nội dung nhập bằng tiếng việt\n ls\n" && terminal.preedit().empty(),
+                    "terminal ASCII command");
+        }
+        // Editor (Monaco: autocomplete=off, no WordCompletion) keeps Direct.
+        Editor monaco(instance.inputContextManager());
+        monaco.frontendName = "ibus";
+        monaco.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+            fcitx::CapabilityFlag::FormattedPreedit, fcitx::CapabilityFlag::SurroundingText});
+        activate(*addon, telex, monaco);
+        type(*addon, telex, monaco, "nooij");
+        require(openkey::nfcVietnamese(monaco.text()) == "nội" && monaco.preedit().empty() &&
+                    monaco.nonemptyPreedits == 0,
+                "Cursor editor must stay Direct (no underline)");
+        // Focus moves to the terminal mid-word: keep the placed word, never re-insert it.
+        monaco.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+            fcitx::CapabilityFlag::FormattedPreedit, fcitx::CapabilityFlag::SurroundingText,
+            fcitx::CapabilityFlag::Terminal});
+        type(*addon, telex, monaco, " ddi");
+        press(*addon, telex, monaco, fcitx::Key(FcitxKey_space));
+        if (openkey::nfcVietnamese(monaco.text()) != "nội đi " || !monaco.preedit().empty())
+            throw std::runtime_error("editor->terminal: [" + monaco.text() + "]");
+    }
+
+    // alpha.29 regression: GNOME reports SurroundingText late on focus, and
+    // WordCompletion on ordinary fields. Those must stay Direct: mer is mẻ
+    // (precomposed, no loose U+0309), never mr, and no underline.
+    {
+        const fcitx::CapabilityFlags normalCaps[] = {
+            fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::FormattedPreedit},
+            fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::FormattedPreedit,
+                                   fcitx::CapabilityFlag::UppwercaseSentences},
+            fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::FormattedPreedit,
+                                   fcitx::CapabilityFlag::SurroundingText, fcitx::CapabilityFlag::WordCompletion},
+            fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::FormattedPreedit,
+                                   fcitx::CapabilityFlag::SurroundingText},
+        };
+        for (const auto& caps : normalCaps) {
+            Editor field(instance.inputContextManager());
+            field.frontendName = "ibus";
+            field.setCapabilityFlags(caps);
+            activate(*addon, telex, field);
+            type(*addon, telex, field, "mer");
+            if (field.text() != "mẻ" || field.text().find("\u0309") != std::string::npos ||
+                !field.preedit().empty() || field.nonemptyPreedits != 0)
+                throw std::runtime_error("ibus Direct mer caps=" + std::to_string(caps.toInteger()) + ": [" + field.text() + "] preedit [" + field.preedit() + "]");
+            type(*addon, telex, field, " ");
+            require(field.text() == "mẻ ", "ibus Direct mer space");
+        }
+        // Surrounding text arrives after the first key (focus race).
+        Editor late(instance.inputContextManager());
+        late.frontendName = "ibus";
+        late.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+                                                       fcitx::CapabilityFlag::FormattedPreedit});
+        activate(*addon, telex, late);
+        type(*addon, telex, late, "m");
+        late.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+            fcitx::CapabilityFlag::FormattedPreedit, fcitx::CapabilityFlag::SurroundingText});
+        type(*addon, telex, late, "er");
+        if (late.text() != "mẻ" || !late.preedit().empty())
+            throw std::runtime_error("late surrounding mer: [" + late.text() + "] preedit [" + late.preedit() + "]");
+    }
+
+    // Gõ nhanh Telex: the second c of icsc stands for h, so the syllable is ích.
+    {
+        fcitx::RawConfig quickOn;
+        quickOn.setValueByPath("QuickTelex", "True");
+        addon->setConfig(quickOn);
+        Editor quickIbus(instance.inputContextManager());
+        quickIbus.frontendName = "ibus";
+        activate(*addon, telex, quickIbus);
+        type(*addon, telex, quickIbus, "icsc");
+        if (quickIbus.text() != "ích" || !quickIbus.preedit().empty())
+            throw std::runtime_error("ibus QuickTelex icsc: [" + quickIbus.text() + "]");
+        type(*addon, telex, quickIbus, " ");
+        if (quickIbus.text() != "ích " || !quickIbus.preedit().empty())
+            throw std::runtime_error("ibus QuickTelex icsc space: [" + quickIbus.text() + "]");
+        fcitx::RawConfig quickOff;
+        quickOff.setValueByPath("QuickTelex", "False");
+        addon->setConfig(quickOff);
+    }
 
     Editor unicodeRecovery(instance.inputContextManager());
     activate(*addon, telex, unicodeRecovery);
@@ -548,6 +822,26 @@ int main(int argc, char** args) {
     press(*addon, telex, unicodeRecovery, fcitx::Key(FcitxKey_BackSpace));
     press(*addon, telex, unicodeRecovery, fcitx::Key(FcitxKey_Return));
     require(unicodeRecovery.text() == "SAFE é", "Recovery Backspace split a Unicode code point");
+
+    // EN/VI switches the method away and back. Recovery left from the old
+    // method must not swallow the first keys after Vietnamese returns.
+    Editor switchBack(instance.inputContextManager());
+    activate(*addon, telex, switchBack);
+    switchBack.delayed = true;
+    type(*addon, telex, switchBack, "a");
+    press(*addon, telex, switchBack, fcitx::Key(fcitx::Key::keySymFromUnicode(U'é')));
+    switchBack.document = U"SAFE "; switchBack.cursor = switchBack.anchor = 5;
+    switchBack.notify({switchBack.text(), 5, 5});
+    require(switchBack.inputPanel().auxUp().toString().find("é") != std::string::npos,
+            "EN/VI setup did not enter recovery");
+    fcitx::InputContextEvent switchAway(&switchBack, fcitx::EventType::InputContextSwitchInputMethod);
+    addon->deactivate(telex, switchAway);
+    fcitx::InputContextEvent switchBackOn(&switchBack, fcitx::EventType::InputContextSwitchInputMethod);
+    addon->activate(telex, switchBackOn);
+    switchBack.delayed = false;
+    type(*addon, telex, switchBack, "a");
+    require(switchBack.text().find('a') != std::string::npos || switchBack.preedit().find('a') != std::string::npos,
+            "EN/VI switch left the context swallowing keys");
 
     Editor unsupported(instance.inputContextManager());
     unsupported.setCapabilityFlags(fcitx::CapabilityFlag::Preedit);
@@ -574,7 +868,9 @@ int main(int argc, char** args) {
     configTelex.delayed = configVni.delayed = true;
     type(*addon, telex, configTelex, "hoas");
     type(*addon, vni, configVni, "hoa1");
-    require(configTelex.text() == "h" && configVni.text() == "h", "Pending config setup");
+    require(configTelex.text() == "h" && configTelex.preedit() == "hoá" &&
+                configVni.text() == "h" && configVni.preedit() == "hoá",
+            "Pending config setup");
     const auto setCompositionOptions = [&](const char* spelling, const char* modern) {
         fcitx::RawConfig options;
         options.setValueByPath("CheckSpelling", spelling);
@@ -582,15 +878,15 @@ int main(int argc, char** args) {
         addon->setConfig(options);
     };
     setCompositionOptions("False", "False");
-    require(configTelex.text() == "hoas" && configVni.text() == "hoa1" &&
-                !configTelex.deletions && !configVni.deletions,
-            "Option change lost queued keys or rewrote an unconfirmed edit");
+    require(configTelex.text() == "hoá" && configTelex.preedit().empty() &&
+                configVni.text() == "hoá" && configVni.preedit().empty(),
+            "Option change must commit the visible preedit once");
     configTelex.ackAll();
     configVni.ackAll();
     configTelex.delayed = configVni.delayed = false;
     type(*addon, telex, configTelex, " hoas fas");
     type(*addon, vni, configVni, " hoa1 fa1");
-    require(configTelex.text() == "hoas hóa fá" && configVni.text() == "hoa1 hóa fá",
+    require(configTelex.text() == "hoá hóa fá" && configVni.text() == "hoá hóa fá",
             "Active Direct contexts did not receive new options");
     const auto telexCommits = configTelex.commits;
     const auto vniCommits = configVni.commits;
@@ -599,7 +895,7 @@ int main(int argc, char** args) {
             "Config change recommitted Direct text");
     type(*addon, telex, configTelex, " hoas fas");
     type(*addon, vni, configVni, " hoa1 fa1");
-    require(configTelex.text() == "hoas hóa fá hoá fas" && configVni.text() == "hoa1 hóa fá hoá fa1",
+    require(configTelex.text() == "hoá hóa fá hoá fas" && configVni.text() == "hoá hóa fá hoá fa1",
             "Active Direct contexts did not restore enabled options");
 
     const auto setQuick = [&](const char* value) {
@@ -630,15 +926,17 @@ int main(int argc, char** args) {
         type(*addon, vni, numeric, input);
         quick.ackAll();
         numeric.ackAll();
-        require(quick.text() == output && numeric.text() == input &&
-                    !quick.nonemptyPreedits && !numeric.nonemptyPreedits,
+        require(quick.text() == std::string(input).substr(0, 1) && quick.preedit() == output &&
+                    numeric.text() == std::string(input).substr(0, 1) && numeric.preedit() == input,
                 "Delayed QuickTelex pairs / VNI isolation failed");
         press(*addon, telex, quick, fcitx::Key(FcitxKey_BackSpace));
         quick.ackAll();
-        require(quick.text() == std::string(output).substr(0, 1), "Direct QuickTelex Backspace");
+        require(quick.text() == std::string(input).substr(0, 1) &&
+                    quick.preedit() == std::string(output).substr(0, 1),
+                "Direct QuickTelex Backspace");
         type(*addon, telex, quick, std::string(input).substr(0, 1) + "a");
         quick.ackAll();
-        require(quick.text() == std::string(output) + "a", "Direct QuickTelex replay after Backspace");
+        require(quick.preedit() == std::string(output) + "a", "Direct QuickTelex replay after Backspace");
     }
     Editor quickCopy(instance.inputContextManager());
     activate(*addon, telex, quickCopy);
@@ -652,24 +950,23 @@ int main(int argc, char** args) {
     activate(*addon, telex, quickPending);
     quickPending.delayed = true;
     type(*addon, telex, quickPending, "gg");
-    require(quickPending.text() == "g", "QuickTelex pending ACK setup");
-    const auto pendingDeletes = quickPending.deletions;
+    require(quickPending.text() == "g" && quickPending.preedit() == "gi", "QuickTelex pending ACK setup");
     setQuick("False");
-    require(quickPending.text() == "gg" && quickPending.deletions == pendingDeletes,
-            "QuickTelex toggle lost queued key or rewrote pending text");
+    require(quickPending.text() == "gi" && quickPending.preedit().empty(),
+            "QuickTelex toggle must commit the visible pair once");
     const auto pendingCommits = quickPending.commits;
     quickPending.ackAll();
-    require(quickPending.text() == "gg" && quickPending.commits == pendingCommits,
+    require(quickPending.text() == "gi" && quickPending.commits == pendingCommits,
             "Late ACK duplicated QuickTelex text after toggle");
     quickPending.delayed = false;
     type(*addon, telex, quickPending, " gg");
-    require(quickPending.text() == "gg gg", "New word after disabling QuickTelex");
+    require(quickPending.text() == "gi gg", "New word after disabling QuickTelex");
     const auto beforeQuickEnable = quickPending.commits;
     setQuick("True");
-    require(quickPending.text() == "gg gg" && quickPending.commits == beforeQuickEnable,
+    require(quickPending.text() == "gi gg" && quickPending.commits == beforeQuickEnable,
             "Enabling QuickTelex recommitted Direct text");
     type(*addon, telex, quickPending, " gg");
-    require(quickPending.text() == "gg gg gi", "New word after enabling QuickTelex without activation");
+    require(quickPending.text() == "gi gg gi", "New word after enabling QuickTelex without activation");
     setQuick("False");
 
     require(logs.stream.str().find("OpenKey Direct:") == std::string::npos,
@@ -724,12 +1021,124 @@ int main(int argc, char** args) {
     diagnostics.setValueByPath("DirectDiagnostics", "True");
     addon->setConfig(diagnostics);
 
+    // Word-boundary keys must reach the client and cut composition tracking.
+    Editor enterCut(instance.inputContextManager());
+    activate(*addon, telex, enterCut);
+    type(*addon, telex, enterCut, "xax");
+    require(enterCut.text() == "xã", "Enter-cut setup");
+    require(!press(*addon, telex, enterCut, fcitx::Key(FcitxKey_Return)),
+            "Enter must stay unaccepted so the client inserts a newline");
+    require(enterCut.text() == "xã\n", "Enter must insert a newline after the word");
+    type(*addon, telex, enterCut, "hooij");
+    require(enterCut.text() == "xã\nhội", "Enter must cut the previous word before the next");
+
+    Editor punctCut(instance.inputContextManager());
+    activate(*addon, telex, punctCut);
+    type(*addon, telex, punctCut, "xax.");
+    require(punctCut.text() == "xã.", "Punctuation must commit as a delimiter");
+    type(*addon, telex, punctCut, "hooij");
+    require(punctCut.text() == "xã.hội", "Punctuation must cut the previous word");
+
+    Editor spaceCut(instance.inputContextManager());
+    activate(*addon, telex, spaceCut);
+    type(*addon, telex, spaceCut, "xax hooij");
+    require(spaceCut.text() == "xã hội", "Space must cut words in Direct mode");
+
+    // First Direct letter after focus: unaccepted native insert (Qt wake), no preedit.
+    Editor wordStart(instance.inputContextManager());
+    activate(*addon, telex, wordStart);
+    const auto preeditsBefore = wordStart.nonemptyPreedits;
+    require(!press(*addon, telex, wordStart, fcitx::Key(FcitxKey_a)),
+            "First Direct letter must stay unaccepted for native insert");
+    require(wordStart.text() == "a" && wordStart.nonemptyPreedits == preeditsBefore,
+            "Native first letter must appear without client preedit");
+    type(*addon, telex, wordStart, "bc");
+    require(wordStart.text() == "abc" && wordStart.nonemptyPreedits == preeditsBefore,
+            "Later Direct letters must Surrounding-edit without preedit");
+
+    // LibreOffice-like program: SurroundingText is unreliable — force Preedit under Direct.
+    Editor libre(instance.inputContextManager(), "soffice.bin");
+    activate(*addon, telex, libre);
+    type(*addon, telex, libre, "tieengs");
+    require(libre.preedit() == "tiếng" && libre.text().empty(),
+            "soffice.bin must use Preedit so the first character is not dropped");
+    require(!press(*addon, telex, libre, fcitx::Key(FcitxKey_Return)),
+            "Enter under LibreOffice Preedit fallback must stay unaccepted");
+    require(libre.text() == "tiếng\n" || libre.text() == "tiếng",
+            "LibreOffice Preedit fallback must commit the full word including the first character");
+
+    // Home/End must stay unaccepted and end Direct ownership of the old word.
+    Editor homeEnd(instance.inputContextManager());
+    activate(*addon, telex, homeEnd);
+    type(*addon, telex, homeEnd, "tieengs");
+    require(homeEnd.text() == "tiếng", "Home/End setup");
+    const auto homeForwarded = homeEnd.forwarded;
+    require(!press(*addon, telex, homeEnd, fcitx::Key(FcitxKey_Home)),
+            "Home must stay unaccepted for native caret move");
+    require(homeEnd.cursor == 0 && homeEnd.forwarded == homeForwarded + 1,
+            "Home must move the caret without IM capture");
+    type(*addon, telex, homeEnd, "a");
+    require(homeEnd.text().find('a') != std::string::npos && homeEnd.text() != "átiếng",
+            "Typing after Home must not rewrite the old Direct suffix as one word");
+    Editor endNav(instance.inputContextManager());
+    activate(*addon, telex, endNav);
+    endNav.document = U"prefix ";
+    endNav.cursor = endNav.anchor = 7;
+    endNav.report();
+    type(*addon, telex, endNav, "xax");
+    require(!press(*addon, telex, endNav, fcitx::Key(FcitxKey_End)), "End must stay unaccepted");
+    require(endNav.cursor == endNav.document.size(), "End must move to the end of the document");
+
+    // Shortcuts while composing must stay unaccepted (not queued as text).
+    Editor shortcut(instance.inputContextManager());
+    activate(*addon, telex, shortcut);
+    type(*addon, telex, shortcut, "xax");
+    require(shortcut.text() == "xã", "Shortcut setup");
+    const auto beforeShortcut = shortcut.text();
+    const auto shortcutAccepted = press(*addon, telex, shortcut,
+        fcitx::Key(FcitxKey_a, fcitx::KeyStates{fcitx::KeyState::Ctrl}));
+    require(!shortcutAccepted, "Ctrl+A must stay unaccepted by Direct");
+    require(shortcut.anchor == 0 && shortcut.cursor == shortcut.document.size(),
+            "Ctrl+A must select all via native delivery");
+    require(shortcut.text() == beforeShortcut, "Ctrl+A must not repeat or mutate the Direct word");
+
+    // Pending ACK + Enter: assumeAcked, flush composing queue, leave Enter unaccepted.
+    Editor pendingEnter(instance.inputContextManager());
+    activate(*addon, telex, pendingEnter);
+    pendingEnter.delayed = true;
+    type(*addon, telex, pendingEnter, "xa");
+    require(pendingEnter.text() == "x" && pendingEnter.preedit() == "xa",
+            "Second letter must show the syllable as preedit before ACK");
+    require(!press(*addon, telex, pendingEnter, fcitx::Key(FcitxKey_Return)),
+            "Enter during pending ACK must stay unaccepted for native newline");
+    pendingEnter.ackAll();
+    require(pendingEnter.text().find('\n') != std::string::npos,
+            "Enter during pending ACK must still insert a newline");
+
+    // Clients without Preedit must not lose keys into invisible composition.
+    Editor noPreedit(instance.inputContextManager());
+    noPreedit.setCapabilityFlags(fcitx::CapabilityFlag::SurroundingText);
+    activate(*addon, telex, noPreedit);
+    // Force Direct off by invalidating surrounding so fallback is considered.
+    noPreedit.surroundingText().invalidate();
+    const auto noPreeditAccepted = press(*addon, telex, noPreedit, fcitx::Key(FcitxKey_a));
+    require(!noPreeditAccepted && noPreedit.text() == "a" && noPreedit.preedit().empty(),
+            "Without Preedit capability keys must pass through, not enter server preedit");
+
     Editor overflow(instance.inputContextManager());
     activate(*addon, telex, overflow);
     overflow.delayed = true;
     type(*addon, telex, overflow, std::string(80, 'b'));
-    require(overflow.text() == std::string(80, 'b'), "Queue overflow lost original input");
-    require(!overflow.deletions, "Overflow must not guess replacement ranges");
+    require(overflow.text() == "b" && overflow.preedit() == std::string(80, 'b') && overflow.nonemptyPreedits > 0,
+            "Fast Direct word must stay visible as preedit");
+    // Queue overflow still applies to a later edit, after the native prime was ACKed.
+    Editor queued(instance.inputContextManager());
+    activate(*addon, telex, queued);
+    type(*addon, telex, queued, "b");
+    queued.delayed = true;
+    type(*addon, telex, queued, std::string(66, 'b'));
+    require(queued.text() == std::string(67, 'b') && !queued.deletions,
+            "Queue overflow must not guess a replacement range");
 
     Editor longWord(instance.inputContextManager());
     activate(*addon, telex, longWord);
@@ -740,8 +1149,9 @@ int main(int argc, char** args) {
     Editor timeout(instance.inputContextManager());
     activate(*addon, telex, timeout);
     timeout.delayed = true;
-    type(*addon, telex, timeout, "tieengs");
-    require(timeout.text() == "t", "Timeout setup did not await ACK");
+    type(*addon, telex, timeout, "t");
+    require(timeout.text() == "t" && timeout.preedit().empty() && !timeout.commits,
+            "A single unACKed prime must stay pending until the timeout");
     Editor staleTimeout(instance.inputContextManager());
     activate(*addon, telex, staleTimeout);
     staleTimeout.delayed = true;
@@ -763,6 +1173,15 @@ int main(int argc, char** args) {
     type(*addon, telex, sensitive, "aas");
     require(sensitive.text() == "aas" && !sensitive.deletions && !sensitive.commits,
             "Password must bypass engine");
+    // Client that drops the unaccepted first key (LibreOffice/Qt on the GNOME
+    // ibus bridge). The timer runs with the others; assertions are after exec.
+    Editor dropped(instance.inputContextManager());
+    dropped.dropUnaccepted = true;
+    dropped.delayed = true;
+    activate(*addon, telex, dropped);
+    type(*addon, telex, dropped, "tieengs");
+    require(dropped.text().empty() && dropped.preedit() == "tiếng",
+            "A dropped first key must reappear inside the preedit syllable");
     // Exiting an sd-event loop is terminal: run this after all tests that add
     // timers, not midway through the test executable.
     // Leave room for sd-event's default timer coalescing: a 400 ms stop
@@ -774,10 +1193,22 @@ int main(int argc, char** args) {
             return true;
         });
     instance.eventLoop().exec();
-    require(timeout.text() == "tieengs" && !timeout.deletions,
-            "Timeout must forward queued input without rewriting unconfirmed text");
+    require(dropped.text().empty() && dropped.preedit() == "tiếng",
+            "Timeout must not rewrite a syllable already shown as preedit");
+    require(!press(*addon, telex, dropped, fcitx::Key(FcitxKey_Return)),
+            "Enter after preedit must stay unaccepted");
+    require(dropped.text() == "tiếng" && dropped.preedit().empty(),
+            "Enter must commit the preedit once, including the first character");
+    require(timeout.text() == "t" && timeout.preedit() == "t" && !timeout.deletions && !timeout.commits,
+            "UnACKed native prime must become preedit, not a forwarded rewrite");
     timeout.ackAll();
-    require(timeout.text() == "tieengs", "Late ACK duplicated timed-out keys");
+    require(timeout.text() == "t" && timeout.commits == 0,
+            "Late ACK duplicated the primed character");
+    timeout.notify({"t", 1, 1});
+    require(!press(*addon, telex, timeout, fcitx::Key(FcitxKey_Return)),
+            "Enter after a landed native prime must stay unaccepted");
+    require(timeout.text() == "t\n" && timeout.preedit().empty(),
+            "Enter commits the promoted character and still inserts a newline");
     const auto diagnosticLog = logs.stream.str();
     for (const char* cause : {"cause=queue-overflow snapshot=stale pending=1",
                              "cause=ack-timeout snapshot=stale pending=1 notified=0",
