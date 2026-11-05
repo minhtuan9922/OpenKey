@@ -35,6 +35,8 @@ ApplicationWindow {
         configState === "not-read" ? "Chưa đọc cấu hình" :
         configState === "invalid" ? "Cấu hình không hợp lệ" : "Không đọc được file"
     readonly property string styleLabel: savedStyle === "direct" ? "Không gạch chân (Direct)" :
+        savedStyle === "commit-only" ? "Gửi cả từ (CommitOnly)" :
+        savedStyle === "native-direct" ? "Gõ trực tiếp, không ô nổi (NativeDirect)" :
         savedStyle === "preedit" ? "Có gạch chân (Preedit)" : "Chưa xác định"
     readonly property var pages: [
         {key: "overview", label: "Tổng quan", symbol: "home"},

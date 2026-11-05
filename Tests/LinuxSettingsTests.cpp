@@ -27,6 +27,8 @@
 class StyleControllerDouble : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString runtimeStyle MEMBER style NOTIFY changed)
+    Q_PROPERTY(bool commitOnlySupported MEMBER supportsCommitOnly NOTIFY changed)
+    Q_PROPERTY(bool nativeDirectSupported MEMBER supportsNativeDirect NOTIFY changed)
     Q_PROPERTY(QString runtimeDiagnostics MEMBER diagnosticsValue NOTIFY changed)
     Q_PROPERTY(bool spellingSupported MEMBER supportsSpelling NOTIFY changed)
     Q_PROPERTY(QString runtimeCheckSpelling MEMBER checkSpelling NOTIFY changed)
@@ -41,6 +43,8 @@ public:
     QString diagnosticsValue = "False";
     QString checkSpelling = "True", modernOrthography = "True";
     bool supportsSpelling = true;
+    bool supportsCommitOnly = false;
+    bool supportsNativeDirect = false;
     bool supportsQuickTelex = true;
     QString quickTelex = "False";
     int quickTelexApplies = 0;
@@ -810,6 +814,50 @@ private slots:
         QVERIFY(!copy->isEnabled());
         window->setProperty("textConverter", QVariant::fromValue<QObject*>(nullptr));
     }
+    void nativeDirectStyleControls() {
+        StyleControllerDouble controller;
+        controller.supportsCommitOnly = true;
+        controller.supportsNativeDirect = true;
+        window->setProperty("configController", QVariant::fromValue(&controller));
+        auto* picker = item("inputStylePicker");
+        QTRY_COMPARE(picker->property("count").toInt(), 4);
+        reveal(picker);
+        picker->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_End);
+        QCOMPARE(controller.applies, 0);
+        QCOMPARE(picker->property("currentIndex").toInt(), 3);
+        click("applyInputStyle");
+        QCOMPARE(controller.style, "NativeDirect");
+        QCOMPARE(controller.applies, 1);
+        controller.style = "CommitOnly";
+        controller.supportsNativeDirect = false;
+        emit controller.changed();
+        QTRY_COMPARE(picker->property("count").toInt(), 3);
+        QTRY_COMPARE(picker->property("currentIndex").toInt(), 2);
+    }
+
+    void commitOnlyStyleControls() {
+        StyleControllerDouble controller;
+        controller.supportsCommitOnly = true;
+        window->setProperty("configController", QVariant::fromValue(&controller));
+        auto* picker = item("inputStylePicker");
+        QTRY_COMPARE(picker->property("count").toInt(), 3);
+        reveal(picker);
+        picker->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_End);
+        QCOMPARE(controller.applies, 0);
+        QCOMPARE(picker->property("currentIndex").toInt(), 2);
+        click("applyInputStyle");
+        QCOMPARE(controller.style, "CommitOnly");
+        QCOMPARE(controller.applies, 1);
+        QCOMPARE(picker->property("currentIndex").toInt(), 2);
+        controller.style = "Preedit";
+        controller.supportsCommitOnly = false;
+        emit controller.changed();
+        QTRY_COMPARE(picker->property("count").toInt(), 2);
+        QTRY_COMPARE(picker->property("currentIndex").toInt(), 0);
+    }
+
     void inputStyleControls() {
         auto* picker = item("inputStylePicker");
         auto* apply = item("applyInputStyle");

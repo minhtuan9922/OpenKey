@@ -178,7 +178,9 @@ public:
         const QVariant style = lastPatch.value(QStringLiteral("InputStyle"));
         const QVariant diagnosticsValue = lastPatch.value(QStringLiteral("DirectDiagnostics"));
         const bool stylePatch = style.metaType() == QMetaType::fromType<QString>() &&
-            (style.toString() == QStringLiteral("Preedit") || style.toString() == QStringLiteral("Direct"));
+            (style.toString() == QStringLiteral("Preedit") || style.toString() == QStringLiteral("Direct") ||
+             (style.toString() == QStringLiteral("CommitOnly") && enumValues.value("2").toString() == "CommitOnly") ||
+             (style.toString() == QStringLiteral("NativeDirect") && enumValues.value("3").toString() == "NativeDirect"));
         const bool diagnosticsPatch = diagnosticsValue.metaType() == QMetaType::fromType<QString>() &&
             (diagnosticsValue.toString() == QStringLiteral("True") || diagnosticsValue.toString() == QStringLiteral("False"));
         const QString optionalKey = lastPatch.isEmpty() ? QString() : lastPatch.firstKey();
@@ -340,6 +342,53 @@ private slots:
         QCOMPARE(controller.runtimeDiagnostics(), QStringLiteral("False"));
         QVERIFY(controller.ready());
         QCOMPARE(mock_->writes, 0);
+    }
+
+    void nativeDirectRequiresSchemaSupport() {
+        SettingsController controller(*client_);
+        for (const bool commitOnly : {false, true}) {
+            if (commitOnly) mock_->enumValues.insert(QStringLiteral("2"), QStringLiteral("CommitOnly"));
+            load(controller);
+            QVERIFY(controller.ready());
+            QVERIFY(!controller.nativeDirectSupported());
+            controller.apply(QStringLiteral("NativeDirect"));
+            QCOMPARE(controller.result(), QStringLiteral("unsupported"));
+            QCOMPARE(mock_->writes, 0);
+        }
+        mock_->enumValues.insert(QStringLiteral("3"), QStringLiteral("NativeDirect"));
+        load(controller);
+        QVERIFY(controller.nativeDirectSupported());
+        QVERIFY(controller.commitOnlySupported());
+        controller.apply(QStringLiteral("NativeDirect"));
+        QTRY_VERIFY(!controller.busy());
+        QCOMPARE(controller.result(), QStringLiteral("confirmed"));
+        QCOMPARE(controller.runtimeStyle(), QStringLiteral("NativeDirect"));
+        QCOMPARE(mock_->lastPatch, (QVariantMap{{QStringLiteral("InputStyle"), QStringLiteral("NativeDirect")}}));
+        controller.apply(QStringLiteral("Direct"));
+        QTRY_VERIFY(!controller.busy());
+        QCOMPARE(controller.runtimeStyle(), QStringLiteral("Direct"));
+    }
+
+    void commitOnlyRequiresSchemaSupport() {
+        SettingsController controller(*client_);
+        load(controller);
+        QVERIFY(!controller.commitOnlySupported());
+        controller.apply(QStringLiteral("CommitOnly"));
+        QCOMPARE(controller.result(), QStringLiteral("unsupported"));
+        QCOMPARE(mock_->writes, 0);
+        mock_->enumValues.insert(QStringLiteral("2"), QStringLiteral("CommitOnly"));
+        load(controller);
+        QVERIFY(controller.ready());
+        QVERIFY(controller.commitOnlySupported());
+        controller.apply(QStringLiteral("CommitOnly"));
+        QTRY_VERIFY(!controller.busy());
+        QCOMPARE(controller.result(), QStringLiteral("confirmed"));
+        QCOMPARE(controller.runtimeStyle(), QStringLiteral("CommitOnly"));
+        QCOMPARE(mock_->lastPatch.size(), 1);
+        QCOMPARE(mock_->lastPatch.value(QStringLiteral("InputStyle")).toString(), QStringLiteral("CommitOnly"));
+        controller.apply(QStringLiteral("Preedit"));
+        QTRY_VERIFY(!controller.busy());
+        QCOMPARE(controller.runtimeStyle(), QStringLiteral("Preedit"));
     }
 
     void applyConfirmsReadback_data() {

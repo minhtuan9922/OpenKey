@@ -3,7 +3,7 @@
 ## Phạm vi
 
 [SettingsController](../Sources/OpenKey/linux/ui/SettingsController.h) quản lý
-năm khóa `InputStyle=Preedit|Direct`, `DirectDiagnostics=True|False`,
+năm khóa `InputStyle=Preedit|Direct|CommitOnly|NativeDirect`, `DirectDiagnostics=True|False`,
 `CheckSpelling=True|False`, `UseModernOrthography=True|False` và
 `QuickTelex=True|False`. Hai khóa chính tả cần alpha.10, QuickTelex cần alpha.11
 hoặc schema tương thích. QuickTelex mặc định False, chỉ có tác dụng trong Telex;
@@ -29,7 +29,11 @@ Schema/runtime trên bus mới là dữ liệu kiểm tra lúc chạy; không ch
 1. Khi mở UI hoặc nhấn **Đọc lại**: lấy unique owner bằng `GetNameOwner`, gọi
    `GetConfig` trên chính owner đó. Không gọi theo well-known name để kích hoạt daemon.
 2. Xác thực chữ ký, hai khóa runtime và schema `InputConfig`: InputStyle là Enum
-   với `0=Preedit`, `1=Direct`; DirectDiagnostics là Boolean. Sai/thiếu thì khóa Apply.
+   với `0=Preedit`, `1=Direct`, tùy chọn `2=CommitOnly`, `3=NativeDirect`;
+   DirectDiagnostics là Boolean. Chỉ nhận schema hai, ba hoặc bốn chế độ đúng thứ tự.
+   Sai/thiếu thì khóa Apply. CommitOnly chỉ hiện khi schema hỗ trợ; kiểm tra lại
+   trước khi ghi. Xem [hành vi và giới hạn](UBUNTU_COMMIT_ONLY.md).
+   NativeDirect kiểm tương tự, xem [thử nghiệm alpha.36](UBUNTU_NATIVE_DIRECT.md).
    Nhóm chính tả chỉ được hỗ trợ khi cả hai khóa có đúng một schema Boolean và
    giá trị runtime chuỗi `True`/`False`. Thiếu, trùng hoặc sai kiểu trong nhóm
    chỉ khóa nhóm mới; addon cũ vẫn cho dùng mode/diagnostics. Không đoán mặc định

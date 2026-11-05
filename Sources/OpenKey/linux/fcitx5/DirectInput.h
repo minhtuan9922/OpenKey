@@ -229,6 +229,17 @@ struct Snapshot {
     }
 };
 
+// An URL field can append/select an inline completion after a native key.
+// Confirm only an exact FULL typed document at its end, followed exclusively
+// by a forward-selected suffix. Never match just the current word or infer
+// ownership for a middle-of-document/reversed/arbitrary selection.
+inline bool selectedUrlCompletion(const Snapshot& expected, const Snapshot& observed) {
+    return expected.cursor == expected.anchor && expected.cursor == expected.text.size() &&
+        observed.cursor == expected.cursor && observed.anchor > observed.cursor &&
+        observed.anchor == observed.text.size() &&
+        observed.text.compare(0, expected.text.size(), expected.text) == 0;
+}
+
 // A single serialized edit is outstanding at a time. Never rewrite the
 // client's surrounding-text cache with our prediction and mistake it for ACK.
 class DirectInput {

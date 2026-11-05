@@ -9,7 +9,9 @@
 namespace {
 const QString service = QStringLiteral("org.fcitx.Fcitx5");
 const QString uri = QStringLiteral("fcitx://config/addon/openkey");
-bool validStyle(const QString& style) { return style == "Preedit" || style == "Direct"; }
+bool validStyle(const QString& style) {
+    return style == "Preedit" || style == "Direct" || style == "CommitOnly" || style == "NativeDirect";
+}
 QString replyOwner(const QDBusMessage& reply) {
     if (reply.type() != QDBusMessage::ReplyMessage || reply.signature() != "s" || reply.arguments().size() != 1)
         return {};
@@ -85,6 +87,8 @@ bool SettingsController::decode(const QDBusMessage& reply, QVariantMap& values) 
     const auto schema = reply.arguments()[1].value<QDBusArgument>();
     if (schema.currentSignature() != "a(sa(sssva{sv}))") return false;
     bool foundStyle = false, foundDiagnostics = false;
+    bool commitOnlySupported = false;
+    bool nativeDirectSupported = false;
     int spellingEntries = 0, modernEntries = 0;
     bool optionalTypesValid = true;
     int quickTelexEntries = 0;
@@ -109,8 +113,12 @@ bool SettingsController::decode(const QDBusMessage& reply, QVariantMap& values) 
             if (name == "InputStyle") {
                 if (foundStyle || type != "Enum") return false;
                 const auto values = variantMap(extra.value("Enum"));
-                if (values.size() != 2 || !stringValue(values.value("0"), "Preedit") ||
+                if ((values.size() < 2 || values.size() > 4) || !stringValue(values.value("0"), "Preedit") ||
                     !stringValue(values.value("1"), "Direct")) return false;
+                commitOnlySupported = values.size() >= 3 && stringValue(values.value("2"), "CommitOnly");
+                if (values.size() >= 3 && !commitOnlySupported) return false;
+                nativeDirectSupported = values.size() == 4 && stringValue(values.value("3"), "NativeDirect");
+                if (values.size() == 4 && !nativeDirectSupported) return false;
                 foundStyle = true;
             } else if (name == "DirectDiagnostics") {
                 if (foundDiagnostics || type != "Boolean") return false;
@@ -129,7 +137,10 @@ bool SettingsController::decode(const QDBusMessage& reply, QVariantMap& values) 
     }
     schema.endArray();
     if (!foundStyle || !foundDiagnostics) return false;
-    values = {{"InputStyle", value}, {"DirectDiagnostics", diagnostics}};
+    if (value.toString() == "CommitOnly" && !commitOnlySupported) return false;
+    if (value.toString() == "NativeDirect" && !nativeDirectSupported) return false;
+    values = {{"InputStyle", value}, {"DirectDiagnostics", diagnostics},
+              {"CommitOnlySupported", commitOnlySupported}, {"NativeDirectSupported", nativeDirectSupported}};
     const auto check = raw.value("CheckSpelling"), modern = raw.value("UseModernOrthography");
     if (spellingEntries == 1 && modernEntries == 1 && optionalTypesValid &&
         (stringValue(check, "True") || stringValue(check, "False")) &&
@@ -182,6 +193,8 @@ void SettingsController::applyValue(const QString& key, const QString& target) {
         finish("invalid"); return;
     }
     if (!ready_ || owner_.isEmpty()) { finish("unavailable"); return; }
+    if (styleField && target == "CommitOnly" && !commitOnlySupported()) { finish("unsupported"); return; }
+    if (styleField && target == "NativeDirect" && !nativeDirectSupported()) { finish("unsupported"); return; }
     if (spellingField && !spellingSupported()) { finish("unsupported"); return; }
     if (key == "QuickTelex" && !quickTelexSupported()) { finish("unsupported"); return; }
     const auto expected = values_.value(key).toString();
@@ -194,6 +207,10 @@ void SettingsController::applyValue(const QString& key, const QString& target) {
         read([this, key, optionalField, expected, target](const QDBusMessage& fresh) {
             QVariantMap values;
             if (!decode(fresh, values)) { finish("error"); return; }
+            if (key == "InputStyle" && target == "CommitOnly" &&
+                !values.value("CommitOnlySupported").toBool()) { finish("unsupported"); return; }
+            if (key == "InputStyle" && target == "NativeDirect" &&
+                !values.value("NativeDirectSupported").toBool()) { finish("unsupported"); return; }
             if (optionalField && !values.contains(key)) { finish("unsupported"); return; }
             const auto current = values.value(key).toString();
             if (current != expected) { finish("conflict"); return; }

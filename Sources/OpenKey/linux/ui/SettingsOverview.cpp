@@ -134,6 +134,8 @@ void SettingsOverview::readConfig() {
                         if (key == "InputStyle") {
                             if (value == "Preedit") style = "preedit";
                             else if (value == "Direct") style = "direct";
+                            else if (value == "CommitOnly") style = "commit-only";
+                            else if (value == "NativeDirect") style = "native-direct";
                             else { state = "invalid"; break; }
                         } else {
                             if (value == "True") diagnostics = "enabled";

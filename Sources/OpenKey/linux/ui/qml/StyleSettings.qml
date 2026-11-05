@@ -11,13 +11,22 @@ Pane {
     readonly property bool busy: controller !== null && controller.busy
     readonly property string result: controller !== null ? controller.result : "offline"
     readonly property string runtimeStyle: controller !== null ? controller.runtimeStyle : ""
-    readonly property string requestedStyle: picker.currentIndex === 1 ? "Direct" : "Preedit"
+    readonly property string requestedStyle: picker.currentIndex === 3 ? "NativeDirect" :
+        picker.currentIndex === 2 ? "CommitOnly" :
+        picker.currentIndex === 1 ? "Direct" : "Preedit"
+    function styleLabel(style) {
+        return style === "NativeDirect" ? "Gõ trực tiếp, không ô nổi (NativeDirect, thử nghiệm)" :
+            style === "CommitOnly" ? "Gửi cả từ, không preedit trong ô nhập (CommitOnly)" :
+            style === "Direct" ? "Không gạch chân (Direct)" : "Có gạch chân (Preedit)"
+    }
     ConfigFeedback { id: statusFeedback; result: card.result }
     readonly property string feedback: statusFeedback.text
     function syncPicker() {
         if (!picker) return
         if (controller !== null && controller.ready)
-            picker.currentIndex = controller.runtimeStyle === "Direct" ? 1 : 0
+            picker.currentIndex = controller.runtimeStyle === "NativeDirect" ? 3 :
+                controller.runtimeStyle === "CommitOnly" ? 2 :
+                controller.runtimeStyle === "Direct" ? 1 : 0
         else if (controller === null || !controller.busy)
             picker.currentIndex = -1
     }
@@ -41,7 +50,7 @@ Pane {
         }
         Label {
             text: card.runtimeStyle.length > 0 ?
-                "Runtime: " + (card.runtimeStyle === "Direct" ? "Không gạch chân (Direct)" : "Có gạch chân (Preedit)") :
+                "Runtime: " + card.styleLabel(card.runtimeStyle) :
                 "Runtime: chưa xác định"
             Layout.fillWidth: true
             wrapMode: Text.Wrap
@@ -53,8 +62,15 @@ Pane {
             uiPalette: card.uiPalette
             objectName: "inputStylePicker"
             Layout.fillWidth: true
-            model: ["Có gạch chân (Preedit)", "Không gạch chân (Direct)"]
+            model: card.controller !== null && card.controller.nativeDirectSupported ?
+                [card.styleLabel("Preedit"), card.styleLabel("Direct"), card.styleLabel("CommitOnly"), card.styleLabel("NativeDirect")] :
+                card.controller !== null && card.controller.commitOnlySupported ?
+                [card.styleLabel("Preedit"), card.styleLabel("Direct"), card.styleLabel("CommitOnly")] :
+                [card.styleLabel("Preedit"), card.styleLabel("Direct")]
             currentIndex: -1
+            // Replacing the supported-mode list resets ComboBox's index after
+            // controller.changed; restore runtime selection after that reset.
+            onModelChanged: Qt.callLater(card.syncPicker)
             displayText: currentIndex < 0 ? "Chưa đọc được chế độ runtime" : currentText
             enabled: card.ready && !card.busy
             opacity: enabled ? 1 : 0.65
@@ -98,7 +114,7 @@ Pane {
         }
         Label {
             Layout.fillWidth: true
-            text: "Chọn chế độ rồi nhấn Áp dụng khi đã gõ xong từ. Thay đổi áp dụng chung cho Telex/VNI; Direct có thể fallback Preedit tùy ứng dụng."
+            text: "Chọn chế độ rồi nhấn Áp dụng khi đã gõ xong từ. Telex/VNI dùng chung thiết lập.\n\nNativeDirect (thử nghiệm): chữ hiện ngay, không ô nổi. Chỉ sửa dấu khi ứng dụng xác nhận đúng nội dung và con trỏ. Thiếu hỗ trợ hoặc chậm xác nhận thì phần còn lại của từ giữ nguyên phím gõ; thử lại từ tiếp theo sau Space. Terminal có cờ nhận diện rõ ràng giữ phím nguyên dạng. Chưa nghiệm thu desktop.\n\nCommitOnly: xem từ đang gõ trong bảng bộ gõ; kết thúc từ mới gửi vào ứng dụng. Gợi ý code không nhận chữ trong lúc soạn. Direct có thể fallback Preedit tùy ứng dụng."
             wrapMode: Text.Wrap
             color: card.uiPalette.muted
             font.pixelSize: card.uiPalette.smallSize

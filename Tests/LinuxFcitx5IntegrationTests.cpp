@@ -170,5 +170,64 @@ int main(int argc, char** args) {
     require(direct.committed == "print tiếngviệt" && direct.preedit().empty(), "Direct VNI pipeline");
     direct.focusOut();
     require(direct.committed == "print tiếngviệt", "Direct pipeline focus-out duplicated text");
+
+    fcitx::RawConfig bufferedSettings;
+    bufferedSettings.setValueByPath("InputStyle", "CommitOnly");
+    addon->setConfig(bufferedSettings);
+    Editor buffered(instance.inputContextManager());
+    buffered.setCapabilityFlags(fcitx::CapabilityFlags{
+        fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::ClientUnfocusCommit});
+    buffered.focusIn();
+    instance.setCurrentInputMethod(&buffered, "openkey-telex", false);
+    buffered.type("tieengs");
+    require(buffered.committed.empty() && buffered.preedit().empty() &&
+        buffered.inputPanel().preedit().toString() == "tiếng", "CommitOnly pipeline leaked incremental text");
+    buffered.focusOut();
+    require(buffered.committed == "tiếng" && buffered.inputPanel().preedit().toString().empty(),
+        "CommitOnly focus-out lost or duplicated server-owned text");
+    buffered.focusIn();
+    instance.setCurrentInputMethod(&buffered, "openkey-telex", false);
+    buffered.type("tieengs");
+    instance.setCurrentInputMethod(&buffered, "openkey-vni", false);
+    require(buffered.committed == "tiếngtiếng", "CommitOnly method switch lost word");
+    buffered.type("vie6t5");
+    require(!buffered.send(fcitx::Key(FcitxKey_Return)), "CommitOnly Enter must remain native");
+    require(buffered.committed == "tiếngtiếngviệt" && buffered.preedit().empty(), "CommitOnly VNI pipeline commit");
+    buffered.type("tie6ng1");
+    bufferedSettings.setValueByPath("InputStyle", "Preedit");
+    addon->setConfig(bufferedSettings);
+    require(buffered.committed == "tiếngtiếngviệttiếng" && buffered.preedit().empty(),
+        "Leaving CommitOnly must finish the word once");
+    buffered.type("vie6t5");
+    require(buffered.preedit() == "việt", "Leaving CommitOnly did not restore client preedit");
+    buffered.focusOut();
+    fcitx::RawConfig nativeSettings;
+    nativeSettings.setValueByPath("InputStyle", "NativeDirect");
+    addon->setConfig(nativeSettings);
+    Editor native(instance.inputContextManager());
+    native.directDocument = true;
+    native.setCapabilityFlags(fcitx::CapabilityFlags{
+        fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::SurroundingText,
+        fcitx::CapabilityFlag::ClientUnfocusCommit});
+    native.report();
+    native.focusIn();
+    instance.setCurrentInputMethod(&native, "openkey-telex", false);
+    native.type("print tieengs vieetj");
+    require(native.committed == "print tiếng việt" && native.preedit().empty() &&
+        native.inputPanel().preedit().toString().empty(), "NativeDirect real pipeline lost text or displayed a popup");
+    native.focusOut();
+    require(native.committed == "print tiếng việt", "NativeDirect pipeline focus-out duplicated a word");
+    Editor nativeUrl(instance.inputContextManager());
+    nativeUrl.directDocument = true;
+    nativeUrl.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+        fcitx::CapabilityFlag::FormattedPreedit, fcitx::CapabilityFlag::SurroundingText,
+        fcitx::CapabilityFlag::Url});
+    nativeUrl.report(); nativeUrl.focusIn();
+    instance.setCurrentInputMethod(&nativeUrl, "openkey-telex", false);
+    nativeUrl.type("tieengs vieetj");
+    require(nativeUrl.committed == "tiếng việt" && nativeUrl.preedit().empty(),
+        "URL capability must not disable NativeDirect conversion in the key pipeline");
+    nativeUrl.focusOut();
+    require(nativeUrl.committed == "tiếng việt", "NativeDirect URL focus-out duplicated text");
     std::cout << "Fcitx5 integration: installed descriptors, addon loading, key pipeline, focus and method switching passed\n";
 }

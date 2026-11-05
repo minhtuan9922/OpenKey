@@ -193,11 +193,20 @@ Trong cấu hình Fcitx5, mở cấu hình OpenKey (Telex/VNI, hoặc addon Open
 - **Preedit**: mặc định, giữ cơ chế gõ có composition để tương thích.
 - **Direct**: thử nghiệm, commit từng ký tự và thay dấu qua surrounding-text,
   không gửi preedit khi ứng dụng hỗ trợ.
+- **NativeDirect** (alpha.36, thử nghiệm): chữ hiện ngay, không ô nổi. Chỉ sửa
+  dấu khi xác nhận được toàn bộ ngữ cảnh; thiếu hỗ trợ thì giữ phím nguyên dạng.
+  Dùng UI preview.2 hoặc cấu hình Fcitx; xem [cài thử và giới hạn](UBUNTU_NATIVE_DIRECT.md).
+- **CommitOnly** (alpha.35, thử nghiệm): soạn từ trong bảng bộ gõ, chỉ gửi cả từ
+  khi Space/Enter/dấu câu; không gửi client preedit, không xóa chữ đã ghi.
+  Gợi ý code không nhận chữ trong lúc soạn. Chưa nghiệm thu desktop Ubuntu 26;
+  xem [cách dùng, giới hạn và bảng kiểm ứng dụng](UBUNTU_COMMIT_ONLY.md).
 
 Lựa chọn áp dụng chung cho cả Telex và VNI. Khi lưu cấu hình, từ Preedit đang
 gõ được commit một lần; từ Direct đã nằm trong tài liệu không bị commit lại.
 Cấu hình lưu tại `$XDG_CONFIG_HOME/fcitx5/conf/openkey.conf` hoặc mặc định
-`~/.config/fcitx5/conf/openkey.conf`, với `InputStyle=Preedit` hoặc `InputStyle=Direct`.
+`~/.config/fcitx5/conf/openkey.conf`, với `InputStyle=Preedit`, `InputStyle=Direct`
+hoặc `InputStyle=CommitOnly` / `InputStyle=NativeDirect`. Với addon alpha.35, dùng UI OpenKey mới hỗ trợ
+schema ba chế độ hoặc công cụ cấu hình Fcitx; UI OpenKey cũ chỉ hiểu hai chế độ.
 
 Direct yêu cầu ứng dụng hỗ trợ surrounding-text hợp lệ. Từ alpha.4, selection
 có sẵn ở đầu từ (như address bar vừa nhận focus) được thay bởi phím mới qua

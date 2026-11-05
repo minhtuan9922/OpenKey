@@ -5,6 +5,15 @@
 > Ưu tiên sửa lỗi mất từ đầu tiên trực tiếp trong addon; chưa có bản sửa được
 > xác nhận trên desktop. Không cần cài/bật extension hoặc chạy helper này.
 
+Hướng mới trong addon: [CommitOnly cho Ubuntu 26](../../docs/UBUNTU_COMMIT_ONLY.md)
+(alpha.35, thử nghiệm) soạn từ trong bảng bộ gõ rồi gửi cả từ, không gửi client
+preedit. Có đánh đổi với gợi ý code; chưa nghiệm thu desktop. Extension/helper
+bên dưới vẫn dừng phát triển.
+
+Bản thử tiếp theo [NativeDirect alpha.36](../../docs/UBUNTU_NATIVE_DIRECT.md)
+không dùng ô nổi; thiếu xác nhận thì giữ phím nguyên dạng. Chưa công bố sửa
+toàn bộ terminal native; không chạy lại extension/helper.
+
 Extension opt-in cho VS Code Desktop trên Linux có Fcitx5 **ở máy giao diện**.
 Không sửa addon, không hook phím toàn hệ thống, không đọc văn bản đang gõ,
 clipboard, output terminal hoặc profile shell. Không tự cài/chạy lại Fcitx5.

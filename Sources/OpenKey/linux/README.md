@@ -1,5 +1,18 @@
 # OpenKey cho Linux — Fcitx5 proof-of-concept
 
+Bản thử tiếp theo: **NativeDirect** (addon 0.2.29 / alpha.38, UI preview.2) cho
+chữ hiện ngay bằng phím gốc, sửa dấu khi surrounding-text được xác nhận đầy đủ,
+không tự fallback ô nổi. Thiếu hỗ trợ thì giữ nguyên phím gõ; chưa nghiệm thu
+desktop/mọi ứng dụng. Alpha.38 thêm xử lý phần gợi ý đuôi được chọn trong ô URL
+khi toàn bộ phần đã gõ khớp notification; alpha.37 còn đi raw ở các từ đó.
+Ô trong trang web đã được người dùng xác nhận trên alpha.36.
+Xem [cài thử và giới hạn](../../../docs/UBUNTU_NATIVE_DIRECT.md).
+
+Mới từ source: **CommitOnly** (addon 0.2.26 / alpha.35) giữ từ trong bảng bộ gõ,
+gửi cả từ khi kết thúc; không gửi client preedit hoặc sửa chữ đã ghi. Đây là
+thử nghiệm cho Ubuntu 26, chưa nghiệm thu desktop/mọi ứng dụng. Gợi ý code
+không nhận chữ trong lúc soạn từ. Xem [cách chọn và kiểm tra](../../../docs/UBUNTU_COMMIT_ONLY.md).
+
 Nhánh `fix/ubuntu-direct-focus` có module Fcitx5 thử nghiệm với hai input
 method **OpenKey Telex** và **OpenKey VNI**, dùng engine C++ chung, cùng gói `.deb`
 alpha. Chưa có UI cấu hình hoàn chỉnh hoặc macro trong addon. Session service tùy chọn có

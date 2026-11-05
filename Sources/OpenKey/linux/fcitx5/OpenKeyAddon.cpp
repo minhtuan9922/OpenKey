@@ -17,7 +17,7 @@
 #include <fcitx/text.h>
 
 namespace {
-FCITX_CONFIG_ENUM(InputStyle, Preedit, Direct);
+FCITX_CONFIG_ENUM(InputStyle, Preedit, Direct, CommitOnly, NativeDirect);
 FCITX_CONFIGURATION(InputConfig,
     fcitx::Option<InputStyle> style{this, "InputStyle", "Chế độ gõ / Input style", InputStyle::Preedit};
     fcitx::Option<bool> diagnostics{this, "DirectDiagnostics", "Direct diagnostics (no text content)", false};
@@ -155,6 +155,10 @@ struct State : fcitx::InputContextProperty {
     bool ibusAfterEnter = false;
     bool ibusNativeWord = false; // unconfirmed native prime: pass the remaining word through
     std::optional<openkey::Snapshot> ibusPrimeExpected;
+    std::optional<openkey::Snapshot> nativeExpected;
+    std::optional<openkey::Snapshot> nativeCompletion;
+    bool nativeRawWord = false;
+    bool nativeAwaitingUpdate = false;
     std::string placed; // UTF-8 of that word currently in the document
     bool preeditDrifted = false; // surrounding changed; keep the syllable until Enter leaves it
     bool repairNativePrime = false;
@@ -176,6 +180,20 @@ public:
                 auto* ic = static_cast<fcitx::InputContextEvent&>(event).inputContext();
                 auto& state = *ic->propertyFor(&factory_);
                 if (!state.active) return;
+                if (*config_.style == InputStyle::NativeDirect && state.nativeExpected) {
+                    const auto snapshot = openkey::Snapshot::read(ic->surroundingText(), true);
+                    state.nativeCompletion.reset();
+                    if (snapshot && *snapshot == *state.nativeExpected) state.nativeAwaitingUpdate = false;
+                    else if (snapshot && (ic->capabilityFlags() & fcitx::CapabilityFlag::Url) &&
+                             openkey::selectedUrlCompletion(*state.nativeExpected, *snapshot)) {
+                        // This notification confirms every typed character and
+                        // its caret. Keep the actual selected suffix separately;
+                        // the prediction is NOT installed in the client's cache.
+                        state.nativeCompletion = snapshot;
+                        state.nativeAwaitingUpdate = false;
+                    }
+                    return;
+                }
                 if (state.direct && state.tracker.pending()) state.pendingNotified = true;
                 if (state.emitting) return;
                 if (state.forcePreedit && !state.owned && !state.retainOwned) {
@@ -276,6 +294,14 @@ public:
             state.recovery.clear();
             composition.clear();
             update(ic);
+            return;
+        }
+        if (*config_.style == InputStyle::CommitOnly) {
+            commitOnlyKey(ic, event);
+            return;
+        }
+        if (*config_.style == InputStyle::NativeDirect) {
+            nativeDirectKey(ic, event);
             return;
         }
         if (!state.recovery.empty()) {
@@ -825,7 +851,7 @@ public:
         // plainCommit text is already in the document. Committing it again duplicates.
         const bool clientHoldsPreedit = event.type() == fcitx::EventType::InputContextFocusOut &&
             (ic->capabilityFlags() & fcitx::CapabilityFlag::Preedit) && !state.direct &&
-            !state.plainCommit && !state.hiddenPreedit;
+            !state.plainCommit && !state.hiddenPreedit && *config_.style != InputStyle::CommitOnly;
         if (state.direct) settle(ic);
         else if (!sensitive && !clientHoldsPreedit && !state.composition.empty() && !state.plainCommit) {
             // Switching to English must not delete the character before the caret.
@@ -843,6 +869,161 @@ public:
     }
 
 private:
+    // Native keys own insertion, selection replacement and ordinary Backspace.
+    // Only a real engine transformation uses an IM edit, after exact validation
+    // of the entire expected document/caret. Never queue, forward or show preedit.
+    void nativeDirectKey(fcitx::InputContext* ic, fcitx::KeyEvent& event) {
+        if (event.isRelease() || event.key().isModifier()) return;
+        auto& state = *ic->propertyFor(&factory_);
+        const auto key = event.key();
+        const auto symbol = fcitx::Key::keySymToUnicode(key.sym());
+        const bool textKey = letterOrDigit(symbol);
+        const bool backspace = key.sym() == FcitxKey_BackSpace;
+        const bool boundary = shortcutKey(key) || (!textKey && !backspace);
+        const auto snapshot = openkey::Snapshot::read(ic->surroundingText(), true);
+        const bool completion = snapshot && state.nativeExpected && state.nativeCompletion &&
+            (ic->capabilityFlags() & fcitx::CapabilityFlag::Url) &&
+            *snapshot == *state.nativeCompletion &&
+            openkey::selectedUrlCompletion(*state.nativeExpected, *snapshot);
+        const char* unsupported = !(ic->capabilityFlags() & fcitx::CapabilityFlag::SurroundingText)
+            ? "no-surrounding-capability" : appendOnlyClient(ic) ? "terminal-context" :
+            (ic->capabilityFlags() & fcitx::CapabilityFlag::Email) ? "email-context" :
+            surroundingTextUnreliable(ic) ? "unreliable-program" : nullptr;
+        // Url is a content hint, not proof that the client ignores deletions.
+        // NativeDirect never creates a client composition; let URL fields use
+        // the same exact-ACK path as web inputs. Legacy Direct's URL workaround
+        // stays separate. A client that drops an edit cannot authorize the next.
+        const bool supported = !unsupported;
+        auto forget = [&]() {
+            state.composition.clear();
+            clearDirect(state);
+            update(ic);
+        };
+        if (!supported || !snapshot || state.nativeRawWord || state.nativeAwaitingUpdate ||
+            (state.nativeExpected && !(*state.nativeExpected == *snapshot) && !completion)) {
+            const bool rawWord = !boundary;
+            const char* cause = unsupported ? unsupported : !snapshot ? "invalid-surrounding" :
+                state.nativeRawWord ? "raw-word-in-progress" :
+                state.nativeAwaitingUpdate ? "awaiting-surrounding-update" : "snapshot-mismatch";
+            diagnose(ic, "native:passthrough", cause);
+            forget();
+            state.nativeRawWord = rawWord;
+            return;
+        }
+        if (shortcutKey(key) || (boundary && key.sym() == FcitxKey_Escape) ||
+            (completion && navigationKey(key))) {
+            // Text already belongs to the app: Escape never erases it, and a
+            // shortcut must not rewrite it at a possibly new selection.
+            forget();
+            return;
+        }
+        if (completion && backspace) {
+            // Native Backspace removes the selected suggestion, not the last
+            // typed letter. Preserve the engine history and await that update.
+            state.nativeCompletion.reset();
+            state.nativeAwaitingUpdate = true;
+            update(ic);
+            return;
+        }
+        // Only the selected suffix is extra. Native insertion replaces it;
+        // a transforming key uses Chromium's selection-aware IM deletion plus
+        // insertion, replacing that suffix and the owned letters before it.
+        // No asynchronous update alone ever edits or deletes the selection.
+        const auto editBase = completion ? *state.nativeExpected : *snapshot;
+        if (state.composition.full()) forget();
+        auto candidate = state.composition;
+        if (textKey) candidate.append(static_cast<char>(symbol));
+        else if (backspace && !candidate.backspace()) {
+            forget();
+            return;
+        }
+        const auto before = openkey::codepoints(state.placed);
+        auto after = openkey::codepoints(candidate.text());
+        const auto rawChar = static_cast<char32_t>(symbol);
+        // First key always native, even w -> ư: retain the rendered candidate
+        // but track the actual w. A following key/boundary can convert it only
+        // after the client confirms where the native character landed.
+        const bool initial = textKey && !state.nativeExpected;
+        bool native = initial;
+        if (initial) after = std::u32string(1, rawChar);
+        else if (textKey) native = after == before + std::u32string(1, rawChar);
+        else if (backspace && !before.empty()) native = after == before.substr(0, before.size() - 1);
+        else if (boundary) native = after == before;
+        if (!initial && (editBase.cursor != editBase.anchor || editBase.cursor < before.size() ||
+                editBase.text.substr(editBase.cursor - before.size(), before.size()) != before)) {
+            forget();
+            state.nativeRawWord = !boundary;
+            return;
+        }
+        openkey::Snapshot expected = editBase;
+        unsigned removed = 0;
+        std::u32string insert;
+        if (initial) {
+            const auto at = std::min(expected.cursor, expected.anchor);
+            expected.text.replace(at, std::max(expected.cursor, expected.anchor) - at, after);
+            expected.cursor = expected.anchor = at + 1;
+        } else {
+            std::size_t common = 0;
+            while (common < before.size() && common < after.size() && before[common] == after[common]) ++common;
+            removed = static_cast<unsigned>(before.size() - common);
+            insert = after.substr(common);
+            expected.text.replace(expected.cursor - removed, removed, insert);
+            expected.cursor = expected.anchor = expected.cursor - removed + static_cast<unsigned>(insert.size());
+        }
+        if (completion && !native) diagnose(ic, "native:url-completion-edit", "verified-prefix-selection");
+        if (native || initial || after != before) state.nativeCompletion.reset();
+        state.composition = std::move(candidate);
+        state.placed = openkey::utf8(after);
+        state.nativeExpected = std::move(expected);
+        state.nativeAwaitingUpdate = initial || after != before;
+        state.plainCommit = true; // Never re-commit this word on focus/config changes.
+        if (!native) {
+            state.emitting = true;
+            if (removed) ic->deleteSurroundingText(-static_cast<int>(removed), removed);
+            if (!insert.empty()) ic->commitString(openkey::utf8(insert));
+            state.emitting = false;
+            if (!boundary) event.filterAndAccept();
+        }
+        if (boundary) forget();
+        else update(ic);
+    }
+
+    // Keep the syllable exclusively in Fcitx's panel. In particular, never
+    // expose incremental text to an append-only terminal's hidden textarea.
+    // Boundaries stay native: forwardKey is unreliable on GNOME/Wayland.
+    void commitOnlyKey(fcitx::InputContext* ic, fcitx::KeyEvent& event) {
+        if (event.isRelease() || event.key().isModifier()) return;
+        auto& composition = ic->propertyFor(&factory_)->composition;
+        const auto key = event.key();
+        if (shortcutKey(key)) {
+            commit(ic);
+            return;
+        }
+        if (key.sym() == FcitxKey_Escape && !composition.empty()) {
+            composition.clear();
+            update(ic);
+            event.filterAndAccept();
+            return;
+        }
+        // A full replay buffer cannot accept another Backspace event. Finish
+        // it first so native Backspace edits this word, not earlier text.
+        if (composition.full()) commit(ic);
+        if (key.sym() == FcitxKey_BackSpace) {
+            if (composition.backspace()) {
+                update(ic);
+                event.filterAndAccept();
+            }
+            return;
+        }
+        const auto symbol = fcitx::Key::keySymToUnicode(key.sym());
+        if (symbol < 128 && composition.append(static_cast<char>(symbol))) {
+            update(ic);
+            event.filterAndAccept();
+            return;
+        }
+        commit(ic);
+    }
+
     fcitx::Instance* instance_;
     InputConfig config_;
     fcitx::SimpleInputContextPropertyFactory<State> factory_;
@@ -862,10 +1043,27 @@ private:
         if (!*config_.diagnostics) return;
         auto& state = *ic->propertyFor(&factory_);
         const auto snapshot = openkey::Snapshot::read(ic->surroundingText(), true);
-        const auto comparison = state.tracker.compare(snapshot);
+        auto comparison = state.tracker.compare(snapshot);
+        const bool native = *config_.style == InputStyle::NativeDirect;
+        if (native) {
+            comparison = {};
+            comparison.reference = state.nativeExpected ? "native-expected" : "none";
+            comparison.comparable = state.nativeExpected.has_value() && snapshot.has_value();
+            if (comparison.comparable) {
+                comparison.textChanged = state.nativeExpected->text != snapshot->text;
+                comparison.cursorChanged = state.nativeExpected->cursor != snapshot->cursor;
+                comparison.anchorChanged = state.nativeExpected->anchor != snapshot->anchor;
+            }
+        }
+        const bool nativeCompletion = native && snapshot && state.nativeCompletion && *snapshot == *state.nativeCompletion;
+        const char* snapshotStatus = native ?
+            (!snapshot ? "invalid" : !state.nativeExpected ? "untracked" :
+                nativeCompletion ? "url-completion" :
+                *state.nativeExpected == *snapshot ? "expected" : "unexpected") : state.tracker.snapshotStatus(snapshot);
         const std::string signature = std::string(reason) + ":" + cause + ":" + comparison.reference +
             std::to_string(comparison.comparable) + std::to_string(comparison.textChanged) +
-            std::to_string(comparison.cursorChanged) + std::to_string(comparison.anchorChanged);
+            std::to_string(comparison.cursorChanged) + std::to_string(comparison.anchorChanged) +
+            (native ? std::to_string(state.nativeAwaitingUpdate) + std::to_string(state.nativeRawWord) : "");
         if (state.lastReason == signature) return;
         state.lastReason = signature;
         // Only identifiers, enum classifications and boolean/capability state. Never log text,
@@ -873,14 +1071,17 @@ private:
         FCITX_INFO() << "OpenKey Direct: reason=" << reason << " app=" << ic->program()
                      << " frontend=" << ic->frontend() << " capabilities="
                      << ic->capabilityFlags().toInteger() << " cause=" << cause
-                     << " snapshot=" << state.tracker.snapshotStatus(snapshot)
+                     << " snapshot=" << snapshotStatus
                      << " pending=" << state.tracker.pending()
                      << " notified=" << state.pendingNotified
                      << " reference=" << comparison.reference << " comparable=" << comparison.comparable
                      << " text_changed=" << comparison.textChanged
                      << " cursor_changed=" << comparison.cursorChanged
                      << " anchor_changed=" << comparison.anchorChanged
-                     << " ack_requires_update=" << state.tracker.requiresFreshUpdate();
+                     << " ack_requires_update=" << state.tracker.requiresFreshUpdate()
+                     << " native_waiting_update=" << (native && state.nativeAwaitingUpdate)
+                     << " native_raw_word=" << (native && state.nativeRawWord)
+                     << " native_url_completion=" << nativeCompletion;
     }
 
     static void clearDirect(State& state) {
@@ -900,6 +1101,10 @@ private:
         state.ibusAfterEnter = false;
         state.ibusNativeWord = false;
         state.ibusPrimeExpected.reset();
+        state.nativeExpected.reset();
+        state.nativeCompletion.reset();
+        state.nativeRawWord = false;
+        state.nativeAwaitingUpdate = false;
         state.placed.clear();
         state.preeditDrifted = false;
         state.repairNativePrime = false;
@@ -955,6 +1160,7 @@ private:
             auto& state = *ic->propertyFor(&factory_);
             if (!state.active) return true;
             if (state.composition.empty() && !state.direct && !state.bypass && state.queue.empty()) {
+                if (state.nativeExpected || state.nativeRawWord) clearDirect(state);
                 state.composition.setOptions(compositionOptions());
                 return true; // Never clear the panel owned by another input method.
             }
@@ -1257,7 +1463,8 @@ private:
 
     void update(fcitx::InputContext* ic) {
         const auto& state = *ic->propertyFor(&factory_);
-        const auto value = (state.direct || state.plainCommit) ? std::string{} : state.composition.text();
+        const auto value = (state.direct || state.plainCommit || *config_.style == InputStyle::NativeDirect)
+            ? std::string{} : state.composition.text();
         fcitx::Text text(value);
         text.setCursor(static_cast<int>(value.size()));
         ic->inputPanel().reset();
@@ -1267,7 +1474,7 @@ private:
         }
         // Append-only clients (xterm.js) get the word only from commitString;
         // the syllable is shown in the server panel while typing.
-        if (state.hiddenPreedit) {
+        if (state.hiddenPreedit || *config_.style == InputStyle::CommitOnly) {
             ic->inputPanel().setClientPreedit(fcitx::Text{});
             ic->inputPanel().setPreedit(text);
         } else {

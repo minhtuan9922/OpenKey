@@ -47,14 +47,16 @@ foreach(expected "${LIBDIR}/fcitx5/openkey.so"
         share/fcitx5/inputmethod/openkey-vni.conf
         share/doc/fcitx5-openkey/copyright
         share/doc/fcitx5-openkey/README.md
-        share/doc/fcitx5-openkey/INSTALL.md)
+        share/doc/fcitx5-openkey/INSTALL.md
+        share/doc/fcitx5-openkey/COMMIT_ONLY.md
+        share/doc/fcitx5-openkey/NATIVE_DIRECT.md)
     if(NOT EXISTS "${prefix}/${expected}")
         message(FATAL_ERROR "Package is missing ${expected}")
     endif()
 endforeach()
 file(GLOB_RECURSE packaged_files LIST_DIRECTORIES false RELATIVE "${EXTRACT_DIR}/root" "${EXTRACT_DIR}/root/*")
 list(LENGTH packaged_files file_count)
-if(NOT file_count EQUAL 7)
+if(NOT file_count EQUAL 9)
     message(FATAL_ERROR "Unexpected package payload (${file_count} files): ${packaged_files}")
 endif()
 

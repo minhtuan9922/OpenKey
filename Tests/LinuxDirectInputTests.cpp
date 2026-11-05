@@ -40,9 +40,12 @@ public:
     bool delayed = false;
     std::u32string document;
     unsigned cursor = 0, anchor = 0;
-    unsigned deletions = 0, commits = 0, nonemptyPreedits = 0;
+    unsigned deletions = 0, commits = 0, nonemptyPreedits = 0, synthesized = 0;
     bool dropNonAsciiDeletes = false;
     bool dropAllDeletes = false;
+    bool completeNative = false, completeCommits = false, selectionAwareDeletes = false;
+    bool deletionKeepsSelection = false;
+    std::u32string completionTail = U"_suggestion";
     // Behavioral fault injection for the reported post-Enter loss, NOT a full
     // Chromium/xterm.js implementation. A native text key reopens IM delivery.
     bool requireNativeAfterEnter = false;
@@ -59,6 +62,13 @@ public:
         Notification value{text(), cursor, anchor};
         if (delayed) notifications.push_back(value);
         else notify(value);
+    }
+    void reportCompletion() {
+        if (cursor == anchor && cursor == document.size() && !document.empty() && document.back() != U' ') {
+            document += completionTail;
+            anchor = static_cast<unsigned>(document.size());
+        }
+        report();
     }
     void ackAll() {
         unsigned count = 0;
@@ -83,7 +93,11 @@ public:
             return;
         }
         if (key.sym() == FcitxKey_BackSpace) {
-            if (cursor) { document.erase(--cursor, 1); anchor = cursor; report(); }
+            if (cursor != anchor) {
+                const auto at = std::min(cursor, anchor);
+                document.erase(at, std::max(cursor, anchor) - at);
+                cursor = anchor = at; report();
+            } else if (cursor) { document.erase(--cursor, 1); anchor = cursor; report(); }
         } else if (key.sym() == FcitxKey_Left) {
             if (cursor) --cursor;
             anchor = cursor; report();
@@ -107,7 +121,8 @@ public:
                 const auto start = std::min(cursor, anchor);
                 document.replace(start, std::max(cursor, anchor) - start, 1, ch);
                 cursor = anchor = start + 1;
-                report();
+                if (completeNative && ch != ' ') reportCompletion();
+                else report();
             }
         }
     }
@@ -119,10 +134,12 @@ private:
         const auto start = std::min(cursor, anchor);
         document.replace(start, std::max(cursor, anchor) - start, value);
         cursor = anchor = start + static_cast<unsigned>(value.size());
-        report();
+        if (completeCommits && !text.empty()) reportCompletion();
+        else report();
     }
     void deleteSurroundingTextImpl(int offset, unsigned size) override {
-        require(cursor == anchor, "Deletion must never operate on a selection");
+        require(cursor == anchor || (selectionAwareDeletes && cursor < anchor && anchor == document.size()),
+            "Deletion must not operate on an unverified selection");
         // A client with no character before the caret ignores the request.
         if (offset > 0 || -offset > static_cast<int>(cursor) || size > cursor) return;
         if (dropAllDeletes) return;
@@ -132,11 +149,15 @@ private:
                 if (document[at + i] > 127) return;
         }
         ++deletions;
-        document.erase(static_cast<unsigned>(static_cast<int>(cursor) + offset), size);
-        cursor -= size; anchor = cursor;
+        // Chromium Textfield extends its selection before deleting. Enable
+        // this behavior only in explicit URL-completion fixtures.
+        const auto selected = selectionAwareDeletes && !deletionKeepsSelection ? anchor - cursor : 0;
+        document.erase(static_cast<unsigned>(static_cast<int>(cursor) + offset), size + selected);
+        cursor -= size;
+        anchor = deletionKeepsSelection ? anchor - size : cursor;
         report();
     }
-    void forwardKeyImpl(const fcitx::ForwardKeyEvent& event) override { raw(event.rawKey(), event.isRelease()); }
+    void forwardKeyImpl(const fcitx::ForwardKeyEvent& event) override { ++synthesized; raw(event.rawKey(), event.isRelease()); }
     void updatePreeditImpl() override { if (!preedit().empty()) ++nonemptyPreedits; }
 };
 void style(fcitx::InputMethodEngine& addon, const char* value) {
@@ -244,6 +265,255 @@ int main(int argc, char** args) {
     require(addon, "Engine missing");
     fcitx::InputMethodEntry telex("openkey-telex", "Telex", "vi", "openkey");
     fcitx::InputMethodEntry vni("openkey-vni", "VNI", "vi", "openkey");
+    const openkey::Snapshot typedGo{U"go", 2, 2};
+    require(openkey::selectedUrlCompletion(typedGo, {U"google", 2, 6}), "URL completion shape rejected");
+    for (const auto& invalid : {openkey::Snapshot{U"google", 6, 2},
+            openkey::Snapshot{U"googleX", 2, 6}, openkey::Snapshot{U"agogle", 2, 6},
+            openkey::Snapshot{U"google", 1, 6}, openkey::Snapshot{U"go", 2, 2}})
+        require(!openkey::selectedUrlCompletion(typedGo, invalid), "URL completion matcher accepted another selection/context");
+    require(!openkey::selectedUrlCompletion({U"go tail", 2, 2}, {U"google", 2, 6}),
+        "Middle-of-document state must not authorize completion edits");
+    style(*addon, "NativeDirect");
+    for (const char* frontend : {"ibus", "openkey-direct-test"}) {
+        for (const auto* entry : {&telex, &vni}) {
+            Editor native(instance.inputContextManager());
+            native.frontendName = frontend;
+            native.waitingForNativeText = true;
+            native.requireNativeAfterEnter = true;
+            activate(*addon, *entry, native);
+            for (int line = 0; line < 3; ++line) {
+                const auto commits = native.commits;
+                type(*addon, *entry, native, "ls git cd ");
+                require(native.commits == commits, "NativeDirect ASCII appends must use only native keys");
+                type(*addon, *entry, native, entry == &telex ? "tieengs vieetj" : "tie6ng1 vie6t5");
+                require(!press(*addon, *entry, native, fcitx::Key(FcitxKey_Return)), "NativeDirect Enter swallowed");
+            }
+            require(native.text() == "ls git cd tiếng việt\nls git cd tiếng việt\nls git cd tiếng việt\n",
+                "NativeDirect Telex/VNI multiline result");
+            require(native.nonemptyPreedits == 0 && native.inputPanel().preedit().toString().empty(),
+                "NativeDirect must not display client or server preedit");
+            require(native.synthesized == 0, "NativeDirect must not synthesize native keys");
+            type(*addon, *entry, native, entry == &telex ? "coong" : "co6ng");
+            require(!press(*addon, *entry, native, fcitx::Key(FcitxKey_BackSpace)), "NativeDirect ordinary Backspace not native");
+            type(*addon, *entry, native, entry == &telex ? "j" : "5");
+            require(native.text().ends_with("cộn"), "NativeDirect Backspace lost engine history");
+            const auto beforeOut = native.text();
+            fcitx::InputContextEvent out(&native, fcitx::EventType::InputContextFocusOut);
+            addon->deactivate(*entry, out);
+            require(native.text() == beforeOut, "NativeDirect focus-out duplicated text");
+        }
+    }
+    {
+        Editor cached(instance.inputContextManager());
+        cached.frontendName = "ibus";
+        activate(*addon, telex, cached);
+        type(*addon, telex, cached, "a");
+        cached.delayed = true;
+        type(*addon, telex, cached, "a"); // document â, delayed notification
+        // Matching cache without the corresponding notification is not ACK.
+        cached.surroundingText().setText("â", 1, 1);
+        type(*addon, telex, cached, "s");
+        require(cached.text() == "âs", "Cache-only match authorized an unconfirmed NativeDirect rewrite");
+        cached.ackAll();
+        require(cached.nonemptyPreedits == 0 && cached.synthesized == 0, "Late ACK caused NativeDirect fallback/forwarding");
+    }
+    {
+        Editor lag(instance.inputContextManager());
+        lag.frontendName = "ibus";
+        activate(*addon, telex, lag);
+        lag.delayed = true;
+        type(*addon, telex, lag, "tieengs");
+        require(lag.text() == "tieengs" && lag.commits == 0 && lag.deletions == 0,
+            "Unconfirmed native input must remain visible and intact");
+        lag.ackAll();
+        type(*addon, telex, lag, "j");
+        require(lag.text() == "tieengsj", "Late ACK must not reclaim a raw word");
+        type(*addon, telex, lag, " ");
+        lag.ackAll(); lag.delayed = false;
+        type(*addon, telex, lag, "tieengs");
+        require(lag.text() == "tieengsj tiếng" && lag.nonemptyPreedits == 0,
+            "NativeDirect must resume conversion at the next confirmed word");
+    }
+    for (const bool terminal : {false, true}) {
+        Editor rawContext(instance.inputContextManager());
+        rawContext.frontendName = "ibus";
+        rawContext.setCapabilityFlags(terminal ?
+            fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::SurroundingText,
+                fcitx::CapabilityFlag::Terminal} : fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit});
+        rawContext.dropAllDeletes = true;
+        activate(*addon, telex, rawContext);
+        type(*addon, telex, rawContext, "pwd tieengs vieetj");
+        require(rawContext.text() == "pwd tieengs vieetj" && rawContext.commits == 0 && rawContext.deletions == 0 &&
+            rawContext.nonemptyPreedits == 0 && rawContext.inputPanel().preedit().toString().empty(),
+            "Unsupported NativeDirect context must be native without popup or word loss");
+    }
+    for (const auto* entry : {&telex, &vni}) {
+        Editor omnibox(instance.inputContextManager());
+        omnibox.frontendName = "ibus";
+        omnibox.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+            fcitx::CapabilityFlag::FormattedPreedit, fcitx::CapabilityFlag::SurroundingText,
+            fcitx::CapabilityFlag::Url}); // GNOME reports 4178 for the URL context
+        omnibox.document = U"https://example.invalid";
+        omnibox.cursor = static_cast<unsigned>(omnibox.document.size()); omnibox.anchor = 0;
+        omnibox.report();
+        activate(*addon, *entry, omnibox);
+        const std::string phrase = entry == &telex ? "ddaay laf tieengs vieetj" : "d9a6y la2 tie6ng1 vie6t5";
+        for (unsigned char ch : phrase) {
+            press(*addon, *entry, omnibox, fcitx::Key(fcitx::Key::keySymFromUnicode(ch)));
+            require(omnibox.preedit().empty() && omnibox.inputPanel().preedit().toString().empty(),
+                "NativeDirect URL input must not expose client or server preedit");
+        }
+        require(omnibox.text() == "đây là tiếng việt" && omnibox.deletions > 0 && omnibox.synthesized == 0,
+            "NativeDirect URL fields must convert NFC Telex/VNI through confirmed surrounding edits");
+        require(!press(*addon, *entry, omnibox, fcitx::Key(FcitxKey_a, fcitx::KeyState::Ctrl)),
+            "URL select-all shortcut must remain native");
+        type(*addon, *entry, omnibox, entry == &telex ? "coong" : "co6ng");
+        require(!press(*addon, *entry, omnibox, fcitx::Key(FcitxKey_BackSpace)), "URL Backspace must stay native");
+        type(*addon, *entry, omnibox, entry == &telex ? "j" : "5");
+        require(omnibox.text() == "cộn", "URL Backspace must retain confirmed composition history");
+        const auto beforeEnter = omnibox.text();
+        require(!press(*addon, *entry, omnibox, fcitx::Key(FcitxKey_Return)), "URL Enter must remain native");
+        require(omnibox.text() == beforeEnter + "\n", "URL Enter duplicated/lost committed text");
+    }
+    {
+        Editor suggested(instance.inputContextManager());
+        suggested.frontendName = "ibus";
+        suggested.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+            fcitx::CapabilityFlag::SurroundingText, fcitx::CapabilityFlag::Url});
+        activate(*addon, telex, suggested);
+        type(*addon, telex, suggested, "g");
+        suggested.document = U"google";
+        suggested.cursor = 1; suggested.anchor = 6; // browser-selected completion
+        suggested.report();
+        const auto deletes = suggested.deletions;
+        type(*addon, telex, suggested, "oo");
+        require(suggested.text() == "gô" && suggested.deletions == deletes + 1 && suggested.commits == 1,
+            "Confirmed URL completion must preserve the word across native input and a later tone edit");
+    }
+    for (const auto* entry : {&telex, &vni}) {
+        for (const unsigned variant : {0u, 1u, 2u, 3u}) {
+            Editor completion(instance.inputContextManager());
+            completion.frontendName = "ibus";
+            completion.completeNative = true;
+            completion.completeCommits = (variant & 1u) != 0;
+            completion.selectionAwareDeletes = true;
+            completion.deletionKeepsSelection = (variant & 2u) != 0;
+            completion.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+                fcitx::CapabilityFlag::FormattedPreedit, fcitx::CapabilityFlag::SurroundingText,
+                fcitx::CapabilityFlag::Url});
+            activate(*addon, *entry, completion);
+            const std::string input = entry == &telex ? "coongj hoaf xax hooij chur nghiax " :
+                "co6ng5 hoa2 xa4 ho6i5 chu3 nghia4 ";
+            for (unsigned char ch : input) {
+                press(*addon, *entry, completion, fcitx::Key(fcitx::Key::keySymFromUnicode(ch)));
+                require(completion.preedit().empty() && completion.inputPanel().preedit().toString().empty() &&
+                    completion.synthesized == 0, "URL completion must not introduce preedit or synthetic keys");
+            }
+            if (completion.text() != "cộng hoà xã hội chủ nghĩa ")
+                throw std::runtime_error("URL completion sentence: [" + completion.text() + "]");
+            type(*addon, *entry, completion, entry == &telex ? "coong" : "co6ng");
+            require(!press(*addon, *entry, completion, fcitx::Key(FcitxKey_BackSpace)),
+                "Backspace on URL completion must remain native");
+            require(completion.text() == "cộng hoà xã hội chủ nghĩa công",
+                "URL Backspace must remove the selected suggestion, keeping typed letters");
+            type(*addon, *entry, completion, entry == &telex ? "j " : "5 ");
+            require(completion.text() == "cộng hoà xã hội chủ nghĩa cộng ", "Suggestion Backspace lost tone-edit history");
+            require(!press(*addon, *entry, completion, fcitx::Key(FcitxKey_a, fcitx::KeyState::Ctrl)),
+                "URL completion select-all swallowed");
+            type(*addon, *entry, completion, entry == &telex ? "tieengs " : "tie6ng1 ");
+            require(completion.text() == "tiếng ", "URL completion must not retain another selection's word");
+        }
+    }
+    for (const bool url : {false, true}) {
+        Editor unsafe(instance.inputContextManager());
+        unsafe.frontendName = "ibus";
+        auto flags = fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::SurroundingText};
+        if (url) flags |= fcitx::CapabilityFlag::Url;
+        unsafe.setCapabilityFlags(flags);
+        activate(*addon, telex, unsafe);
+        type(*addon, telex, unsafe, "go");
+        if (url) {
+            unsafe.delayed = true;
+            unsafe.document = U"google"; unsafe.cursor = 2; unsafe.anchor = 6;
+            unsafe.surroundingText().setText("google", 2, 6); // no notification
+        } else {
+            unsafe.document = U"google"; unsafe.cursor = 2; unsafe.anchor = 6; unsafe.report();
+        }
+        const auto deletes = unsafe.deletions;
+        type(*addon, telex, unsafe, "o");
+        require(unsafe.text() == "goo" && unsafe.deletions == deletes && unsafe.commits == 0,
+            "Non-URL selection or cache-only URL completion must not authorize deletion");
+    }
+    for (const auto& invalid : {Editor::Notification{"agogle", 2, 6},
+            Editor::Notification{"google", 6, 2}, Editor::Notification{"googleX", 2, 6},
+            Editor::Notification{"google", 1, 6}}) {
+        Editor changedSelection(instance.inputContextManager());
+        changedSelection.frontendName = "ibus";
+        changedSelection.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+            fcitx::CapabilityFlag::SurroundingText, fcitx::CapabilityFlag::Url});
+        activate(*addon, telex, changedSelection);
+        type(*addon, telex, changedSelection, "go");
+        changedSelection.document = openkey::codepoints(invalid.text);
+        changedSelection.cursor = invalid.cursor; changedSelection.anchor = invalid.anchor;
+        changedSelection.report();
+        type(*addon, telex, changedSelection, "o");
+        require(changedSelection.deletions == 0 && changedSelection.commits == 0,
+            "Changed/reversed/partial URL selection must not grant composition edit ownership");
+    }
+    {
+        // A lying frontend can corrupt the FIRST replacement. Do not claim to
+        // repair that: require that subsequent keys never chain blind rewrites.
+        Editor ignoresDelete(instance.inputContextManager());
+        ignoresDelete.frontendName = "ibus";
+        ignoresDelete.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+            fcitx::CapabilityFlag::SurroundingText, fcitx::CapabilityFlag::Url});
+        ignoresDelete.dropAllDeletes = true;
+        activate(*addon, telex, ignoresDelete);
+        type(*addon, telex, ignoresDelete, "aa");
+        const auto afterFault = ignoresDelete.text();
+        const auto commits = ignoresDelete.commits;
+        type(*addon, telex, ignoresDelete, "sj");
+        require(ignoresDelete.text() == afterFault + "sj" && ignoresDelete.commits == commits &&
+            ignoresDelete.nonemptyPreedits == 0, "Rejected delete must stop further NativeDirect rewrites");
+    }
+    {
+        Editor moved(instance.inputContextManager());
+        moved.frontendName = "ibus";
+        activate(*addon, telex, moved);
+        type(*addon, telex, moved, "tieengs");
+        moved.document = U"unrelated tiếng";
+        moved.cursor = moved.anchor = static_cast<unsigned>(moved.document.size());
+        moved.report();
+        const auto deletes = moved.deletions;
+        type(*addon, telex, moved, "j");
+        require(moved.text() == "unrelated tiếngj" && moved.deletions == deletes,
+            "Matching suffix in a changed context must not authorize NativeDirect deletion");
+        type(*addon, telex, moved, " ");
+        moved.document = U"selected"; moved.cursor = 8; moved.anchor = 0; moved.report();
+        type(*addon, telex, moved, "vieetj");
+        require(moved.text() == "việt", "NativeDirect initial selection must be handled by the native key");
+        type(*addon, telex, moved, " ");
+        type(*addon, telex, moved, "w ");
+        require(moved.text() == "việt ư ", "NativeDirect first-key transformation must finish at boundary");
+        const auto beforeConfig = moved.text();
+        type(*addon, telex, moved, "tieengs");
+        style(*addon, "CommitOnly");
+        require(moved.text() == beforeConfig + "tiếng", "Leaving NativeDirect duplicated a word");
+    }
+    style(*addon, "NativeDirect");
+    {
+        Editor privateField(instance.inputContextManager());
+        privateField.frontendName = "ibus";
+        activate(*addon, telex, privateField);
+        type(*addon, telex, privateField, "tieengs");
+        const auto commits = privateField.commits;
+        const auto deletes = privateField.deletions;
+        privateField.setCapabilityFlags(fcitx::CapabilityFlag::Password);
+        type(*addon, telex, privateField, "vieetj");
+        require(privateField.text() == "tiếngvieetj" && privateField.commits == commits && privateField.deletions == deletes,
+            "NativeDirect must not transform or replay text into sensitive fields");
+        require(privateField.nonemptyPreedits == 0, "Sensitive NativeDirect field exposed a preedit");
+    }
     style(*addon, "Direct");
     fcitx::RawConfig savedSettings;
     fcitx::readAsIni(savedSettings, "conf/openkey.conf");
@@ -1350,6 +1620,52 @@ int main(int argc, char** args) {
             "Enter after a landed native prime must stay unaccepted");
     require(timeout.text() == "t\n" && timeout.preedit().empty(),
             "Enter commits the promoted character and still inserts a newline");
+    diagnostics.setValueByPath("InputStyle", "NativeDirect");
+    addon->setConfig(diagnostics);
+    {
+        const auto begin = logs.stream.str().size();
+        Editor email(instance.inputContextManager());
+        email.frontendName = "ibus";
+        email.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+            fcitx::CapabilityFlag::FormattedPreedit, fcitx::CapabilityFlag::SurroundingText,
+            fcitx::CapabilityFlag::Email});
+        activate(*addon, telex, email);
+        type(*addon, telex, email, "tieengs");
+        require(email.text() == "tieengs" && email.commits == 0, "Email diagnostics must not change bypass policy");
+        const auto emitted = logs.stream.str().substr(begin);
+        require(emitted.find("capabilities=210 cause=email-context snapshot=untracked") != std::string::npos,
+            "NativeDirect diagnostics must identify explicit email bypass");
+    }
+    {
+        const auto begin = logs.stream.str().size();
+        Editor noNotification(instance.inputContextManager());
+        noNotification.frontendName = "ibus";
+        activate(*addon, telex, noNotification);
+        noNotification.delayed = true;
+        type(*addon, telex, noNotification, "b");
+        noNotification.surroundingText().setText("b", 1, 1);
+        type(*addon, telex, noNotification, "c");
+        const auto emitted = logs.stream.str().substr(begin);
+        require(emitted.find("cause=awaiting-surrounding-update snapshot=expected") != std::string::npos &&
+            emitted.find("reference=native-expected comparable=1 text_changed=0 cursor_changed=0 anchor_changed=0") != std::string::npos &&
+            emitted.find("native_waiting_update=1 native_raw_word=0") != std::string::npos,
+            "NativeDirect diagnostics must distinguish matching cache from missing notification");
+        type(*addon, telex, noNotification, "d");
+        require(logs.stream.str().substr(begin).find("cause=raw-word-in-progress") != std::string::npos,
+            "Raw remainder must not be misreported as another missing ACK");
+    }
+    {
+        const auto begin = logs.stream.str().size();
+        Editor changed(instance.inputContextManager());
+        activate(*addon, telex, changed);
+        type(*addon, telex, changed, "b");
+        changed.notify({"PRIVATE_DOCUMENT_SENTINEL", 2, 1});
+        type(*addon, telex, changed, "a");
+        const auto emitted = logs.stream.str().substr(begin);
+        require(emitted.find("cause=snapshot-mismatch snapshot=unexpected") != std::string::npos &&
+            emitted.find("reference=native-expected comparable=1 text_changed=1 cursor_changed=1 anchor_changed=0") != std::string::npos,
+            "NativeDirect diagnostics must compare against its own expected context");
+    }
     const auto diagnosticLog = logs.stream.str();
     for (const char* cause : {"cause=queue-overflow snapshot=stale pending=1",
                              "cause=ack-timeout snapshot=stale pending=1 notified=0",

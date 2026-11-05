@@ -9,6 +9,8 @@
 class SettingsController : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString runtimeStyle READ runtimeStyle NOTIFY changed)
+    Q_PROPERTY(bool commitOnlySupported READ commitOnlySupported NOTIFY changed)
+    Q_PROPERTY(bool nativeDirectSupported READ nativeDirectSupported NOTIFY changed)
     Q_PROPERTY(QString runtimeDiagnostics READ runtimeDiagnostics NOTIFY changed)
     Q_PROPERTY(bool spellingSupported READ spellingSupported NOTIFY changed)
     Q_PROPERTY(QString runtimeCheckSpelling READ runtimeCheckSpelling NOTIFY changed)
@@ -21,6 +23,8 @@ class SettingsController : public QObject {
 public:
     explicit SettingsController(const QDBusConnection& bus, QObject* parent = nullptr);
     QString runtimeStyle() const { return values_.value("InputStyle").toString(); }
+    bool commitOnlySupported() const { return values_.value("CommitOnlySupported").toBool(); }
+    bool nativeDirectSupported() const { return values_.value("NativeDirectSupported").toBool(); }
     QString runtimeDiagnostics() const { return values_.value("DirectDiagnostics").toString(); }
     bool spellingSupported() const { return values_.contains("CheckSpelling") && values_.contains("UseModernOrthography"); }
     QString runtimeCheckSpelling() const { return values_.value("CheckSpelling").toString(); }

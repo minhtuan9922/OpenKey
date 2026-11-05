@@ -70,6 +70,8 @@ private slots:
         QTest::addColumn<QString>("state");
         QTest::addColumn<QString>("style");
         QTest::newRow("missing-key") << QByteArray("# empty\n") << QString("read") << QString("unknown");
+        QTest::newRow("commit-only") << QByteArray("InputStyle=CommitOnly\n") << QString("read") << QString("commit-only");
+        QTest::newRow("native-direct") << QByteArray("InputStyle=NativeDirect\n") << QString("read") << QString("native-direct");
         QTest::newRow("invalid-enum") << QByteArray("InputStyle=Fake\n") << QString("invalid") << QString("unknown");
         QTest::newRow("duplicate") << QByteArray("InputStyle=Direct\nInputStyle=Preedit\n") << QString("invalid") << QString("unknown");
         QTest::newRow("bad-boolean") << QByteArray("InputStyle=Direct\nDirectDiagnostics=yes\n") << QString("invalid") << QString("unknown");

@@ -14,6 +14,7 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+#include <vector>
 
 namespace {
 void require(bool value, const char* label) {
@@ -26,18 +27,21 @@ public:
         setCapabilityFlags(fcitx::CapabilityFlag::Preedit);
     }
     ~Editor() override { destroy(); }
-    const char* frontend() const override { return "openkey-test"; }
+    const char* frontend() const override { return frontendName; }
+    const char* frontendName = "openkey-test";
+    std::vector<std::string> commits;
+    bool clientPreeditSeen = false;
     std::string committed;
     std::string preedit() { return inputPanel().clientPreedit().toString(); }
 private:
-    void commitStringImpl(const std::string& text) override { committed += text; }
+    void commitStringImpl(const std::string& text) override { committed += text; commits.push_back(text); }
     void deleteSurroundingTextImpl(int, unsigned int) override {
         throw std::runtime_error("Must not delete committed text");
     }
     void forwardKeyImpl(const fcitx::ForwardKeyEvent&) override {
         throw std::runtime_error("Must not synthesize keys");
     }
-    void updatePreeditImpl() override {}
+    void updatePreeditImpl() override { clientPreeditSeen |= !preedit().empty(); }
 };
 bool key(fcitx::InputMethodEngine& addon, const fcitx::InputMethodEntry& entry,
          Editor& editor, fcitx::Key value, bool release = false) {
@@ -263,5 +267,67 @@ int main(int argc, char** args) {
                 *saved.valueByPath("InputStyle") == "Preedit" &&
                 *saved.valueByPath("DirectDiagnostics") == "False",
             "QuickTelex persistence lost false, unknown keys or other fields");
-    std::cout << "Fcitx5 addon: defaults/schema, partial config, active apply/reload, spelling/orthography, context and lifecycle passed\n";
+    // Same mode for an ordinary editor and an append-only terminal, including
+    // GNOME's ibus bridge where the two can advertise identical capabilities.
+    partial.removeAll();
+    partial.setValueByPath("InputStyle", "CommitOnly");
+    addon.setConfig(partial);
+    require(configValue("InputStyle") == "CommitOnly", "CommitOnly config rejected");
+    fcitx::RawConfig commitDescription;
+    addon.getConfig()->dumpDescription(commitDescription);
+    require(commitDescription.valueByPath("InputConfig/InputStyle/Enum/2") &&
+        *commitDescription.valueByPath("InputConfig/InputStyle/Enum/2") == "CommitOnly",
+        "CommitOnly missing from schema");
+    for (const char* frontend : {"openkey-test", "ibus"}) {
+        for (const auto flags : {fcitx::CapabilityFlags{},
+                fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit},
+                fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::SurroundingText},
+                fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit, fcitx::CapabilityFlag::Terminal}}) {
+            for (const auto* entry : {&telex, &vni}) {
+                Editor buffered(instance.inputContextManager());
+                buffered.frontendName = frontend;
+                buffered.setCapabilityFlags(flags);
+                fcitx::InputContextEvent activation(&buffered, fcitx::EventType::InputContextFocusIn);
+                addon.activate(*entry, activation);
+                const auto input = entry == &telex ? "tieengs" : "tie6ng1";
+                type(addon, *entry, buffered, input);
+                require(buffered.commits.empty() && buffered.preedit().empty() &&
+                    buffered.inputPanel().preedit().toString() == "tiếng", "CommitOnly must buffer in server panel");
+                require(!key(addon, *entry, buffered, fcitx::Key(FcitxKey_space)), "CommitOnly Space must stay native");
+                require(buffered.commits == std::vector<std::string>{"tiếng"}, "CommitOnly word not committed exactly once");
+                require(!key(addon, *entry, buffered, fcitx::Key(FcitxKey_Return)), "CommitOnly Enter must stay native");
+                type(addon, *entry, buffered, input);
+                require(key(addon, *entry, buffered, fcitx::Key(FcitxKey_BackSpace)), "Buffered Backspace bypassed");
+                require(buffered.inputPanel().preedit().toString() == "tiến" && buffered.commits.size() == 1,
+                    "Buffered Backspace changed committed text");
+                require(key(addon, *entry, buffered, fcitx::Key(FcitxKey_Escape)), "Buffered Escape bypassed");
+                require(buffered.inputPanel().preedit().toString().empty() && buffered.commits.size() == 1, "Escape committed buffered text");
+                require(!key(addon, *entry, buffered, fcitx::Key(FcitxKey_BackSpace)), "Idle Backspace swallowed");
+                type(addon, *entry, buffered, input);
+                require(!key(addon, *entry, buffered, fcitx::Key(FcitxKey_Tab)), "Buffered Tab swallowed");
+                require(buffered.commits.size() == 2, "Tab lost buffered word");
+                type(addon, *entry, buffered, input);
+                require(!key(addon, *entry, buffered, fcitx::Key(FcitxKey_a, fcitx::KeyState::Ctrl)), "Shortcut swallowed");
+                require(buffered.commits.size() == 3, "Shortcut lost buffered word");
+                type(addon, *entry, buffered, input);
+                addon.reset(*entry, activation);
+                require(buffered.commits.size() == 3 && buffered.inputPanel().preedit().toString().empty(), "Reset must cancel buffer");
+                type(addon, *entry, buffered, input);
+                buffered.setCapabilityFlags(fcitx::CapabilityFlag::Password);
+                require(!key(addon, *entry, buffered, fcitx::Key(FcitxKey_a)), "Sensitive field swallowed a key");
+                require(buffered.commits.size() == 3 && buffered.inputPanel().preedit().toString().empty(), "Sensitive field exposed buffer");
+                require(!buffered.clientPreeditSeen, "CommitOnly exposed client preedit");
+            }
+        }
+    }
+    Editor bounded(instance.inputContextManager());
+    fcitx::InputContextEvent boundedActivation(&bounded, fcitx::EventType::InputContextFocusIn);
+    addon.activate(telex, boundedActivation);
+    const std::string longWord(256, 'b');
+    type(addon, telex, bounded, longWord);
+    require(bounded.commits.empty(), "Full CommitOnly word committed too early");
+    require(!key(addon, telex, bounded, fcitx::Key(FcitxKey_BackSpace)), "Full-buffer Backspace must stay native");
+    require(bounded.committed == longWord && bounded.inputPanel().preedit().toString().empty(),
+        "Full-buffer Backspace must finish pending word before native edit");
+    std::cout << "Fcitx5 addon: configuration, context, lifecycle and CommitOnly frontend matrix passed\n";
 }
