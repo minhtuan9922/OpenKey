@@ -43,6 +43,7 @@ public:
     unsigned deletions = 0, commits = 0, nonemptyPreedits = 0, synthesized = 0;
     bool dropNonAsciiDeletes = false;
     bool dropAllDeletes = false;
+    bool holdSurrounding = false;
     bool completeNative = false, completeCommits = false, selectionAwareDeletes = false;
     bool deletionKeepsSelection = false;
     std::u32string completionTail = U"_suggestion";
@@ -59,6 +60,7 @@ public:
         updateSurroundingText();
     }
     void report() {
+        if (holdSurrounding) return;
         Notification value{text(), cursor, anchor};
         if (delayed) notifications.push_back(value);
         else notify(value);
@@ -323,16 +325,107 @@ int main(int argc, char** args) {
         activate(*addon, telex, lag);
         lag.delayed = true;
         type(*addon, telex, lag, "tieengs");
-        require(lag.text() == "tieengs" && lag.commits == 0 && lag.deletions == 0,
-            "Unconfirmed native input must remain visible and intact");
+        require(lag.text() == "tiếng" && lag.preedit().empty() && lag.nonemptyPreedits == 0,
+            "Unconfirmed NativeDirect word must still convert");
         lag.ackAll();
         type(*addon, telex, lag, "j");
-        require(lag.text() == "tieengsj", "Late ACK must not reclaim a raw word");
+        require(lag.text() == "tiệng", "Tone key still belongs to the syllable until a boundary");
         type(*addon, telex, lag, " ");
         lag.ackAll(); lag.delayed = false;
         type(*addon, telex, lag, "tieengs");
-        require(lag.text() == "tieengsj tiếng" && lag.nonemptyPreedits == 0,
+        require(lag.text() == "tiệng tiếng" && lag.nonemptyPreedits == 0,
             "NativeDirect must resume conversion at the next confirmed word");
+    }
+    {
+        // Focus leaves the previous field while its native key is still
+        // unconfirmed. The first syllable in Cursor must convert (oo -> ô).
+        Editor switched(instance.inputContextManager());
+        switched.frontendName = "ibus";
+        switched.document = U"elsewhere";
+        switched.cursor = switched.anchor = 9;
+        switched.report();
+        activate(*addon, telex, switched);
+        switched.delayed = true;
+        type(*addon, telex, switched, "o");
+        switched.delayed = false;
+        switched.document.clear();
+        switched.cursor = switched.anchor = 0;
+        switched.notifications.clear();
+        switched.report();
+        switched.delayed = true;
+        type(*addon, telex, switched, "oo");
+        require(switched.text() == "ô" && switched.preedit().empty() && switched.nonemptyPreedits == 0,
+            "NativeDirect focus change left oo raw");
+        switched.ackAll();
+        switched.delayed = false;
+        type(*addon, telex, switched, " tieen");
+        require(switched.text() == "ô tiên", "NativeDirect first word after focus did not convert tieen");
+    }
+    {
+        // Focus: the first key arrives before GNOME advertises SurroundingText
+        // (caps 18). It stays native. The next key has caps 82 and turns oo into ô.
+        Editor lateCap(instance.inputContextManager());
+        lateCap.frontendName = "ibus";
+        lateCap.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+                                                          fcitx::CapabilityFlag::FormattedPreedit});
+        activate(*addon, telex, lateCap);
+        require(!press(*addon, telex, lateCap, fcitx::Key(FcitxKey_o)),
+            "first key before SurroundingText must stay native");
+        require(lateCap.text() == "o" && lateCap.preedit().empty() && lateCap.commits == 0 &&
+                    lateCap.deletions == 0 && lateCap.nonemptyPreedits == 0,
+            "first key before SurroundingText was rewritten");
+        lateCap.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+                                                          fcitx::CapabilityFlag::FormattedPreedit,
+                                                          fcitx::CapabilityFlag::SurroundingText});
+        require(press(*addon, telex, lateCap, fcitx::Key(FcitxKey_o)),
+            "second o must be consumed once SurroundingText exists");
+        require(lateCap.text() == "ô" && lateCap.preedit().empty() && lateCap.nonemptyPreedits == 0,
+            "oo stayed raw after SurroundingText arrived");
+        type(*addon, telex, lateCap, " tieen");
+        require(lateCap.text() == "ô tiên" && lateCap.preedit().empty(),
+            "tieen stayed raw after the capability arrived");
+    }
+    {
+        // Cursor chat sends surrounding text that is not the word at the caret.
+        // That notification must not drop tieengs, and must not show a preedit.
+        Editor noise(instance.inputContextManager());
+        noise.frontendName = "ibus";
+        activate(*addon, telex, noise);
+        type(*addon, telex, noise, "ti");
+        noise.surroundingText().setText("not the caret word", 4, 4);
+        noise.updateSurroundingText();
+        type(*addon, telex, noise, "eengs ");
+        require(noise.text() == "tiếng " && noise.preedit().empty() && noise.nonemptyPreedits == 0,
+            "unrelated surrounding text dropped tieengs");
+        type(*addon, telex, noise, "ddang gox vieetj nef ");
+        require(noise.text() == "tiếng đang gõ việt nè " && noise.preedit().empty() &&
+                    noise.nonemptyPreedits == 0,
+            "words after a noisy snapshot stayed raw");
+    }
+    {
+        // Desktop chat: the first word has no SurroundingText. Later words do,
+        // but after every key the client also pushes surrounding text that is
+        // not the caret word. That used to leave tieengs/vieetj raw.
+        Editor lied(instance.inputContextManager());
+        lied.frontendName = "ibus";
+        const auto capsNoSt = fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+            fcitx::CapabilityFlag::FormattedPreedit, fcitx::CapabilityFlag::UppwercaseSentences};
+        lied.setCapabilityFlags(capsNoSt);
+        lied.holdSurrounding = true;
+        activate(*addon, telex, lied);
+        type(*addon, telex, lied, "ddang ");
+        lied.setCapabilityFlags(capsNoSt | fcitx::CapabilityFlag::SurroundingText);
+        lied.holdSurrounding = false;
+        lied.surroundingText().setText(lied.text(), lied.cursor, lied.anchor);
+        lied.updateSurroundingText();
+        for (unsigned char ch : std::string("gox tieengs vieetj nef ")) {
+            press(*addon, telex, lied, fcitx::Key(fcitx::Key::keySymFromUnicode(ch)));
+            lied.surroundingText().setText("not the caret word", 4, 4);
+            lied.updateSurroundingText();
+        }
+        require(lied.text() == "ddang gõ tiếng việt nè " && lied.preedit().empty() &&
+                    lied.nonemptyPreedits == 0,
+            "foreign surrounding text after each key left tieengs raw");
     }
     for (const bool terminal : {false, true}) {
         Editor rawContext(instance.inputContextManager());
@@ -1432,6 +1525,92 @@ int main(int argc, char** args) {
     diagnostics.setValueByPath("DirectDiagnostics", "True");
     addon->setConfig(diagnostics);
 
+    diagnostics.setValueByPath("InputStyle", "NativeDirect");
+    addon->setConfig(diagnostics);
+    {
+        // A text editor resets the context after commitString. hoo → hô must
+        // stay one syllable so the following tone key lands on ô, not on i.
+        Editor editorReset(instance.inputContextManager());
+        editorReset.frontendName = "ibus";
+        activate(*addon, telex, editorReset);
+        type(*addon, telex, editorReset, "xax");
+        require(!press(*addon, telex, editorReset, fcitx::Key(FcitxKey_Return)),
+            "NativeDirect Enter must stay unaccepted");
+        for (unsigned char ch : std::string("hooij")) {
+            const auto before = editorReset.text();
+            press(*addon, telex, editorReset, fcitx::Key(fcitx::Key::keySymFromUnicode(ch)));
+            if (editorReset.text() != before + std::string(1, static_cast<char>(ch))) {
+                fcitx::InputContextEvent reset(&editorReset, fcitx::EventType::InputContextReset);
+                addon->reset(telex, reset);
+            }
+        }
+        require(editorReset.text() == "xã\nhội" && editorReset.preedit().empty(),
+            "Editor reset after ô split hội into hôị");
+        Editor wiped(instance.inputContextManager());
+        wiped.frontendName = "ibus";
+        activate(*addon, telex, wiped);
+        auto stroke = [&](const std::string& keys) {
+            for (unsigned char ch : keys) {
+                const auto before = wiped.text();
+                press(*addon, telex, wiped, fcitx::Key(fcitx::Key::keySymFromUnicode(ch)));
+                if (wiped.text() != before + std::string(1, static_cast<char>(ch))) {
+                    fcitx::InputContextEvent reset(&wiped, fcitx::EventType::InputContextReset);
+                    addon->reset(telex, reset);
+                    wiped.surroundingText().setText("", 0, 0);
+                    wiped.updateSurroundingText();
+                }
+            }
+        };
+        stroke("xax");
+        require(!press(*addon, telex, wiped, fcitx::Key(FcitxKey_Return)),
+            "Enter before hội must stay unaccepted");
+        stroke("hooij");
+        require(!press(*addon, telex, wiped, fcitx::Key(FcitxKey_Return)),
+            "Enter before cộng must stay unaccepted");
+        stroke("coongj");
+        require(wiped.text() == "xã\nhội\ncộng" && wiped.preedit().empty(),
+            "Empty surrounding cache after ô left hôị and côngj");
+        Editor moved(instance.inputContextManager());
+        moved.frontendName = "ibus";
+        activate(*addon, telex, moved);
+        type(*addon, telex, moved, "hoo");
+        fcitx::InputContextEvent resetMoved(&moved, fcitx::EventType::InputContextReset);
+        addon->reset(telex, resetMoved);
+        moved.document = U"other";
+        moved.cursor = moved.anchor = static_cast<unsigned>(moved.document.size());
+        moved.report();
+        const auto deletes = moved.deletions;
+        type(*addon, telex, moved, "j");
+        require(moved.text() == "otherj" && moved.deletions == deletes,
+            "Editor reset must not keep deleting after the caret moves");
+        // The committed word is hô, but the client's next surrounding update is
+        // still the pre-transform document. That echo used to close the syllable,
+        // so ij became ị (hôị) and ngj left a literal j (côngj).
+        Editor stale(instance.inputContextManager());
+        stale.frontendName = "ibus";
+        activate(*addon, telex, stale);
+        type(*addon, telex, stale, "xax");
+        require(!press(*addon, telex, stale, fcitx::Key(FcitxKey_Return)),
+            "Enter before a stale echo must stay unaccepted");
+        type(*addon, telex, stale, "hoo");
+        require(stale.text() == "xã\nhô", "Stale-echo setup");
+        stale.notify({"xã\nho", 5, 5});
+        type(*addon, telex, stale, "ij");
+        require(stale.text() == "xã\nhội" && stale.preedit().empty(),
+            "Pre-transform echo split hội into hôị");
+        require(!press(*addon, telex, stale, fcitx::Key(FcitxKey_Return)),
+            "Enter before cộng must stay unaccepted");
+        type(*addon, telex, stale, "coo");
+        std::string echo = stale.text();
+        echo.replace(echo.size() - std::string("ô").size(), std::string("ô").size(), "o");
+        const auto echoChars = static_cast<unsigned>(openkey::codepoints(echo).size());
+        stale.notify({echo, echoChars, echoChars});
+        type(*addon, telex, stale, "ngj");
+        require(stale.text() == "xã\nhội\ncộng" && stale.preedit().empty(),
+            "Pre-transform echo left côngj");
+    }
+    diagnostics.setValueByPath("InputStyle", "Direct");
+    addon->setConfig(diagnostics);
     // Word-boundary keys must reach the client and cut composition tracking.
     Editor enterCut(instance.inputContextManager());
     activate(*addon, telex, enterCut);

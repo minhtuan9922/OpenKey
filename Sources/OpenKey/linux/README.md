@@ -1,6 +1,6 @@
 # OpenKey cho Linux — Fcitx5 proof-of-concept
 
-Bản thử tiếp theo: **NativeDirect** (addon 0.2.29 / alpha.38, UI preview.2) cho
+Bản thử tiếp theo: **NativeDirect** (addon 0.2.38 / alpha.47, UI preview.2) cho
 chữ hiện ngay bằng phím gốc, sửa dấu khi surrounding-text được xác nhận đầy đủ,
 không tự fallback ô nổi. Thiếu hỗ trợ thì giữ nguyên phím gõ; chưa nghiệm thu
 desktop/mọi ứng dụng. Alpha.38 thêm xử lý phần gợi ý đuôi được chọn trong ô URL

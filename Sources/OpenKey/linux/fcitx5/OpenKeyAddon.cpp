@@ -1,5 +1,6 @@
 #include "Composition.h"
 #include "DirectInput.h"
+#include <string>
 #include <vector>
 #include <fcitx-config/enum.h>
 #include <fcitx-config/iniparser.h>
@@ -128,6 +129,46 @@ bool nativePrimeLanded(const openkey::Snapshot& base, char32_t primed, const ope
     return snap == expected;
 }
 
+// A notification that still lies on the way from the last confirmed baseline to
+// the prediction (the first keys of a fast word). Not a different field.
+bool nativeStillTyping(const openkey::Snapshot& observed, const openkey::Snapshot& expected,
+                       const openkey::Snapshot& snap) {
+    if (snap.cursor != snap.anchor || observed.cursor != observed.anchor || expected.cursor != expected.anchor)
+        return false;
+    if (snap.text.size() <= observed.text.size() || snap.text.size() >= expected.text.size()) return false;
+    if (snap.text.compare(0, observed.text.size(), observed.text) != 0) return false;
+    if (expected.text.compare(0, snap.text.size(), snap.text) != 0) return false;
+    return snap.cursor == snap.text.size() && snap.cursor <= expected.cursor;
+}
+
+// A shorter caret-at-end snapshot that still starts like this word is our own
+// delayed echo (delete then commit). A longer buffer, or a caret that is not
+// at its end, is surrounding text for some other span.
+bool nativeOwnEcho(const openkey::Snapshot& expected, const openkey::Snapshot& snap) {
+    if (snap.cursor != snap.anchor || snap.cursor != snap.text.size()) return false;
+    if (snap.text.size() > expected.text.size()) return false;
+    // An empty cache is a focus change, not an echo of this word.
+    if (snap.text.empty() || expected.text.empty()) return false;
+    return snap.text.front() == expected.text.front();
+}
+
+// The caret sits on a copy of this syllable in some other span. Deleting there
+// would edit the wrong context.
+bool nativeSuffixElsewhere(const std::u32string& placed, const openkey::Snapshot& snap) {
+    if (placed.empty() || snap.cursor != snap.anchor || snap.cursor < placed.size()) return false;
+    return snap.text.compare(snap.cursor - placed.size(), placed.size(), placed) == 0;
+}
+
+// The notification is the caret buffer we predicted, possibly with a longer
+// prefix. A stale prediction (built from some other span) is not a suffix.
+bool nativeExpectedSuffix(const openkey::Snapshot& expected, const openkey::Snapshot& snap) {
+    if (expected.cursor != expected.anchor || expected.cursor != expected.text.size()) return false;
+    if (snap.cursor != snap.anchor || snap.cursor != snap.text.size()) return false;
+    if (snap.text.size() < expected.text.size()) return false;
+    return snap.text.compare(snap.text.size() - expected.text.size(), expected.text.size(),
+                             expected.text) == 0;
+}
+
 void popCharacter(std::string& text) {
     auto value = openkey::codepoints(text);
     if (!value.empty()) value.pop_back();
@@ -156,8 +197,11 @@ struct State : fcitx::InputContextProperty {
     bool ibusNativeWord = false; // unconfirmed native prime: pass the remaining word through
     std::optional<openkey::Snapshot> ibusPrimeExpected;
     std::optional<openkey::Snapshot> nativeExpected;
+    std::optional<openkey::Snapshot> nativeObserved; // last notified baseline; cache may stay here while we type
     std::optional<openkey::Snapshot> nativeCompletion;
     bool nativeRawWord = false;
+    bool nativeKeepOnReset = false; // editor reset after our own commit is not a new word
+    bool nativeResetHeld = false; // that syllable must be dropped if the caret then moves
     bool nativeAwaitingUpdate = false;
     std::string placed; // UTF-8 of that word currently in the document
     bool preeditDrifted = false; // surrounding changed; keep the syllable until Enter leaves it
@@ -170,6 +214,13 @@ struct State : fcitx::InputContextProperty {
     std::unique_ptr<fcitx::EventSourceTime> timeout;
 };
 
+bool nativeResetStillHere(const State& state, const std::optional<openkey::Snapshot>& snapshot) {
+    if (!snapshot || !state.nativeExpected) return false;
+    if (*snapshot == *state.nativeExpected) return true;
+    if (nativeOwnEcho(*state.nativeExpected, *snapshot)) return true;
+    return nativeSuffixElsewhere(openkey::codepoints(state.placed), *snapshot);
+}
+
 class OpenKeyAddon : public fcitx::InputMethodEngine {
 public:
     explicit OpenKeyAddon(fcitx::Instance* instance) : instance_(instance) {
@@ -180,17 +231,85 @@ public:
                 auto* ic = static_cast<fcitx::InputContextEvent&>(event).inputContext();
                 auto& state = *ic->propertyFor(&factory_);
                 if (!state.active) return;
-                if (*config_.style == InputStyle::NativeDirect && state.nativeExpected) {
+                if (*config_.style == InputStyle::NativeDirect &&
+                    (state.nativeExpected || state.nativeObserved)) {
+                    // deleteSurroundingText notifies before commitString. That
+                    // intermediate snapshot is not a focus change.
+                    if (state.emitting) return;
                     const auto snapshot = openkey::Snapshot::read(ic->surroundingText(), true);
+                    // A text editor wipes surrounding text when it resets after
+                    // commitString. That empty cache is not a focus change; hôị
+                    // and côngj were the tone key starting a new syllable.
+                    if (snapshot && snapshot->text.empty() && snapshot->cursor == snapshot->anchor &&
+                        !state.composition.empty() && !state.placed.empty() &&
+                        (state.nativeKeepOnReset || state.nativeResetHeld))
+                        return;
+                    if (state.nativeResetHeld && !nativeResetStillHere(state, snapshot)) {
+                        state.composition.clear();
+                        state.placed.clear();
+                        state.nativeExpected.reset();
+                        state.nativeObserved.reset();
+                        state.nativeCompletion.reset();
+                        state.nativeAwaitingUpdate = false;
+                        state.nativeRawWord = false;
+                        state.nativeResetHeld = false;
+                        return;
+                    }
+                    if (state.nativeResetHeld) state.nativeResetHeld = false;
                     state.nativeCompletion.reset();
-                    if (snapshot && *snapshot == *state.nativeExpected) state.nativeAwaitingUpdate = false;
-                    else if (snapshot && (ic->capabilityFlags() & fcitx::CapabilityFlag::Url) &&
-                             openkey::selectedUrlCompletion(*state.nativeExpected, *snapshot)) {
+                    if (snapshot && state.nativeExpected && *snapshot == *state.nativeExpected) {
+                        state.nativeAwaitingUpdate = false;
+                        state.nativeObserved = snapshot;
+                    } else if (snapshot && state.nativeExpected &&
+                               (ic->capabilityFlags() & fcitx::CapabilityFlag::Url) &&
+                               openkey::selectedUrlCompletion(*state.nativeExpected, *snapshot)) {
                         // This notification confirms every typed character and
                         // its caret. Keep the actual selected suffix separately;
                         // the prediction is NOT installed in the client's cache.
                         state.nativeCompletion = snapshot;
                         state.nativeAwaitingUpdate = false;
+                    } else if (snapshot && state.nativeObserved && state.nativeExpected &&
+                               nativeStillTyping(*state.nativeObserved, *state.nativeExpected, *snapshot)) {
+                        state.nativeObserved = snapshot;
+                    } else if (snapshot && snapshot->cursor != snapshot->anchor) {
+                        // A selection is not a focus change. Keep the prediction
+                        // so the next key can report the mismatch and stop.
+                    } else if (!(snapshot && state.nativeObserved && *snapshot == *state.nativeObserved)) {
+                        // An empty snapshot is a focus change. Cursor chat also
+                        // sends surrounding text that is not the caret word;
+                        // dropping the syllable there left tieengs raw.
+                        const bool typing = !state.composition.empty() && !state.placed.empty();
+                        const bool ours = snapshot && state.nativeExpected &&
+                            nativeOwnEcho(*state.nativeExpected, *snapshot);
+                        const bool elsewhere = snapshot &&
+                            nativeSuffixElsewhere(openkey::codepoints(state.placed), *snapshot);
+                        const bool foreign = typing && snapshot && !snapshot->text.empty() && !ours &&
+                            !elsewhere && !(ic->capabilityFlags() & fcitx::CapabilityFlag::Url);
+                        // The caret document ends with the letters we just placed, but
+                        // the prediction was built from a different span (Cursor chat
+                        // often reports the wrong surrounding text). Rebase onto the
+                        // caret document. A longer buffer that already ends with the
+                        // prediction is a different context and must still be dropped.
+                        const bool caughtUp = typing && elsewhere && state.nativeExpected && snapshot &&
+                            !nativeExpectedSuffix(*state.nativeExpected, *snapshot);
+                        if (caughtUp) {
+                            state.nativeExpected = snapshot;
+                            state.nativeObserved = snapshot;
+                            state.nativeAwaitingUpdate = false;
+                            state.nativeCompletion.reset();
+                        } else if (typing && (ours || foreign || state.nativeKeepOnReset || state.nativeResetHeld)) {
+                            // A shorter echo of this edit, or the editor reset
+                            // after ô, is still this syllable. Dropping it made
+                            // j tone only the following i (hôị) or stay literal (côngj).
+                        } else if (!foreign) {
+                            state.composition.clear();
+                            state.placed.clear();
+                            state.nativeExpected.reset();
+                            state.nativeObserved.reset();
+                            state.nativeCompletion.reset();
+                            state.nativeAwaitingUpdate = false;
+                            state.nativeRawWord = false;
+                        }
                     }
                     return;
                 }
@@ -832,8 +951,16 @@ public:
     void reset(const fcitx::InputMethodEntry&, fcitx::InputContextEvent& event) override {
         // Direct text is already in the application; never erase or re-commit it.
         // Drop any recovery buffer: reset means the client left the composition.
+        // A text editor also resets after our own commitString (hoo → hô). That
+        // reset is not a new word: dropping the syllable there makes the tone
+        // key apply only to what follows (hôị).
         auto* ic = event.inputContext();
         auto& state = *ic->propertyFor(&factory_);
+        if (*config_.style == InputStyle::NativeDirect && state.nativeKeepOnReset) {
+            state.nativeKeepOnReset = false;
+            state.nativeResetHeld = true;
+            return;
+        }
         settle(ic);
         state.recovery.clear();
         clearDirect(state);
@@ -881,6 +1008,61 @@ private:
         const bool backspace = key.sym() == FcitxKey_BackSpace;
         const bool boundary = shortcutKey(key) || (!textKey && !backspace);
         const auto snapshot = openkey::Snapshot::read(ic->surroundingText(), true);
+        const bool cacheWiped = snapshot && snapshot->text.empty() && snapshot->cursor == snapshot->anchor &&
+            !state.composition.empty() && !state.placed.empty() &&
+            (state.nativeKeepOnReset || state.nativeResetHeld);
+        if (state.nativeResetHeld && !cacheWiped && !nativeResetStillHere(state, snapshot)) {
+            state.composition.clear();
+            state.placed.clear();
+            state.nativeExpected.reset();
+            state.nativeObserved.reset();
+            state.nativeCompletion.reset();
+            state.nativeAwaitingUpdate = false;
+            state.nativeRawWord = false;
+            state.nativeResetHeld = false;
+        } else if (state.nativeResetHeld) {
+            state.nativeResetHeld = false;
+        }
+        // The native keys are already in the application. A surrounding-text
+        // notification can still show the previous baseline (focus into Cursor
+        // is often late). Keep that prediction and convert oo -> ô; do not
+        // freeze the rest of the word as raw ASCII. An unrelated document is
+        // not this baseline and must not authorize the edit.
+        const bool cacheUnmoved = state.nativeAwaitingUpdate && state.nativeExpected &&
+            state.nativeObserved && snapshot && *snapshot == *state.nativeObserved;
+        const bool catchingUp = state.nativeAwaitingUpdate && state.nativeExpected && state.nativeObserved &&
+            snapshot && nativeStillTyping(*state.nativeObserved, *state.nativeExpected, *snapshot);
+        bool predict = cacheUnmoved || catchingUp || cacheWiped;
+        const bool urlSelection = snapshot && state.nativeExpected &&
+            (ic->capabilityFlags() & fcitx::CapabilityFlag::Url) &&
+            openkey::selectedUrlCompletion(*state.nativeExpected, *snapshot);
+        if (state.nativeAwaitingUpdate && !predict && !urlSelection && state.nativeExpected && snapshot &&
+            snapshot->cursor == snapshot->anchor && !(*snapshot == *state.nativeExpected)) {
+            const bool typing = !state.composition.empty() && !state.placed.empty();
+            const bool ours = nativeOwnEcho(*state.nativeExpected, *snapshot);
+            const bool elsewhere = nativeSuffixElsewhere(openkey::codepoints(state.placed), *snapshot);
+            const bool foreign = typing && !snapshot->text.empty() && !ours && !elsewhere &&
+                !(ic->capabilityFlags() & fcitx::CapabilityFlag::Url);
+            const bool caughtUp = typing && elsewhere &&
+                !nativeExpectedSuffix(*state.nativeExpected, *snapshot);
+            if (caughtUp) {
+                state.nativeExpected = snapshot;
+                state.nativeObserved = snapshot;
+                state.nativeAwaitingUpdate = false;
+            } else if (typing && (ours || foreign)) {
+                predict = true;
+            } else if (!foreign) {
+                state.composition.clear();
+                state.placed.clear();
+                state.nativeExpected.reset();
+                state.nativeObserved.reset();
+                state.nativeCompletion.reset();
+                state.nativeAwaitingUpdate = false;
+                state.nativeRawWord = false;
+            } else {
+                predict = true;
+            }
+        }
         const bool completion = snapshot && state.nativeExpected && state.nativeCompletion &&
             (ic->capabilityFlags() & fcitx::CapabilityFlag::Url) &&
             *snapshot == *state.nativeCompletion &&
@@ -899,8 +1081,99 @@ private:
             clearDirect(state);
             update(ic);
         };
-        if (!supported || !snapshot || state.nativeRawWord || state.nativeAwaitingUpdate ||
-            (state.nativeExpected && !(*state.nativeExpected == *snapshot) && !completion)) {
+        // GNOME omits SurroundingText on the first keys after focus (chat is
+        // 1048594, then later 1048658). The letters are already in the field.
+        // A later key that actually changes the syllable replaces that native
+        // prefix, so ddang/tieengs do not stay as raw Telex until Space.
+        auto flushUnconfirmed = [&](bool rewrite) {
+            if (textKey) {
+                auto candidate = state.composition;
+                if (!candidate.append(static_cast<char>(symbol))) {
+                    state.composition.clear();
+                    state.placed.clear();
+                    state.plainCommit = false;
+                    return;
+                }
+                const auto after = candidate.text();
+                const auto extra = fcitx::utf8::UCS4ToUTF8(symbol);
+                if (!rewrite || state.placed.empty() || after == state.placed + extra) {
+                    state.composition = std::move(candidate);
+                    state.placed.append(extra);
+                    state.plainCommit = true;
+                    return;
+                }
+                const auto remove = static_cast<unsigned>(openkey::codepoints(state.placed).size());
+                state.emitting = true;
+                if (remove) ic->deleteSurroundingText(-static_cast<int>(remove), remove);
+                if (!after.empty()) ic->commitString(after);
+                state.emitting = false;
+                state.composition = std::move(candidate);
+                state.placed = after;
+                state.plainCommit = true;
+                event.filterAndAccept();
+                return;
+            }
+            if (backspace) {
+                if (!state.composition.backspace()) state.composition.clear();
+                auto raw = openkey::codepoints(state.placed);
+                if (!raw.empty()) raw.pop_back();
+                state.placed = openkey::utf8(raw);
+                state.plainCommit = !state.placed.empty();
+                return;
+            }
+            if (rewrite && !state.placed.empty() && state.composition.text() != state.placed) {
+                const auto after = state.composition.text();
+                const auto remove = static_cast<unsigned>(openkey::codepoints(state.placed).size());
+                state.emitting = true;
+                if (remove) ic->deleteSurroundingText(-static_cast<int>(remove), remove);
+                if (!after.empty()) ic->commitString(after);
+                state.emitting = false;
+            }
+            state.composition.clear();
+            state.placed.clear();
+            state.plainCommit = false;
+        };
+        const bool lateCapability = unsupported &&
+            std::char_traits<char>::compare(unsupported, "no-surrounding-capability", 25) == 0 &&
+            unsupported[25] == '\0';
+        if (lateCapability && !state.nativeRawWord) {
+            diagnose(ic, "native:passthrough", "awaiting-surrounding-capability");
+            flushUnconfirmed(false);
+            return;
+        }
+        if (supported && snapshot && !state.nativeExpected && !state.placed.empty() && !state.nativeRawWord) {
+            const auto raw = openkey::codepoints(state.placed);
+            const bool landed = !raw.empty() && snapshot->cursor == snapshot->anchor &&
+                snapshot->cursor >= raw.size() &&
+                snapshot->text.compare(snapshot->cursor - raw.size(), raw.size(), raw) == 0;
+            if (!landed) {
+                diagnose(ic, "native:passthrough", "awaiting-surrounding-text");
+                flushUnconfirmed(false);
+                return;
+            }
+            state.nativeExpected = snapshot;
+            state.nativeObserved = snapshot;
+            state.nativeAwaitingUpdate = false;
+        }
+        const bool liveNoise = state.nativeExpected && snapshot && !state.composition.empty() &&
+            !state.placed.empty() && snapshot->cursor == snapshot->anchor && !snapshot->text.empty() &&
+            !(*state.nativeExpected == *snapshot) && !predict && !completion &&
+            !nativeOwnEcho(*state.nativeExpected, *snapshot) &&
+            !nativeSuffixElsewhere(openkey::codepoints(state.placed), *snapshot) &&
+            !(ic->capabilityFlags() & fcitx::CapabilityFlag::Url);
+        // A full-document echo that still starts like this edit (xã\nho while
+        // the word is already hô) is the same syllable. Clearing it made the
+        // following keys a new word: ij → ị and ngj → côngj.
+        // Equal cache text is not an echo: a caller can write the prediction
+        // into the cache without a surrounding notification, and that must not
+        // authorize the next rewrite.
+        const bool ownEcho = snapshot && state.nativeExpected && !state.composition.empty() &&
+            !state.placed.empty() && !(*snapshot == *state.nativeExpected) &&
+            nativeOwnEcho(*state.nativeExpected, *snapshot);
+        if (liveNoise || ownEcho) predict = true;
+        if (!supported || !snapshot || state.nativeRawWord ||
+            (state.nativeAwaitingUpdate && !predict) ||
+            (state.nativeExpected && !(*state.nativeExpected == *snapshot) && !completion && !predict)) {
             const bool rawWord = !boundary;
             const char* cause = unsupported ? unsupported : !snapshot ? "invalid-surrounding" :
                 state.nativeRawWord ? "raw-word-in-progress" :
@@ -929,7 +1202,7 @@ private:
         // a transforming key uses Chromium's selection-aware IM deletion plus
         // insertion, replacing that suffix and the owned letters before it.
         // No asynchronous update alone ever edits or deletes the selection.
-        const auto editBase = completion ? *state.nativeExpected : *snapshot;
+        const auto editBase = (completion || predict) ? *state.nativeExpected : *snapshot;
         if (state.composition.full()) forget();
         auto candidate = state.composition;
         if (textKey) candidate.append(static_cast<char>(symbol));
@@ -974,14 +1247,26 @@ private:
         if (native || initial || after != before) state.nativeCompletion.reset();
         state.composition = std::move(candidate);
         state.placed = openkey::utf8(after);
+        if (!predict) state.nativeObserved = editBase;
         state.nativeExpected = std::move(expected);
         state.nativeAwaitingUpdate = initial || after != before;
         state.plainCommit = true; // Never re-commit this word on focus/config changes.
         if (!native) {
+            state.nativeKeepOnReset = true;
             state.emitting = true;
             if (removed) ic->deleteSurroundingText(-static_cast<int>(removed), removed);
             if (!insert.empty()) ic->commitString(openkey::utf8(insert));
             state.emitting = false;
+            const auto seen = openkey::Snapshot::read(ic->surroundingText(), true);
+            if (seen && state.nativeExpected && *seen == *state.nativeExpected) {
+                state.nativeAwaitingUpdate = false;
+                state.nativeObserved = seen;
+            } else if (seen && state.nativeExpected &&
+                       (ic->capabilityFlags() & fcitx::CapabilityFlag::Url) &&
+                       openkey::selectedUrlCompletion(*state.nativeExpected, *seen)) {
+                state.nativeCompletion = seen;
+                state.nativeAwaitingUpdate = false;
+            }
             if (!boundary) event.filterAndAccept();
         }
         if (boundary) forget();
@@ -1102,8 +1387,11 @@ private:
         state.ibusNativeWord = false;
         state.ibusPrimeExpected.reset();
         state.nativeExpected.reset();
+        state.nativeObserved.reset();
         state.nativeCompletion.reset();
         state.nativeRawWord = false;
+        state.nativeKeepOnReset = false;
+        state.nativeResetHeld = false;
         state.nativeAwaitingUpdate = false;
         state.placed.clear();
         state.preeditDrifted = false;
