@@ -44,3 +44,14 @@ trung gian, gói cũ và fixture kiểm thử được sinh lại khi chạy cô
 Chỉ dọn đường dẫn đã xác minh bên trong repository và được Git ignore;
 không xóa file được Git quản lý, đường dẫn có junction/symlink hoặc output
 OpenKey đang chạy. Báo cáo lần dọn nằm tại `dist/cleanup-report.json`.
+
+## Chẩn đoán tương thích Ubuntu
+
+Python 3: `python3 scripts/linux-compat-report.py --help`. Công cụ chỉ đọc
+journal/file log, xuất JSON đã lọc; không đổi IM hoặc restart Fcitx5.
+Xem [nghiệm thu Chrome/VS Code](../docs/UBUNTU_DESKTOP_QA.md) để chọn ca thử,
+tạo báo cáo và hiểu giới hạn. Chưa được đóng gói vào DEB alpha.50.
+
+Báo cáo tương thích hiện dùng schema v2: đủ cause hủy edit, thêm tối đa 32
+record cuối đã lọc/reference/boolean theo thứ tự đầu vào. Không phải trace
+của từng context, không tự tính độ trễ hoặc kết luận ứng dụng gõ đúng.

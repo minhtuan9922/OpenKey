@@ -1,17 +1,51 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
+import QtQuick.Dialogs
 
 Pane {
     id: card
     objectName: "preferencesBackup"
     required property var uiPalette
     property var preferences: null
+    property var fileAccess: null
     property string currentTheme: "system"
     property bool currentSidebarExpanded: true
     property var preview: ({ok: false})
     property string feedback: ""
     signal restored(string theme, bool sidebarExpanded)
+    function loadFile(url) {
+        if (fileAccess === null || preferences === null) return
+        card.preview = ({ok: false})
+        const loaded = fileAccess.loadUi(url)
+        if (loaded.ok) {
+            backup.text = loaded.text
+            card.feedback = "Đã mở bản sao giao diện. Nhấn Kiểm tra / xem trước để tiếp tục; chưa đổi theme hoặc menu."
+        } else card.feedback = "Không mở được file JSON giao diện hợp lệ. Giữ nguyên nội dung đang sửa; JSON bộ gõ không dùng ở phần này."
+    }
+    function saveFile(url) {
+        if (fileAccess === null || preferences === null) return
+        const status = fileAccess.saveUi(url, backup.text)
+        card.feedback = status === "saved" ? "Đã lưu bản sao giao diện vào file được chọn; chưa thay đổi giao diện." :
+            "Không lưu được bản sao giao diện. Kiểm tra JSON, đường dẫn hoặc quyền ghi; giữ nguyên nội dung đang sửa."
+    }
+    FileDialog {
+        id: openDialog
+        objectName: "uiBackupOpenDialog"
+        title: "Mở bản sao giao diện OpenKey"
+        fileMode: FileDialog.OpenFile
+        nameFilters: ["Bản sao giao diện JSON (*.json)"]
+        onAccepted: card.loadFile(selectedFile)
+    }
+    FileDialog {
+        id: saveDialog
+        objectName: "uiBackupSaveDialog"
+        title: "Lưu bản sao giao diện OpenKey"
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["Bản sao giao diện JSON (*.json)"]
+        defaultSuffix: "json"
+        onAccepted: card.saveFile(selectedFile)
+    }
     padding: uiPalette.cardPadding
     background: Rectangle {
         color: card.uiPalette.card
@@ -30,7 +64,7 @@ Pane {
         }
         Label {
             Layout.fillWidth: true
-            text: "Chỉ gồm theme và trạng thái mở/thu gọn menu. Không chứa cấu hình Fcitx5, phím tắt, gõ tắt hoặc văn bản Chuyển mã. Tạo JSON rồi chọn và Ctrl+C để lưu thủ công; dán JSON vào ô dưới để xem trước. Không tự đọc/ghi file sao lưu hoặc clipboard."
+            text: "Chỉ gồm theme và trạng thái mở/thu gọn menu. Tạo JSON rồi lưu thành file, hoặc mở bản sao đã lưu để xem trước. Bạn cũng có thể copy/paste JSON thủ công. Không chứa cấu hình bộ gõ, phím tắt, gõ tắt hoặc văn bản Chuyển mã."
             textFormat: Text.PlainText
             wrapMode: Text.Wrap
             color: card.uiPalette.muted
@@ -45,6 +79,24 @@ Pane {
                 backup.text = card.preferences.backupJson(card.currentTheme, card.currentSidebarExpanded)
                 card.feedback = backup.text.length > 0 ? "Đã tạo JSON trong ô nhập; chưa ghi file hoặc clipboard." :
                     "Không tạo được JSON; lựa chọn giao diện hiện tại không hợp lệ."
+            }
+        }
+        Flow {
+            Layout.fillWidth: true
+            spacing: 8
+            SettingsButton {
+                objectName: "openUiBackupFile"
+                uiPalette: card.uiPalette
+                text: "Mở file giao diện…"
+                enabled: card.fileAccess !== null && card.preferences !== null
+                onClicked: openDialog.open()
+            }
+            SettingsButton {
+                objectName: "saveUiBackupFile"
+                uiPalette: card.uiPalette
+                text: "Lưu thành file…"
+                enabled: card.fileAccess !== null && card.preferences !== null && card.fileAccess.validUiBackup(backup.text)
+                onClicked: saveDialog.open()
             }
         }
         ScrollView {

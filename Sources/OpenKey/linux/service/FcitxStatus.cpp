@@ -11,12 +11,16 @@ InputStatus classifyInput(int state, const std::string& method) {
     if (state == 1) return InputStatus::Inactive;
     if (method == "openkey-telex") return InputStatus::Telex;
     if (method == "openkey-vni") return InputStatus::Vni;
+    if (method == "openkey-simple-telex1") return InputStatus::SimpleTelex1;
+    if (method == "openkey-simple-telex2") return InputStatus::SimpleTelex2;
     return InputStatus::Other;
 }
 const char* statusName(InputStatus status) {
     switch (status) {
     case InputStatus::Telex: return "telex";
     case InputStatus::Vni: return "vni";
+    case InputStatus::SimpleTelex1: return "simple-telex1";
+    case InputStatus::SimpleTelex2: return "simple-telex2";
     case InputStatus::English: return "english";
     case InputStatus::Inactive: return "inactive";
     case InputStatus::Other: return "other";
@@ -75,6 +79,8 @@ ActionResult switchFcitxInputMethod(InputMethod method) {
     const char* target = nullptr;
     if (method == InputMethod::Telex) target = "openkey-telex";
     else if (method == InputMethod::Vni) target = "openkey-vni";
+    else if (method == InputMethod::SimpleTelex1) target = "openkey-simple-telex1";
+    else if (method == InputMethod::SimpleTelex2) target = "openkey-simple-telex2";
     else if (method == InputMethod::English) target = "keyboard-us";
     else return ActionResult::Failed;
     sd_bus* raw = nullptr;
@@ -161,7 +167,9 @@ bool FcitxActions::request(InputMethod method) {
     return submit([method] { return switchFcitxInputMethod(method); });
 }
 bool FcitxActions::requestConfiguration() { return submit(openFcitxConfiguration); }
-bool FcitxActions::requestSettings() { return submit(openOpenKeySettings); }
+bool FcitxActions::requestSettings(SettingsPage page) {
+    return submit([page] { return openOpenKeySettings(page); });
+}
 bool FcitxActions::submit(std::function<ActionResult()> task) {
     if (pending_.valid()) return false;
     try {

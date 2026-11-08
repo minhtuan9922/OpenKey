@@ -86,7 +86,7 @@ void SettingsOverview::consume() {
     response_ += socket_.readAll();
     if (response_.size() > 32) { finish("protocol-error"); return; }
     if (!response_.contains('\n')) return;
-    static const QSet<QByteArray> allowed{"telex", "vni", "english", "inactive", "other", "unknown", "unavailable"};
+    static const QSet<QByteArray> allowed{"telex", "vni", "simple-telex1", "simple-telex2", "english", "inactive", "other", "unknown", "unavailable"};
     // Exactly one bounded line; never display arbitrary server content.
     const auto value = response_.chopped(1);
     if (!response_.endsWith('\n') || !allowed.contains(value)) { finish("protocol-error"); return; }

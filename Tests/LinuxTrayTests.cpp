@@ -141,6 +141,8 @@ struct Client {
     bool status(const std::string& owner, const char* expected) {
         if (std::string(expected) == "telex") return text(owner, "Title") == "OpenKey — Telex (sampled)";
         if (std::string(expected) == "vni") return text(owner, "Title") == "OpenKey — VNI (sampled)";
+        if (std::string(expected) == "simple-telex1") return text(owner, "Title") == "OpenKey — Simple Telex 1 (sampled)";
+        if (std::string(expected) == "simple-telex2") return text(owner, "Title") == "OpenKey — Simple Telex 2 (sampled)";
         return text(owner, "Title") == std::string("OpenKey: ") + expected + " (sampled)";
     }
     std::string tooltipTitle(const std::string& owner) {
@@ -297,6 +299,13 @@ int main(int argc, char** argv) {
     require(client.menuItemMatches(owner, 910, "Chuyển sang Telex", true, 0) &&
             client.menuItemMatches(owner, 911, "Chuyển sang VNI", true, 1), "External switch must select only VNI");
     require(client.menuItemMatches(owner, 920, "Chuyển sang tiếng Anh (US)", true, 0), "English must not be selected in VNI");
+    for (const auto status : {InputStatus::SimpleTelex1, InputStatus::SimpleTelex2}) {
+        tray.status = status;
+        await([&] { return client.status(owner, openkey::statusName(status)); });
+        require(client.menuItemMatches(owner, 912, "Chuyển sang Simple Telex 1", true, status == InputStatus::SimpleTelex1 ? 1 : 0), "Simple Telex 1 menu state");
+        require(client.menuItemMatches(owner, 913, "Chuyển sang Simple Telex 2", true, status == InputStatus::SimpleTelex2 ? 1 : 0), "Simple Telex 2 menu state");
+        require(client.pixels(owner) != telex && client.pixels(owner) != vni, "Simple Telex glyph must differ from Telex/VNI");
+    }
     tray.status = InputStatus::English;
     await([&] { return client.status(owner, "english"); });
     require(client.text(owner, "XAyatanaLabel").empty(), "Do not duplicate the glyph with an extra visible label");
@@ -347,6 +356,10 @@ int main(int argc, char** argv) {
     require(client.menuItemMatches(owner, 2000, "Thoát tray OpenKey (giữ bộ gõ)", true), "Invalid Quit menu");
     require(client.menuItemMatches(owner, 1001, "Cấu hình bộ gõ Fcitx5…", true), "Missing Fcitx settings menu");
     require(client.menuItemMatches(owner, 1000, "Cài đặt OpenKey…", true), "Missing OpenKey settings menu");
+    require(client.menuItemMatches(owner, 990, "Cấu hình gõ tắt…", true) &&
+            client.menuItemMatches(owner, 980, "Công cụ chuyển mã…", true) &&
+            client.menuItemMatches(owner, 1010, "Giới thiệu OpenKey", true), "Missing page navigation actions");
+    for (int id : {990, 980, 1010}) require(client.event(owner, id, "hovered") >= 0, "Page hover must be inert");
     require(client.menuItemMatches(owner, 3, "Wayland: hotkey riêng chưa hỗ trợ", false) &&
             client.menuItemMatches(owner, 4, "Đổi phím tắt trong cấu hình Fcitx5", false), "Missing readonly Wayland hotkey guidance");
     require(client.event(owner, 3, "clicked") >= 0 && client.event(owner, 4, "clicked") >= 0,
@@ -375,6 +388,12 @@ int main(int argc, char** argv) {
         openkey::actionLabel(openkey::ActionResult::SettingsUnavailable), false); });
     require(client.status(owner, "english") && !tray.quitRequested,
             "Missing UI must not change input status or stop tray");
+    for (int id : {990, 980, 1010}) {
+        require(client.event(owner, id, "clicked") >= 0, "Page action must acknowledge host");
+        await([&] { return client.menuItemMatches(owner, 2,
+            openkey::actionLabel(openkey::ActionResult::SettingsUnavailable), false); });
+        require(client.status(owner, "english") && !tray.quitRequested, "Page action must preserve IM and tray");
+    }
     require(client.event(owner, 2000, "opened") >= 0 &&
             client.event(owner, 2000, "hovered") >= 0 &&
             client.event(owner, 2000, "closed") >= 0, "Non-click menu events must be acknowledged");

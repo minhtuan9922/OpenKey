@@ -11,6 +11,23 @@ SettingsActivation::~SettingsActivation() {
         bus_.unregisterObject(path);
     }
 }
+const QStringList& SettingsActivation::pages() {
+    static const QStringList values{"overview", "spelling", "hotkeys", "compatibility",
+                                    "advanced", "macro", "convert", "about"};
+    return values;
+}
+void SettingsActivation::setWindow(QQuickWindow* window) {
+    window_ = window;
+    if (window_ && requestedPage_ >= 0) window_->setProperty("pageIndex", requestedPage_);
+}
+bool SettingsActivation::ShowPage(const QString& page) {
+    const auto index = pages().indexOf(page);
+    if (index < 0) return false;
+    requestedPage_ = index;
+    if (window_) window_->setProperty("pageIndex", requestedPage_);
+    Show();
+    return true;
+}
 SettingsActivation::Claim SettingsActivation::claim() {
     if (owns_ || !bus_.isConnected()) return Claim::Failed;
     // Object first; do not advertise a name without its handler. Never replace

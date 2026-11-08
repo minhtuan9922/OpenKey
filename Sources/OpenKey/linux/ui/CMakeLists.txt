@@ -8,11 +8,12 @@ endif()
 set(CMAKE_AUTOMOC ON)
 add_library(openkey_settings_model STATIC SettingsOverview.cpp SettingsOverview.h SettingsController.cpp SettingsController.h
     UiPreferences.cpp UiPreferences.h HotkeyOverview.cpp HotkeyOverview.h UiEnvironment.cpp UiEnvironment.h
-    TextConverter.cpp TextConverter.h AboutInfo.cpp AboutInfo.h ClipboardBridge.cpp ClipboardBridge.h)
+    TextConverter.cpp TextConverter.h AboutInfo.cpp AboutInfo.h ClipboardBridge.cpp ClipboardBridge.h
+    InputConfigBackup.cpp InputConfigBackup.h BackupFiles.cpp BackupFiles.h MacroModel.cpp MacroModel.h InputMethodController.cpp InputMethodController.h FileConversion.cpp FileConversion.h)
 target_compile_definitions(openkey_settings_model PRIVATE OPENKEY_UI_VERSION="${PROJECT_VERSION}")
 qt_add_resources(openkey_settings_model openkey_about PREFIX /openkey
     BASE "${PROJECT_SOURCE_DIR}" FILES "${PROJECT_SOURCE_DIR}/LICENSE")
-target_link_libraries(openkey_settings_model PUBLIC Qt6::Core Qt6::Gui Qt6::Network Qt6::DBus Qt6::Concurrent)
+target_link_libraries(openkey_settings_model PUBLIC Qt6::Core Qt6::Gui Qt6::Network Qt6::DBus Qt6::Concurrent openkey_engine)
 target_include_directories(openkey_settings_model PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(openkey_settings_model PRIVATE -Wall -Wextra -Wpedantic -Werror)
 qt_add_executable(openkey-settings main.cpp)
@@ -21,7 +22,8 @@ qt_add_qml_module(openkey-settings
     URI OpenKey.Settings VERSION 1.0 RESOURCE_PREFIX /qt/qml
     QML_FILES qml/Main.qml qml/UiPalette.qml qml/NavIcon.qml qml/NavButton.qml qml/InfoCard.qml qml/StyleSettings.qml qml/SettingsComboBox.qml
         qml/DiagnosticsSettings.qml qml/ConfigFeedback.qml qml/SettingsButton.qml qml/SpellingOption.qml qml/HotkeySettings.qml
-        qml/CompatibilitySettings.qml qml/ConversionSettings.qml qml/AboutSettings.qml qml/PreferencesBackup.qml qml/RuntimeStatus.qml)
+        qml/CompatibilitySettings.qml qml/ConversionSettings.qml qml/AboutSettings.qml qml/PreferencesBackup.qml qml/RuntimeStatus.qml
+        qml/TypingTest.qml qml/InputSettingsBackup.qml qml/LegacyConversion.qml qml/MacroSettings.qml qml/ApplicationSettings.qml qml/SettingsTextField.qml qml/SettingsTextArea.qml qml/InputMethodSettings.qml qml/FileConversionSettings.qml)
 target_link_libraries(openkey-settings PRIVATE Qt6::Quick Qt6::QuickControls2 openkey_settings_model)
 # Shared Qt loads distro QML plugins at runtime; their static CMake targets
 # are not necessarily shipped by the distro. Keep scanning for static Qt.
@@ -39,6 +41,31 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/org.openkey.Settings.desktop
     DESTINATION share/applications COMPONENT openkey_ui)
 if(OPENKEY_BUILD_SMOKE_TESTS)
     find_package(Qt6 6.4 REQUIRED COMPONENTS Test)
+    add_executable(openkey_file_conversion_tests ${PROJECT_SOURCE_DIR}/Tests/LinuxFileConversionTests.cpp)
+    target_link_libraries(openkey_file_conversion_tests PRIVATE openkey_settings_model Qt6::Test)
+    target_compile_definitions(openkey_file_conversion_tests PRIVATE OPENKEY_FILE_WORKER_BINARY="$<TARGET_FILE:openkey-settings>")
+    target_compile_options(openkey_file_conversion_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_dependencies(openkey_file_conversion_tests openkey-settings)
+    add_test(NAME openkey_file_conversion_tests COMMAND openkey_file_conversion_tests)
+    set_tests_properties(openkey_file_conversion_tests PROPERTIES TIMEOUT 30)
+    add_executable(openkey_input_method_controller_tests ${PROJECT_SOURCE_DIR}/Tests/LinuxInputMethodControllerTests.cpp)
+    target_link_libraries(openkey_input_method_controller_tests PRIVATE openkey_settings_model Qt6::Test)
+    target_compile_options(openkey_input_method_controller_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME openkey_input_method_controller_tests COMMAND openkey_input_method_controller_tests)
+    if(OPENKEY_BUILD_SERVICE)
+        target_compile_definitions(openkey_input_method_controller_tests PRIVATE OPENKEY_TEST_TRAY_BINARY="$<TARGET_FILE:openkey-service>")
+        add_dependencies(openkey_input_method_controller_tests openkey-service)
+    endif()
+    set_tests_properties(openkey_input_method_controller_tests PROPERTIES TIMEOUT 30)
+    add_executable(openkey_macro_model_tests ${PROJECT_SOURCE_DIR}/Tests/LinuxMacroModelTests.cpp)
+    target_link_libraries(openkey_macro_model_tests PRIVATE openkey_settings_model Qt6::Test)
+    target_compile_options(openkey_macro_model_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME openkey_macro_model_tests COMMAND openkey_macro_model_tests)
+    add_executable(openkey_backup_files_tests ${PROJECT_SOURCE_DIR}/Tests/LinuxBackupFilesTests.cpp)
+    target_link_libraries(openkey_backup_files_tests PRIVATE openkey_settings_model Qt6::Test)
+    target_compile_options(openkey_backup_files_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME openkey_backup_files_tests COMMAND openkey_backup_files_tests)
+    set_tests_properties(openkey_backup_files_tests PROPERTIES TIMEOUT 10)
     add_executable(openkey_clipboard_bridge_tests ${PROJECT_SOURCE_DIR}/Tests/LinuxClipboardBridgeTests.cpp)
     target_link_libraries(openkey_clipboard_bridge_tests PRIVATE openkey_settings_model Qt6::Test)
     target_compile_options(openkey_clipboard_bridge_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
@@ -78,6 +105,10 @@ if(OPENKEY_BUILD_SMOKE_TESTS)
     target_link_libraries(openkey_settings_activation_tests PRIVATE Qt6::Quick Qt6::DBus Qt6::Test)
     target_include_directories(openkey_settings_activation_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_compile_definitions(openkey_settings_activation_tests PRIVATE OPENKEY_SETTINGS_BINARY="$<TARGET_FILE:openkey-settings>")
+    if(OPENKEY_BUILD_SERVICE)
+        target_compile_definitions(openkey_settings_activation_tests PRIVATE OPENKEY_ACTIVATION_TRAY_BINARY="$<TARGET_FILE:openkey-service>")
+        add_dependencies(openkey_settings_activation_tests openkey-service)
+    endif()
     target_compile_options(openkey_settings_activation_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
     add_dependencies(openkey_settings_activation_tests openkey-settings)
     set_target_properties(openkey_settings_activation_tests PROPERTIES QT_QML_MODULE_NO_IMPORT_SCAN TRUE)
@@ -107,8 +138,8 @@ if(OPENKEY_BUILD_SMOKE_TESTS)
     add_test(NAME openkey_settings_hidpi_tests COMMAND openkey_settings_tests)
     set_tests_properties(openkey_settings_tests openkey_settings_resource_smoke PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QT_IM_MODULE=compose"
-        TIMEOUT 30)
+        TIMEOUT 60)
     set_tests_properties(openkey_settings_hidpi_tests PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QUICK_BACKEND=software;QT_IM_MODULE=compose;QT_SCALE_FACTOR=2"
-        TIMEOUT 30)
+        TIMEOUT 60)
 endif()

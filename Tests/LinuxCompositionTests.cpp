@@ -50,6 +50,43 @@ int main() {
         type(quick, std::string(input) + "a");
         require(quick.text() == std::string(output) + "a");
     }
+    for (int mode : {vSimpleTelex1, vSimpleTelex2}) {
+        openkey::Composition simple(mode, {true, true, true});
+        type(simple, "tieengs");
+        require(simple.text() == "tiếng");
+        require(simple.backspace() && simple.text() == "tiến");
+        type(simple, "g");
+        require(simple.text() == "tiếng");
+        simple.clear();
+        type(simple, "w");
+        require(simple.text() == (mode == vSimpleTelex1 ? "w" : "ư"));
+        simple.clear();
+        type(simple, "cc");
+        require(simple.text() == "cc"); // Quick Telex is exclusive to full Telex.
+        simple.clear();
+        type(simple, "DDUOWNGF");
+        require(simple.text() == "ĐƯỜNG");
+    }
+    {
+        for (const auto& test : {std::pair{"fanh", "phanh"}, {"jang", "giang"}}) {
+            openkey::Composition word(vTelex, {true, true, false, false, false, true});
+            type(word, test.first);
+            const auto draft = word.text();
+            require(word.finishedText() == test.second && word.text() == draft);
+            require(word.finishedText() == test.second);
+        }
+        for (const auto& test : {std::pair{"hag", "hang"}, {"vih", "vinh"}, {"bak", "bach"}}) {
+            openkey::Composition word(vTelex, {true, true, false, false, false, false, true});
+            type(word, test.first);
+            require(word.finishedText() == test.second && word.text() == test.first);
+        }
+        openkey::Composition restore(vTelex, {true, true, false, false, false, false, false, true});
+        type(restore, "tieengz");
+        require(restore.text() == "tiêngz" && restore.finishedText() == "tieengz");
+        openkey::Composition extended(vTelex, {true, true, false, false, true});
+        type(extended, "zaf");
+        require(extended.text() == "zà");
+    }
     openkey::Composition telex;
     type(telex, "tieengs");
     require(telex.text() == "tiếng");

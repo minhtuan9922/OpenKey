@@ -267,6 +267,68 @@ int main(int argc, char** args) {
     require(addon, "Engine missing");
     fcitx::InputMethodEntry telex("openkey-telex", "Telex", "vi", "openkey");
     fcitx::InputMethodEntry vni("openkey-vni", "VNI", "vi", "openkey");
+    for (const auto* name : {"openkey-simple-telex1", "openkey-simple-telex2"}) {
+        fcitx::InputMethodEntry simple(name, "Simple Telex", "vi", "openkey");
+        for (const auto* mode : {"Direct", "NativeDirect"}) {
+            style(*addon, mode);
+            Editor editor(instance.inputContextManager());
+            activate(*addon, simple, editor);
+            type(*addon, simple, editor, "tieengs");
+            require(editor.text() == "tiếng", "Simple Telex Direct transformation");
+            press(*addon, simple, editor, fcitx::Key(FcitxKey_BackSpace));
+            require(editor.text() == "tiến", "Simple Telex Direct Backspace");
+            type(*addon, simple, editor, "g");
+            press(*addon, simple, editor, fcitx::Key(FcitxKey_space));
+            require(editor.text() == "tiếng ", "Simple Telex Direct boundary");
+        }
+    }
+    style(*addon, "Direct");
+    fcitx::RawConfig beforeAdvancedTests;
+    addon->getConfig()->save(beforeAdvancedTests);
+    for (const auto* option : {"QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling"}) {
+        fcitx::RawConfig options;
+        for (const auto* field : {"QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling"}) options.setValueByPath(field, std::string(field) == option ? "True" : "False");
+        addon->setConfig(options);
+        const std::string input = std::string(option) == "QuickStartConsonant" ? "fanh" : std::string(option) == "QuickEndConsonant" ? "hag" : "tieengz";
+        const std::string expected = std::string(option) == "QuickStartConsonant" ? "phanh" : std::string(option) == "QuickEndConsonant" ? "hang" : "tieengz";
+        for (const auto* mode : {"Direct", "NativeDirect"}) {
+            style(*addon, mode);
+            Editor editor(instance.inputContextManager()); activate(*addon, telex, editor);
+            type(*addon, telex, editor, input);
+            press(*addon, telex, editor, fcitx::Key(FcitxKey_space));
+            require(editor.text() == expected + " ", "Advanced Direct boundary conversion");
+            require(editor.nonemptyPreedits == 0 && editor.synthesized == 0, "Advanced Direct used preedit/forward key");
+        }
+    }
+    addon->setConfig(beforeAdvancedTests);
+    fcitx::RawConfig beforeMacroTests;
+    addon->getConfig()->save(beforeMacroTests);
+    fcitx::RawConfig macroConfig;
+    macroConfig.setValueByPath("MacrosEnabled", "True");
+    macroConfig.setValueByPath("MacroTable", "766e:5669e1bb8774204e616d;");
+    addon->setConfig(macroConfig);
+    for (const auto* mode : {"Direct", "NativeDirect"}) {
+        style(*addon, mode);
+        Editor macroEditor(instance.inputContextManager());
+        activate(*addon, telex, macroEditor);
+        type(*addon, telex, macroEditor, "vn");
+        require(!press(*addon, telex, macroEditor, fcitx::Key(FcitxKey_space)), "Direct macro swallowed space");
+        require(macroEditor.text() == "Việt Nam ", "Confirmed Direct macro failed");
+        require(macroEditor.synthesized == 0 && macroEditor.nonemptyPreedits == 0, "Direct macro used preedit/forward key");
+        Editor staleMacro(instance.inputContextManager());
+        activate(*addon, telex, staleMacro);
+        type(*addon, telex, staleMacro, "vn");
+        staleMacro.document = U"other";
+        staleMacro.cursor = staleMacro.anchor = 5;
+        staleMacro.report();
+        press(*addon, telex, staleMacro, fcitx::Key(FcitxKey_space));
+        require(staleMacro.text() == "other ", "Macro rewrote an unrelated document");
+    }
+    fcitx::RawConfig disableMacros;
+    disableMacros.setValueByPath("MacrosEnabled", "False");
+    addon->setConfig(disableMacros);
+    style(*addon, "Direct");
+    addon->setConfig(beforeMacroTests);
     const openkey::Snapshot typedGo{U"go", 2, 2};
     require(openkey::selectedUrlCompletion(typedGo, {U"google", 2, 6}), "URL completion shape rejected");
     for (const auto& invalid : {openkey::Snapshot{U"google", 6, 2},

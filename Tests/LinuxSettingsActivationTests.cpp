@@ -49,6 +49,7 @@ class ControllerProbe : public QDBusVirtualObject {
 public:
     int reads = 0;
     int hotkeyReads = 0;
+    int inputMethodReads = 0;
     QStringList unexpected;
 
     QString introspect(const QString&) const override {
@@ -70,6 +71,8 @@ public:
         else if (message.member() == QStringLiteral("GetConfig") &&
                  message.arguments() == QVariantList{QStringLiteral("fcitx://config/global")})
             ++hotkeyReads;
+        else if (message.member() == "CurrentInputMethodGroup" && message.arguments().isEmpty())
+            ++inputMethodReads;
         else
             unexpected.append(message.member());
         bus.send(message.createErrorReply(QDBusError::Failed,
@@ -77,6 +80,19 @@ public:
         return true;
     }
 };
+#ifdef OPENKEY_ACTIVATION_TRAY_BINARY
+class WatcherProbe : public QDBusVirtualObject {
+public:
+    QString owner;
+    QString introspect(const QString&) const override { return {}; }
+    bool handleMessage(const QDBusMessage& message, const QDBusConnection& bus) override {
+        if (message.member() != "RegisterStatusNotifierItem") return false;
+        owner = message.service();
+        bus.send(message.createReply());
+        return true;
+    }
+};
+#endif
 }
 
 class LinuxSettingsActivationTests : public QObject {
@@ -191,6 +207,97 @@ private slots:
         QCOMPARE(requested.count(), 3);
     }
 
+    void pageNavigationPreservesWindowAndRejectsUnknownPages() {
+        SettingsActivation activation(*bus_);
+        QSignalSpy requested(&activation, &SettingsActivation::showRequested);
+        QVERIFY(activation.ShowPage("macro")); // Queue before the QML window exists.
+        QQuickWindow window;
+        activation.setWindow(&window);
+        QCOMPARE(window.property("pageIndex").toInt(), 5);
+        for (const auto& page : SettingsActivation::pages()) {
+            window.hide();
+            QVERIFY(activation.ShowPage(page));
+            QCOMPARE(window.property("pageIndex").toInt(), SettingsActivation::pages().indexOf(page));
+            QTRY_VERIFY(window.isVisible());
+        }
+        window.hide();
+        const int count = requested.count();
+        for (const auto& page : {QString(), QString("Macro"), QString("../macro"), QString("https://example.com")})
+            QVERIFY(!activation.ShowPage(page));
+        QCOMPARE(requested.count(), count);
+        QVERIFY(!window.isVisible());
+        QCOMPARE(window.property("pageIndex").toInt(), 7);
+        activation.Show();
+        QCOMPARE(window.property("pageIndex").toInt(), 7); // Ordinary Show keeps the user's page.
+    }
+
+    void pageNavigationIsExportedOnBus() {
+        SettingsActivation activation(*bus_);
+        QQuickWindow window;
+        activation.setWindow(&window);
+        QCOMPARE(activation.claim(), SettingsActivation::Claim::Primary);
+        for (const auto& page : {QString("macro"), QString("convert"), QString("about"), QString("invalid")}) {
+            auto message = QDBusMessage::createMethodCall(owner(), path, interface, "ShowPage");
+            message << page;
+            QDBusPendingCallWatcher reply(bus_->asyncCall(message));
+            QTRY_VERIFY(reply.isFinished());
+            QVERIFY2(!reply.isError(), qPrintable(reply.error().message()));
+            QCOMPARE(reply.reply().signature(), QString("b"));
+            QCOMPARE(reply.reply().arguments().first().toBool(), page != "invalid");
+            if (page != "invalid")
+                QCOMPARE(window.property("pageIndex").toInt(), SettingsActivation::pages().indexOf(page));
+        }
+    }
+
+#ifdef OPENKEY_ACTIVATION_TRAY_BINARY
+    void trayPageEventsNavigateTheExistingWindow() {
+        // Keep the fixture's Unix socket below sockaddr_un's path limit even
+        // when the test runner's TMPDIR and application name are long.
+        QTemporaryDir runtime(QStringLiteral("/tmp/openkey-page-XXXXXX"));
+        QVERIFY(runtime.isValid());
+        WatcherProbe watcher;
+        QVERIFY(bus_->registerVirtualObject("/StatusNotifierWatcher", &watcher));
+        QVERIFY(bus_->registerService("org.kde.StatusNotifierWatcher"));
+        SettingsActivation activation(*bus_);
+        QQuickWindow window;
+        window.setProperty("pageIndex", 0);
+        activation.setWindow(&window);
+        QCOMPARE(activation.claim(), SettingsActivation::Claim::Primary);
+        QSignalSpy requested(&activation, &SettingsActivation::showRequested);
+        struct ServiceProcess : QProcess {
+            ~ServiceProcess() { if (state() != NotRunning) { kill(); waitForFinished(5000); } }
+        } process;
+        auto environment = environment_;
+        environment.insert("XDG_SESSION_TYPE", "wayland");
+        environment.insert("XDG_RUNTIME_DIR", runtime.path());
+        process.setProcessEnvironment(environment);
+        process.setProcessChannelMode(QProcess::MergedChannels);
+        process.start(OPENKEY_ACTIVATION_TRAY_BINARY, {"--run-tray"});
+        QVERIFY(process.waitForStarted());
+        QTRY_VERIFY_WITH_TIMEOUT(!watcher.owner.isEmpty() || process.state() == QProcess::NotRunning, 5000);
+        QVERIFY2(!watcher.owner.isEmpty(), process.readAll().constData());
+        for (const auto& command : {qMakePair(990, 5), qMakePair(980, 6), qMakePair(1010, 7)}) {
+            auto event = QDBusMessage::createMethodCall(watcher.owner, "/Menu", "com.canonical.dbusmenu", "Event");
+            event.setArguments({command.first, "hovered", QVariant::fromValue(QDBusVariant(0)), uint(0)});
+            QDBusPendingCallWatcher hover(bus_->asyncCall(event));
+            QTRY_VERIFY(hover.isFinished());
+            QVERIFY(!hover.isError());
+            QCOMPARE(requested.count(), command.second - 5);
+            window.hide();
+            event.setArguments({command.first, "clicked", QVariant::fromValue(QDBusVariant(0)), uint(0)});
+            QDBusPendingCallWatcher clicked(bus_->asyncCall(event));
+            QTRY_VERIFY(clicked.isFinished());
+            QVERIFY(!clicked.isError());
+            QTRY_COMPARE(window.property("pageIndex").toInt(), command.second);
+            QTRY_COMPARE(requested.count(), command.second - 4);
+            QVERIFY(window.isVisible());
+        }
+        QCOMPARE(owner(), bus_->baseService()); // No second settings window or owner.
+        bus_->unregisterService("org.kde.StatusNotifierWatcher");
+        bus_->unregisterObject("/StatusNotifierWatcher");
+    }
+#endif
+
     void primaryExportsShowAndReleasesClaim() {
         {
             SettingsActivation activation(*bus_);
@@ -264,6 +371,7 @@ private slots:
         QCOMPARE(qint64(originalPid.value()), first->processId());
         QTRY_VERIFY_WITH_TIMEOUT(controller.reads > 0, 5000);
         QTRY_VERIFY_WITH_TIMEOUT(controller.hotkeyReads > 0, 5000);
+        QTRY_VERIFY_WITH_TIMEOUT(controller.inputMethodReads > 0, 5000);
 
         // Also exercise the Forwarded enum against an owner in another process.
         {

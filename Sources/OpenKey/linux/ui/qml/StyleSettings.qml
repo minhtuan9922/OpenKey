@@ -49,6 +49,7 @@ Pane {
             color: card.uiPalette.text
         }
         Label {
+            objectName: "inputStyleRuntimeLabel"
             text: card.runtimeStyle.length > 0 ?
                 "Runtime: " + card.styleLabel(card.runtimeStyle) :
                 "Runtime: chưa xác định"

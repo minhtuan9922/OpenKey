@@ -24,6 +24,11 @@ ColumnLayout {
         linuxfb: "linuxfb — backend Qt framebuffer"
     })[environment.platformName] || "Chưa xác định"
     spacing: uiPalette.sectionSpacing
+    TypingTest {
+        visible: page.showDetails
+        Layout.fillWidth: true
+        uiPalette: page.uiPalette
+    }
     InfoCard {
         objectName: "compatibilityEnvironmentCard"
         visible: page.showDetails
@@ -67,6 +72,6 @@ ColumnLayout {
         uiPalette: page.uiPalette
         heading: "Phạm vi áp dụng và kiểm thử"
         badge: "Tích hợp một phần"
-        description: "Chế độ gõ áp dụng chung cho Telex/VNI và mọi ứng dụng, không phải cấu hình riêng từng app. Chỉ nhấn Áp dụng khi đã gõ xong từ; không tự chuyển EN/VI hoặc restart Fcitx5.\n\nSau khi đổi, thử đặt dấu, Backspace, xóa Space để sửa tiếp, gợi ý code, Tab/Enter nhận completion, undo/redo và đổi focus. Trong code cần nguyên trạng, chuyển English theo phím/menu Fcitx5. Danh sách ứng dụng, tự nhận diện backend ứng dụng và quy tắc theo app chưa tích hợp."
+        description: "Chế độ chung áp dụng cho Telex/VNI/Simple Telex. Quy tắc theo ứng dụng bên dưới có thể ghi đè khi program ID khớp chính xác. Chỉ nhấn Áp dụng khi đã gõ xong từ; không tự chuyển EN/VI hoặc restart Fcitx5.\n\nSau khi đổi, thử đặt dấu, Backspace, xóa Space để sửa tiếp, gợi ý code, Tab/Enter nhận completion, undo/redo và đổi focus. Trong code cần nguyên trạng, chuyển English theo phím/menu Fcitx5. Không tự nhận diện backend hoặc suy đoán app từ gnome-shell."
     }
 }

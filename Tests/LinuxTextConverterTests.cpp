@@ -94,6 +94,80 @@ QString units(std::initializer_list<ushort> values) {
 class LinuxTextConverterTests : public QObject {
     Q_OBJECT
 private slots:
+    void legacyConversion_data() {
+        QTest::addColumn<QString>("source");
+        QTest::addColumn<QString>("target");
+        QTest::addColumn<QString>("input");
+        QTest::addColumn<QString>("expected");
+        QTest::newRow("unicode-identity") << QString("unicode") << QString("unicode") << QString::fromUtf8("Tiếng VIỆT 😀") << QString::fromUtf8("Tiếng VIỆT 😀");
+        QTest::newRow("vni-decode") << QString("vni") << QString("unicode") << QString::fromUtf8("tieáng vieät") << QString::fromUtf8("tiếng việt");
+        QTest::newRow("vni-encode") << QString("unicode") << QString("vni") << QString::fromUtf8("tiếng việt") << QString::fromUtf8("tieáng vieät");
+        QTest::newRow("tcvn3-decode") << QString("tcvn3") << QString("unicode") << QString::fromUtf8("tiÕng viÖt") << QString::fromUtf8("tiếng việt");
+        QTest::newRow("tcvn3-encode") << QString("unicode") << QString("tcvn3") << QString::fromUtf8("tiếng việt") << QString::fromUtf8("tiÕng viÖt");
+        const auto composed = QString::fromUtf8("Đắk Lắk 😀");
+        QTest::newRow("nfd-encode") << QString("unicode") << QString("compound") << composed << composed.normalized(QString::NormalizationForm_D);
+        QTest::newRow("nfd-decode") << QString("compound") << QString("unicode") << composed.normalized(QString::NormalizationForm_D) << composed;
+    }
+    void legacyConversion() {
+        QFETCH(QString, source); QFETCH(QString, target); QFETCH(QString, input); QFETCH(QString, expected);
+        TextConverter converter;
+        converter.convertLegacy(input, source, target);
+        QTRY_VERIFY(!converter.busy());
+        QCOMPARE(converter.state(), QString("converted"));
+        QCOMPARE(converter.result(), expected);
+    }
+    void legacyAllEncodingsAndConcurrency() {
+        for (const auto& code : QStringList{"vni", "cp1258", "compound"}) {
+            TextConverter encode, decode;
+            const auto input = QString::fromUtf8("tiếng việt 😀\nAbC");
+            encode.convertLegacy(input, "unicode", code);
+            QTRY_VERIFY(!encode.busy());
+            QCOMPARE(encode.state(), QString("converted"));
+            decode.convertLegacy(encode.result(), code, "unicode");
+            QTRY_VERIFY(!decode.busy());
+            QCOMPARE(decode.result(), input);
+        }
+        TextConverter first, second;
+        first.convertLegacy(QString::fromUtf8("tieáng vieät"), "vni", "unicode");
+        second.convertLegacy(QString::fromUtf8("tiếng việt"), "unicode", "tcvn3");
+        QTRY_VERIFY(!first.busy() && !second.busy());
+        QCOMPARE(first.result(), QString::fromUtf8("tiếng việt"));
+        QCOMPARE(second.result(), QString::fromUtf8("tiÕng viÖt"));
+        first.convertLegacy("test", "invalid", "unicode");
+        QCOMPARE(first.state(), QString("invalid"));
+        QVERIFY(first.result().isEmpty());
+        second.convertLegacy(QString(65537, 'a'), "unicode", "vni");
+        QCOMPARE(second.state(), QString("too-large"));
+        first.convertLegacy(QString(QChar(0)), "unicode", "vni");
+        QCOMPARE(first.state(), QString("invalid"));
+    }
+    void cancelLegacyConversion() {
+        PoolGate gate;
+        QTRY_VERIFY(gate.started());
+        TextConverter converter;
+        converter.convertLegacy(QString::fromUtf8("tiếng việt"), "unicode", "vni");
+        QVERIFY(converter.busy());
+        converter.cancel();
+        QCOMPARE(converter.state(), QString("cancelled"));
+        gate.release();
+        QTRY_VERIFY(!converter.busy());
+        QCOMPARE(converter.state(), QString("cancelled"));
+        QVERIFY(converter.result().isEmpty());
+    }
+    void legacyVietnameseCoverage() {
+        const auto lower = QString::fromUtf8("aàáảãạăằắẳẵặâầấẩẫậeèéẻẽẹêềếểễệiìíỉĩịoòóỏõọôồốổỗộơờớởỡợuùúủũụưừứửữựyỳýỷỹỵđ");
+        for (const auto& code : QStringList{"vni", "cp1258", "compound", "tcvn3"}) {
+            const auto input = code == "tcvn3" ? lower : lower + " " + lower.toUpper();
+            TextConverter encode, decode;
+            encode.convertLegacy(input, "unicode", code);
+            QTRY_VERIFY(!encode.busy());
+            QCOMPARE(encode.state(), QString("converted"));
+            decode.convertLegacy(encode.result(), code, "unicode");
+            QTRY_VERIFY(!decode.busy());
+            QCOMPARE(decode.state(), QString("converted"));
+            QCOMPARE(decode.result(), input);
+        }
+    }
     void initialPropertiesAndInvokables() {
         QObject parent;
         TextConverter converter(&parent);

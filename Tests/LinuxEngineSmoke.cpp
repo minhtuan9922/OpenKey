@@ -27,6 +27,8 @@ int main() {
     if (!expectEqual(convertUtil(sample), sample, "Unicode round-trip")) {
         return 1;
     }
+    if (!expectEqual(convertUtil("Tiếng VIỆT 😀"), "Tiếng VIỆT 😀", "Default conversion preserves case")) return 1;
+    if (!expectEqual(convertUtil(std::string("a\0b", 3)), std::string("a\0b", 3), "Embedded NUL range")) return 1;
 
     convertToolFromCode = 0;
     convertToolToCode = 2;

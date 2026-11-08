@@ -9,17 +9,26 @@ Pane {
     required property string heading
     required property string description
     property var controller: null
-    readonly property string prefix: settingKey === "QuickTelex" ? "quickTelex" :
-        settingKey === "CheckSpelling" ? "checkSpelling" : "modernOrthography"
+    readonly property string prefix: settingKey === "MacrosEnabled" ? "macrosEnabled" : settingKey === "QuickTelex" ? "quickTelex" :
+        settingKey === "CheckSpelling" ? "checkSpelling" : settingKey === "UseModernOrthography" ? "modernOrthography" : settingKey.charAt(0).toLowerCase() + settingKey.slice(1)
     objectName: prefix + "Settings"
     readonly property bool ready: controller !== null && controller.ready
     readonly property bool busy: controller !== null && controller.busy
-    readonly property bool supported: controller !== null &&
-        (settingKey === "QuickTelex" ? controller.quickTelexSupported : controller.spellingSupported)
+    readonly property bool supported: settingSupported()
+    function settingSupported() {
+        if (controller === null) return false
+        if (settingKey === "MacrosEnabled") return controller.macrosSupported
+        if (settingKey === "QuickTelex") return controller.quickTelexSupported
+        if (settingKey === "CheckSpelling" || settingKey === "UseModernOrthography") return controller.spellingSupported
+        return controller.runtimeAdvanced[settingKey] !== undefined
+    }
     function runtimeValue() {
         if (controller === null) return ""
+        if (settingKey === "MacrosEnabled") return controller.runtimeMacrosEnabled
         if (settingKey === "QuickTelex") return controller.runtimeQuickTelex
-        return settingKey === "CheckSpelling" ? controller.runtimeCheckSpelling : controller.runtimeModernOrthography
+        if (settingKey === "CheckSpelling") return controller.runtimeCheckSpelling
+        if (settingKey === "UseModernOrthography") return controller.runtimeModernOrthography
+        return controller.runtimeAdvanced[settingKey] || ""
     }
     readonly property string value: runtimeValue()
     ConfigFeedback { id: feedback; result: card.controller !== null ? card.controller.result : "offline" }
@@ -28,7 +37,7 @@ Pane {
         // Read the controller directly: the changed signal can arrive before
         // QML has reevaluated the derived ready/supported bindings.
         if (controller !== null && controller.ready &&
-            (settingKey === "QuickTelex" ? controller.quickTelexSupported : controller.spellingSupported))
+            settingSupported())
             picker.currentIndex = runtimeValue() === "True" ? 1 : 0
         else if (controller === null || !controller.busy)
             picker.currentIndex = -1
@@ -93,9 +102,11 @@ Pane {
                     (picker.currentIndex === 1 ? "True" : "False") !== card.value
                 onClicked: {
                     const target = picker.currentIndex === 1 ? "True" : "False"
-                    if (card.settingKey === "CheckSpelling") card.controller.applySpelling(target)
+                    if (card.settingKey === "MacrosEnabled") card.controller.applyMacrosEnabled(target)
+                    else if (card.settingKey === "CheckSpelling") card.controller.applySpelling(target)
                     else if (card.settingKey === "UseModernOrthography") card.controller.applyModernOrthography(target)
                     else if (card.settingKey === "QuickTelex") card.controller.applyQuickTelex(target)
+                    else card.controller.applyAdvanced(card.settingKey, target)
                 }
             }
             SettingsButton {
@@ -111,7 +122,9 @@ Pane {
             Layout.fillWidth: true
             text: card.ready && !card.supported ? (card.settingKey === "QuickTelex" ?
                 "Addon đang chạy chưa hỗ trợ Gõ nhanh Telex. Cần alpha.11 hoặc schema QuickTelex tương thích; tùy chọn này bị khóa." :
-                "Addon đang chạy chưa có schema chính tả tương thích. Cần alpha.10 hoặc bản mới hỗ trợ hai khóa; các điều khiển này bị khóa.") : feedback.text
+                card.settingKey === "CheckSpelling" || card.settingKey === "UseModernOrthography" ?
+                "Addon đang chạy chưa có schema chính tả tương thích. Cần alpha.10 hoặc bản mới hỗ trợ hai khóa; các điều khiển này bị khóa." :
+                "Addon đang chạy chưa hỗ trợ tùy chọn này. Cài alpha.50 hoặc bản mới có schema tương thích, rồi nạp lại addon để sử dụng.") : feedback.text
             wrapMode: Text.Wrap
             textFormat: Text.PlainText
             color: card.uiPalette.muted

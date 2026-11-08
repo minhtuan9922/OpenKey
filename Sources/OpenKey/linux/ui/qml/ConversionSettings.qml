@@ -42,7 +42,7 @@ Pane {
         }
         Label {
             Layout.fillWidth: true
-            text: "Nhập hoặc dán văn bản, chọn tùy chọn rồi nhấn Chuyển đổi. Xử lý trong bộ nhớ, không tự đọc/ghi clipboard, file hoặc tài liệu đang mở. VNI/TCVN3 và chuyển mã nhanh toàn hệ thống chưa hỗ trợ."
+            text: "Nhập hoặc dán văn bản, chọn tùy chọn rồi nhấn Chuyển đổi. Xử lý trong bộ nhớ; clipboard chỉ dùng khi bấm nút. Chuyển file và bảng mã VNI/TCVN3/CP1258 có ở các mục bên dưới. Chuyển mã nhanh toàn hệ thống chưa hỗ trợ."
             wrapMode: Text.Wrap
             color: page.uiPalette.muted
             font.pixelSize: page.uiPalette.bodySize

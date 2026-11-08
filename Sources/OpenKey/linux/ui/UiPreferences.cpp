@@ -80,6 +80,9 @@ QString UiPreferences::backupJson(const QString& theme, bool sidebarExpanded) co
         {"sidebarExpanded", sidebarExpanded}}).toJson(QJsonDocument::Compact));
 }
 QVariantMap UiPreferences::inspectBackup(const QString& json) const {
+    return inspectBackupJson(json);
+}
+QVariantMap UiPreferences::inspectBackupJson(const QString& json) {
     const auto backup = parseBackup(json);
     if (backup.status != "ready") return {{"ok", false}, {"status", backup.status}};
     return {{"ok", true}, {"status", "ready"}, {"theme", backup.theme},

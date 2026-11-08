@@ -17,17 +17,41 @@ ApplicationWindow {
     property var overviewModel: null
     property var configController: null
     property var hotkeyOverview: null
+    property var inputMethodController: null
     property var uiEnvironment: ({})
     property var textConverter: null
+    property var fileConversion: null
+    property var legacyConverter: null
+    property var macroModel: null
+    property var applicationRulesModel: null
     property var aboutInfo: null
     property var clipboardBridge: null
     property var uiPreferences: null
+    property var backupFiles: null
+    // Returning from Fcitx's configuration dialog must refresh the runtime
+    // picker, not leave the initial snapshot on screen. Reads never Apply.
+    function synchronizeRuntime() {
+        if (inputMethodController !== null && !inputMethodController.busy) inputMethodController.reload()
+        if (configController === null || configController.busy) return
+        configController.reload()
+        if (overviewModel !== null) overviewModel.refresh()
+    }
+    onActiveChanged: {
+        if (active && configController !== null) activationRefresh.restart()
+        else activationRefresh.stop()
+    }
+    Timer {
+        id: activationRefresh
+        interval: 150
+        onTriggered: root.synchronizeRuntime()
+    }
     readonly property string sampledInput: overviewModel ? overviewModel.inputStatus : "unknown"
     readonly property string serviceState: overviewModel ? overviewModel.serviceState : "disabled"
     readonly property string savedStyle: overviewModel ? overviewModel.inputStyle : "unknown"
     readonly property string configState: overviewModel ? overviewModel.configState : "not-read"
     readonly property string diagnostics: overviewModel ? overviewModel.diagnostics : "unknown"
     readonly property string inputLabel: ({telex: "OpenKey Telex", vni: "OpenKey VNI",
+        "simple-telex1": "OpenKey Simple Telex 1", "simple-telex2": "OpenKey Simple Telex 2",
         english: "Tiếng Anh (US)", inactive: "Fcitx5 chưa kích hoạt", other: "Bộ gõ khác",
         unknown: "Chưa xác định", unavailable: "Không đọc được trạng thái Fcitx5"})[sampledInput] || "Chưa xác định"
     readonly property string configLabel: configState === "read" ? "Đã đọc file người dùng" :
@@ -50,12 +74,12 @@ ApplicationWindow {
     ]
     readonly property var descriptions: [
         "",
-        "Kiểm tra chính tả, đặt dấu kiểu mới và Gõ nhanh Telex được kết nối khi addon hỗ trợ schema. Các tùy chọn phụ âm đầu/cuối và khôi phục từ sai chưa tích hợp.",
-        "Hiển thị phím tắt runtime của Fcitx5, chỉ đọc. Không đăng ký hoặc thay đổi phím tắt hệ thống từ cửa sổ này.",
-        "Môi trường cửa sổ OpenKey, chế độ gõ chung và hướng dẫn tương thích. Chính sách riêng theo ứng dụng chưa tích hợp.",
-        "Chẩn đoán Direct đã hỗ trợ đọc và áp dụng qua Fcitx5. Các tùy chọn nâng cao khác chưa tích hợp.",
-        "Trình quản lý gõ tắt chưa tích hợp. Chưa hỗ trợ thêm, sửa, xóa hoặc nhập bảng gõ tắt từ giao diện này.",
-        "Công cụ Unicode thủ công: chuẩn hóa, đổi hoa/thường và bỏ dấu tiếng Việt. Chưa hỗ trợ VNI/TCVN3 hoặc tự chuyển clipboard.",
+        "Kiểm tra chính tả, đặt dấu kiểu mới và Gõ nhanh Telex được kết nối khi addon hỗ trợ schema. Có tùy chọn phụ âm đầu/cuối và khôi phục từ sai tại boundary.",
+        "Đọc, sửa một hành động phím tắt Fcitx5 và sao lưu JSON. Không đăng ký phím tắt toàn hệ thống.",
+        "Môi trường cửa sổ OpenKey, chế độ gõ chung và hướng dẫn tương thích. Quy tắc riêng dùng program ID chính xác do frontend cung cấp.",
+        "Chẩn đoán Direct đã hỗ trợ đọc và áp dụng qua Fcitx5. Có thêm đặt dấu tự do và phụ âm mở rộng Z F W J.",
+        "Quản lý bản nháp gõ tắt, nhập/xuất JSON và áp dụng qua API Fcitx5.",
+        "Chuyển đổi thủ công: Unicode, VNI Windows, TCVN3 và CP1258. Không tự nhận diện bảng mã hoặc tự chuyển clipboard.",
         "OpenKey cho Ubuntu — nền tảng giao diện v0.4 đang phát triển, chưa phải bản phát hành hoàn chỉnh.\n\nGiao diện Qt Quick/QML lấy bố cục điều hướng từ phiên bản Windows. Bộ gõ Fcitx5 và dịch vụ tray vẫn hoạt động độc lập."
     ]
     function selectPage(index) {
@@ -257,6 +281,13 @@ ApplicationWindow {
                         badge: "Bản xem trước"
                         description: "Trang Tổng quan đọc trạng thái và cấu hình đã lưu. Bạn có thể đổi chế độ gõ qua Fcitx5; trang Nâng cao có chẩn đoán Direct, trang Chính tả có hai quy tắc đặt dấu khi addon hỗ trợ. Giao diện không tự khởi động daemon."
                     }
+                    InputMethodSettings {
+                        visible: root.pageIndex === 0
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        controller: root.inputMethodController
+                        fileAccess: root.backupFiles
+                    }
                     CompatibilitySettings {
                         visible: root.pageIndex === 0 || root.pageIndex === 3
                         Layout.fillWidth: true
@@ -314,19 +345,27 @@ ApplicationWindow {
                         badge: "Tích hợp một phần"
                         description: "Fcitx5 và icon tray hoạt động độc lập. Đóng cửa sổ không dừng bộ gõ. Nút Áp dụng gửi đúng một thiết lập qua Fcitx5 rồi đọc lại runtime. Các trang chưa có backend được ghi rõ."
                     }
-                    InfoCard {
+                    ApplicationSettings {
+                        visible: root.pageIndex === 3
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        controller: root.configController
+                        rulesModel: root.applicationRulesModel
+                    }
+                    MacroSettings {
                         visible: root.pageIndex === 5
                         Layout.fillWidth: true
                         uiPalette: ui
-                        heading: root.pages[root.pageIndex].label
-                        description: root.descriptions[root.pageIndex]
-                        badge: root.pageIndex === 7 ? "UI preview" : "Chưa tích hợp"
+                        controller: root.configController
+                        macroDraft: root.macroModel
+                        fileAccess: root.backupFiles
                     }
                     HotkeySettings {
                         visible: root.pageIndex === 2
                         Layout.fillWidth: true
                         uiPalette: ui
                         overview: root.hotkeyOverview
+                        fileAccess: root.backupFiles
                     }
                     AboutSettings {
                         visible: root.pageIndex === 7
@@ -341,17 +380,57 @@ ApplicationWindow {
                         converter: root.textConverter
                         clipboard: root.clipboardBridge
                     }
+                    FileConversionSettings {
+                        visible: root.pageIndex === 6
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        converter: root.fileConversion
+                    }
+                    LegacyConversion {
+                        visible: root.pageIndex === 6
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        converter: root.legacyConverter
+                        clipboard: root.clipboardBridge
+                    }
                     DiagnosticsSettings {
                         visible: root.pageIndex === 4
                         Layout.fillWidth: true
                         uiPalette: ui
                         controller: root.configController
                     }
+                    Repeater {
+                        model: [
+                            {key: "QuickStartConsonant", page: 1, title: "Gõ nhanh phụ âm đầu", detail: "Mở rộng phụ âm đầu khi kết thúc từ: fanh → phanh, jang → giang. Chỉ thử sau khi gõ xong từ; Direct cần vùng chữ đã xác nhận."},
+                            {key: "QuickEndConsonant", page: 1, title: "Gõ nhanh phụ âm cuối", detail: "Mở rộng phụ âm cuối khi Space/Enter: hag → hang, vih → vinh, bak → bach. Direct cần vùng chữ đã xác nhận."},
+                            {key: "RestoreWrongSpelling", page: 1, title: "Khôi phục từ sai chính tả", detail: "Khi Space/Enter, trả lại chuỗi phím gốc nếu engine nhận từ sai, ví dụ tiêngz → tieengz. Không đổi từ đã nhập trước đó. Direct bỏ qua khi chưa xác nhận vùng chữ."},
+                            {key: "FreeMark", page: 4, title: "Đặt dấu tự do", detail: "Bỏ bước tự chỉnh quy tắc nguyên âm của engine sau từng phím. Mặc định tắt; kiểm tra kết quả theo cách gõ của bạn."},
+                            {key: "AllowConsonantZFWJ", page: 4, title: "Cho phép phụ âm Z F W J", detail: "Cho phép engine đặt dấu trong từ có các phụ âm mở rộng, ví dụ zaf → zà. Mặc định tắt."}
+                        ]
+                        delegate: SpellingOption {
+                            required property var modelData
+                            visible: root.pageIndex === modelData.page
+                            Layout.fillWidth: true
+                            uiPalette: ui
+                            controller: root.configController
+                            settingKey: modelData.key
+                            heading: modelData.title
+                            description: modelData.detail
+                        }
+                    }
+                    InputSettingsBackup {
+                        visible: root.pageIndex === 4
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        controller: root.configController
+                        fileAccess: root.backupFiles
+                    }
                     PreferencesBackup {
                         visible: root.pageIndex === 4
                         Layout.fillWidth: true
                         uiPalette: ui
                         preferences: root.uiPreferences
+                        fileAccess: root.backupFiles
                         currentTheme: root.themeMode
                         currentSidebarExpanded: root.sidebarExpanded
                         onRestored: (theme, sidebarExpanded) => {

@@ -10,15 +10,29 @@
 #include "Engine.h"
 #include <string.h>
 #include <list>
+#ifdef LINUX
+#include "EngineContext.h"
+#include <stdexcept>
+#endif
+
+wstring utf8ToWideString(const string& str) {
+    return openkey::utf8ToUtf16Wide(str);
+}
+
+string wideStringToUtf8(const wstring& str) {
+    return openkey::utf16WideToUtf8(str);
+}
+
+
 #include "Macro.h"
 
-static vector<Uint8> _charKeyCode = {
+static const vector<Uint8> _charKeyCode = {
     KEY_BACKQUOTE, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_EQUALS,
     KEY_LEFT_BRACKET, KEY_RIGHT_BRACKET, KEY_BACK_SLASH,
     KEY_SEMICOLON, KEY_QUOTE, KEY_COMMA, KEY_DOT, KEY_SLASH
 };
 
-static vector<Uint8> _breakCode = {
+static const vector<Uint8> _breakCode = {
     KEY_ESC, KEY_TAB, KEY_ENTER, KEY_RETURN, KEY_LEFT, KEY_RIGHT, KEY_DOWN, KEY_UP, KEY_COMMA, KEY_DOT,
     KEY_SLASH, KEY_SEMICOLON, KEY_QUOTE, KEY_BACK_SLASH, KEY_MINUS, KEY_EQUALS, KEY_BACKQUOTE, KEY_TAB
 #if _WIN32
@@ -27,11 +41,11 @@ static vector<Uint8> _breakCode = {
 #endif
 };
 
-static vector<Uint8> _macroBreakCode = {
+static const vector<Uint8> _macroBreakCode = {
     KEY_RETURN, KEY_COMMA, KEY_DOT, KEY_SLASH, KEY_SEMICOLON, KEY_QUOTE, KEY_BACK_SLASH, KEY_MINUS, KEY_EQUALS
 };
 
-static Uint16 ProcessingChar[][11] = {
+static const Uint16 ProcessingChar[][11] = {
     {KEY_S, KEY_F, KEY_R, KEY_X, KEY_J, KEY_A, KEY_O, KEY_E, KEY_W, KEY_D, KEY_Z}, //Telex
     {KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0}, //VNI
     {KEY_S, KEY_F, KEY_R, KEY_X, KEY_J, KEY_A, KEY_O, KEY_E, KEY_W, KEY_D, KEY_Z}, //Simple Telex 1
@@ -66,6 +80,30 @@ static Uint16 ProcessingChar[][11] = {
 #define hMacroKey HookState.macroKey
 #define hMacroData HookState.macroData
 
+#ifdef LINUX
+// All mutable typing data and algorithm functions belong to one runtime.
+struct EngineRuntime {
+    int vInputType = 0;
+    int vQuickTelex = 0;
+    int vCodeTable = 0;
+    int vUseMacro = 0;
+    int vRestoreIfWrongSpelling = 0;
+    int vCheckSpelling = 0;
+    int vUseModernOrthography = 0;
+    int vFreeMark = 0;
+    int vUpperCaseFirstChar = 0;
+    int vAllowConsonantZFWJ = 0;
+    int vQuickStartConsonant = 0;
+    int vQuickEndConsonant = 0;
+#define OPENKEY_STATE
+#define OPENKEY_DEFAULT_FALSE = false
+#define OPENKEY_DEFAULT_TRUE = true
+#else
+#define OPENKEY_STATE static
+#define OPENKEY_DEFAULT_FALSE
+#define OPENKEY_DEFAULT_TRUE
+#endif
+
 //Data to sendback to main program
 vKeyHookState HookState;
 
@@ -80,57 +118,50 @@ vKeyHookState HookState;
  * bit 24: is standalone key? (w, [, ])
  * bit 25: is character code or keyboard code; 1: character code; 0: keycode
  */
-static Uint32 TypingWord[MAX_BUFF];
-static Byte _index = 0;
-static vector<Uint32> _longWordHelper; //save the word when _index >= MAX_BUFF
-static list<vector<Uint32>> _typingStates; //Aug 28th, 2019: typing helper, save long state of Typing word, can go back and modify the word
+OPENKEY_STATE Uint32 TypingWord[MAX_BUFF]{};
+OPENKEY_STATE Byte _index = 0;
+OPENKEY_STATE vector<Uint32> _longWordHelper; //save the word when _index >= MAX_BUFF
+OPENKEY_STATE list<vector<Uint32>> _typingStates; //Aug 28th, 2019: typing helper, save long state of Typing word, can go back and modify the word
 vector<Uint32> _typingStatesData;
 
 /**
  * Use for restore key if invalid word
  */
-static Uint32 KeyStates[MAX_BUFF];
-static Byte _stateIndex = 0;
+OPENKEY_STATE Uint32 KeyStates[MAX_BUFF]{};
+OPENKEY_STATE Byte _stateIndex = 0;
 
-static bool tempDisableKey = false;
-static int capsElem;
-static int key;
-static int markElem;
-static bool isCorect = false;
-static bool isChanged = false;
-static Byte vowelCount = 0;
-static Byte vowelStartIndex = 0;
-static Byte vowelEndIndex = 0;
-static Byte vowelWillSetMark = 0;
-static int i, ii, iii;
-static int j;
-static int k, kk;
-static int l;
-static bool isRestoredW;
-static Uint16 keyForAEO;
-static bool isCheckedGrammar;
-static bool _isCaps = false;
-static int _spaceCount = 0; //add: July 30th, 2019
-static bool _hasHandledMacro = false; //for macro flag August 9th, 2019
-static Byte _upperCaseStatus = 0; //for Write upper case for the first letter; 2: will upper case
-static bool _isCharKeyCode;
-static vector<Uint32> _specialChar;
-static bool _useSpellCheckingBefore;
-static bool _hasHandleQuickConsonant;
-static bool _willTempOffEngine = false;
+OPENKEY_STATE bool tempDisableKey = false;
+OPENKEY_STATE int capsElem{};
+OPENKEY_STATE int key{};
+OPENKEY_STATE int markElem{};
+OPENKEY_STATE bool isCorect = false;
+OPENKEY_STATE bool isChanged = false;
+OPENKEY_STATE Byte vowelCount = 0;
+OPENKEY_STATE Byte vowelStartIndex = 0;
+OPENKEY_STATE Byte vowelEndIndex = 0;
+OPENKEY_STATE Byte vowelWillSetMark = 0;
+OPENKEY_STATE int i{}, ii{}, iii{};
+OPENKEY_STATE int j{};
+OPENKEY_STATE int k{}, kk{};
+OPENKEY_STATE int l{};
+OPENKEY_STATE bool isRestoredW{};
+OPENKEY_STATE Uint16 keyForAEO{};
+OPENKEY_STATE bool isCheckedGrammar{};
+OPENKEY_STATE bool _isCaps = false;
+OPENKEY_STATE int _spaceCount = 0; //add: July 30th, 2019
+OPENKEY_STATE bool _hasHandledMacro = false; //for macro flag August 9th, 2019
+OPENKEY_STATE Byte _upperCaseStatus = 0; //for Write upper case for the first letter; 2: will upper case
+OPENKEY_STATE bool _isCharKeyCode{};
+OPENKEY_STATE vector<Uint32> _specialChar;
+OPENKEY_STATE bool _useSpellCheckingBefore{};
+OPENKEY_STATE bool _hasHandleQuickConsonant{};
+OPENKEY_STATE bool _willTempOffEngine = false;
 
 //function prototype
+#ifndef LINUX
 void findAndCalculateVowel(const bool& forGrammar=false);
 void insertMark(const Uint32& markMask, const bool& canModifyFlag=true);
-
-static std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-wstring utf8ToWideString(const string& str) {
-    return converter.from_bytes(str.c_str());
-}
-
-string wideStringToUtf8(const wstring& str) {
-    return converter.to_bytes(str.c_str());
-}
+#endif
 
 void* vKeyInit() {
     _index = 0;
@@ -558,7 +589,7 @@ Uint32 getCharacterCode(const Uint32& data) {
     return 0;
 }
 
-void findAndCalculateVowel(const bool& forGrammar) {
+void findAndCalculateVowel(const bool& forGrammar OPENKEY_DEFAULT_FALSE) {
     vowelCount = 0;
     VSI = VEI = 0;
     for (iii = _index - 1; iii >= 0; iii--) {
@@ -751,7 +782,7 @@ void handleOldMark() {
     hNCC = hBPC;
 }
 
-void insertMark(const Uint32& markMask, const bool& canModifyFlag) {
+void insertMark(const Uint32& markMask, const bool& canModifyFlag OPENKEY_DEFAULT_TRUE) {
     vowelCount = 0;
     
     if (canModifyFlag)
@@ -1561,3 +1592,87 @@ void vKeyHandleEvent(const vKeyEvent& event,
     //cout<<"backspace "<<(int)hBPC<<endl;
     //cout<<"new char "<<(int)hNCC<<endl<<endl;
 }
+
+#ifdef LINUX
+}; // EngineRuntime
+
+namespace {
+EngineRuntime& legacyRuntime() { static EngineRuntime value; return value; }
+void pullLegacyOptions(EngineRuntime& value) {
+    value.vInputType = ::vInputType;
+    value.vQuickTelex = ::vQuickTelex;
+    value.vCodeTable = ::vCodeTable;
+    value.vUseMacro = ::vUseMacro;
+    value.vRestoreIfWrongSpelling = ::vRestoreIfWrongSpelling;
+    value.vCheckSpelling = ::vCheckSpelling;
+    value.vUseModernOrthography = ::vUseModernOrthography;
+    value.vFreeMark = ::vFreeMark;
+    value.vUpperCaseFirstChar = ::vUpperCaseFirstChar;
+    value.vAllowConsonantZFWJ = ::vAllowConsonantZFWJ;
+    value.vQuickStartConsonant = ::vQuickStartConsonant;
+    value.vQuickEndConsonant = ::vQuickEndConsonant;
+}
+void pushLegacyOptions(const EngineRuntime& value) {
+    ::vInputType = value.vInputType;
+    ::vQuickTelex = value.vQuickTelex;
+    ::vCodeTable = value.vCodeTable;
+    ::vUseMacro = value.vUseMacro;
+    ::vRestoreIfWrongSpelling = value.vRestoreIfWrongSpelling;
+    ::vCheckSpelling = value.vCheckSpelling;
+    ::vUseModernOrthography = value.vUseModernOrthography;
+    ::vFreeMark = value.vFreeMark;
+    ::vUpperCaseFirstChar = value.vUpperCaseFirstChar;
+    ::vAllowConsonantZFWJ = value.vAllowConsonantZFWJ;
+    ::vQuickStartConsonant = value.vQuickStartConsonant;
+    ::vQuickEndConsonant = value.vQuickEndConsonant;
+}
+}
+// Preserve the historical platform API for engine regression tests and macro tools.
+void* vKeyInit() { auto& value = legacyRuntime(); pullLegacyOptions(value); return value.vKeyInit(); }
+void startNewSession() { auto& value = legacyRuntime(); pullLegacyOptions(value); value.startNewSession(); }
+Uint32 getCharacterCode(const Uint32& data) { auto& value = legacyRuntime(); pullLegacyOptions(value); return value.getCharacterCode(data); }
+void vKeyHandleEvent(const vKeyEvent& event, const vKeyEventState& state, const Uint16& data, const Uint8& caps, const bool& other) {
+    auto& value = legacyRuntime(); pullLegacyOptions(value); value.vKeyHandleEvent(event, state, data, caps, other); pushLegacyOptions(value);
+}
+void vEnglishMode(const vKeyEventState& state, const Uint16& data, const bool& caps, const bool& other) {
+    auto& value = legacyRuntime(); pullLegacyOptions(value); value.vEnglishMode(state, data, caps, other); pushLegacyOptions(value);
+}
+void vTempOffSpellChecking() { auto& value = legacyRuntime(); pullLegacyOptions(value); value.vTempOffSpellChecking(); pushLegacyOptions(value); }
+void vSetCheckSpelling() { auto& value = legacyRuntime(); pullLegacyOptions(value); value.vSetCheckSpelling(); }
+void vTempOffEngine(const bool& off) { legacyRuntime().vTempOffEngine(off); }
+
+namespace openkey {
+struct EngineContext::Impl : EngineRuntime {};
+EngineContext::EngineContext() : EngineContext(Options{}) {}
+EngineContext::EngineContext(Options options) : impl_(std::make_unique<Impl>()) {
+    if (options.inputType < vTelex || options.inputType > vSimpleTelex2) throw std::invalid_argument("Invalid input type");
+    impl_->vInputType = options.inputType;
+    impl_->vCheckSpelling = options.checkSpelling;
+    impl_->vUseModernOrthography = options.modernOrthography;
+    impl_->vQuickTelex = options.quickTelex && options.inputType == vTelex;
+    impl_->vFreeMark = options.freeMark;
+    impl_->vAllowConsonantZFWJ = options.allowConsonantZFWJ;
+    impl_->vQuickStartConsonant = options.quickStartConsonant;
+    impl_->vQuickEndConsonant = options.quickEndConsonant;
+    impl_->vRestoreIfWrongSpelling = options.restoreWrongSpelling;
+    impl_->vKeyInit();
+    impl_->startNewSession();
+}
+EngineContext::~EngineContext() = default;
+EngineContext::EngineContext(const EngineContext& other) : impl_(other.impl_ ? std::make_unique<Impl>(*other.impl_) : nullptr) {}
+EngineContext& EngineContext::operator=(const EngineContext& other) {
+    if (this != &other) impl_ = other.impl_ ? std::make_unique<Impl>(*other.impl_) : nullptr;
+    return *this;
+}
+EngineContext::EngineContext(EngineContext&&) noexcept = default;
+EngineContext& EngineContext::operator=(EngineContext&&) noexcept = default;
+const vKeyHookState& EngineContext::process(Uint16 code, bool caps) {
+    if (!impl_) throw std::logic_error("Moved engine context");
+    impl_->vKeyHandleEvent(Keyboard, KeyDown, code, caps ? 2 : 0, false);
+    return impl_->HookState;
+}
+}
+#endif
+#undef OPENKEY_STATE
+#undef OPENKEY_DEFAULT_FALSE
+#undef OPENKEY_DEFAULT_TRUE

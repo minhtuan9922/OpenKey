@@ -15,6 +15,7 @@
 #include <memory>
 #include <stdexcept>
 #include <vector>
+#include "../Sources/OpenKey/linux/ApplicationRules.h"
 
 namespace {
 void require(bool value, const char* label) {
@@ -22,7 +23,7 @@ void require(bool value, const char* label) {
 }
 class Editor : public fcitx::InputContext {
 public:
-    explicit Editor(fcitx::InputContextManager& manager) : InputContext(manager) {
+    explicit Editor(fcitx::InputContextManager& manager, const std::string& program = {}) : InputContext(manager, program) {
         created();
         setCapabilityFlags(fcitx::CapabilityFlag::Preedit);
     }
@@ -329,5 +330,70 @@ int main(int argc, char** args) {
     require(!key(addon, telex, bounded, fcitx::Key(FcitxKey_BackSpace)), "Full-buffer Backspace must stay native");
     require(bounded.committed == longWord && bounded.inputPanel().preedit().toString().empty(),
         "Full-buffer Backspace must finish pending word before native edit");
+    // Persisted macro configuration: invalid input is rejected atomically.
+    fcitx::RawConfig macros;
+    macros.setValueByPath("MacrosEnabled", "True");
+    macros.setValueByPath("MacroTable", "766e:5669e1bb8774204e616d;"); // vn -> Việt Nam
+    addon.setConfig(macros);
+    require(configValue("MacrosEnabled") == "True", "Macro enable not retained");
+    fcitx::RawConfig invalidMacros;
+    invalidMacros.setValueByPath("MacroTable", "bad");
+    invalidMacros.setValueByPath("MacrosEnabled", "False");
+    addon.setConfig(invalidMacros);
+    require(configValue("MacrosEnabled") == "True", "Malformed macro patch changed runtime");
+    addon.reloadConfig();
+    require(configValue("MacroTable") == "766e:5669e1bb8774204e616d;", "Macro table not persisted");
+    for (const auto* style : {"Preedit", "CommitOnly", "Direct"}) {
+        fcitx::RawConfig stylePatch;
+        stylePatch.setValueByPath("InputStyle", style);
+        addon.setConfig(stylePatch);
+        for (const auto boundary : {FcitxKey_space, FcitxKey_Return}) {
+            Editor macroEditor(instance.inputContextManager());
+            fcitx::InputContextEvent activation(&macroEditor, fcitx::EventType::InputContextFocusIn);
+            addon.activate(telex, activation);
+            type(addon, telex, macroEditor, "vn");
+            require(!key(addon, telex, macroEditor, fcitx::Key(boundary)), "Macro swallowed boundary");
+            require(macroEditor.committed == "Việt Nam", "Macro expansion failed");
+            require(!key(addon, telex, macroEditor, fcitx::Key(FcitxKey_space)), "Idle macro swallowed space");
+            require(macroEditor.commits.size() == 1, "Macro committed twice");
+        }
+    }
+    fcitx::RawConfig rules;
+    rules.setValueByPath("InputStyle", "Preedit");
+    const auto encodedRules = openkey::MacroTable::encode({{"org.test.Editor", "CommitOnly"}});
+    rules.setValueByPath("ApplicationRules", encodedRules);
+    addon.setConfig(rules);
+    addon.reloadConfig();
+    require(configValue("ApplicationRules") == encodedRules, "App rules not persisted");
+    for (const auto* program : {"org.test.Editor", "gnome-shell", "unknown", "org.test.Other"}) {
+        Editor editor(instance.inputContextManager(), program);
+        fcitx::InputContextEvent activation(&editor, fcitx::EventType::InputContextFocusIn);
+        addon.activate(telex, activation);
+        type(addon, telex, editor, "tieengs");
+        if (std::string(program) == "org.test.Editor")
+            require(editor.preedit().empty() && editor.inputPanel().preedit().toString() == "tiếng", "Exact app rule not applied");
+        else require(editor.preedit() == "tiếng", "App rule leaked into another program");
+        addon.reset(telex, activation);
+    }
+    fcitx::RawConfig invalidRules;
+    invalidRules.setValueByPath("ApplicationRules", openkey::MacroTable::encode({{"gnome-shell", "Direct"}}));
+    addon.setConfig(invalidRules);
+    require(configValue("ApplicationRules") == encodedRules, "Generic bridge rule was accepted");
+    for (const auto* option : {"QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling"}) {
+        fcitx::RawConfig options;
+        options.setValueByPath("MacrosEnabled", "False");
+        for (const auto* field : {"QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling"}) options.setValueByPath(field, std::string(field) == option ? "True" : "False");
+        addon.setConfig(options);
+        const std::string input = std::string(option) == "QuickStartConsonant" ? "fanh" : std::string(option) == "QuickEndConsonant" ? "hag" : "tieengz";
+        const std::string expected = std::string(option) == "QuickStartConsonant" ? "phanh" : std::string(option) == "QuickEndConsonant" ? "hang" : "tieengz";
+        for (const auto* style : {"Preedit", "CommitOnly"}) for (const auto boundary : {FcitxKey_space, FcitxKey_Return}) {
+            fcitx::RawConfig patch; patch.setValueByPath("InputStyle", style); addon.setConfig(patch);
+            Editor editor(instance.inputContextManager());
+            fcitx::InputContextEvent activation(&editor, fcitx::EventType::InputContextFocusIn);
+            addon.activate(telex, activation); type(addon, telex, editor, input);
+            require(!key(addon, telex, editor, fcitx::Key(boundary)), "Advanced option swallowed boundary");
+            require(editor.committed == expected, "Advanced boundary replacement failed");
+        }
+    }
     std::cout << "Fcitx5 addon: configuration, context, lifecycle and CommitOnly frontend matrix passed\n";
 }

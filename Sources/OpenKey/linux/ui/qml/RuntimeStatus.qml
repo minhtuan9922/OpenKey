@@ -20,7 +20,7 @@ Pane {
         busy ? "Đang đọc / áp dụng cấu hình" : warning ? "Có mục cần kiểm tra" :
         controller.ready && ["loaded", "confirmed"].indexOf(result) >= 0 &&
         serviceState === "connected" && configState === "read" &&
-        ["telex", "vni", "english", "inactive", "other"].indexOf(inputState) >= 0 ?
+        ["telex", "vni", "simple-telex1", "simple-telex2", "english", "inactive", "other"].indexOf(inputState) >= 0 ?
         "Có dữ liệu từ các nguồn" : "Chưa xác nhận đầy đủ"
     ConfigFeedback { id: runtimeFeedback; result: card.result }
     readonly property string serviceText: ({

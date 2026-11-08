@@ -18,6 +18,7 @@ public:
     Q_INVOKABLE bool setSidebarExpanded(bool expanded);
     Q_INVOKABLE QString backupJson(const QString& theme, bool sidebarExpanded) const;
     Q_INVOKABLE QVariantMap inspectBackup(const QString& json) const;
+    static QVariantMap inspectBackupJson(const QString& json);
     Q_INVOKABLE bool restoreBackup(const QString& json);
 signals:
     void changed();

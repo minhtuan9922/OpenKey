@@ -283,3 +283,10 @@ không preedit và không ô nổi. Nếu cần nhập tiếng Việt ngay, có 
 Preedit trong cấu hình OpenKey; chế độ đó có thể hiện gạch chân/ô composition
 và chưa đáp ứng yêu cầu giao diện ban đầu. Không cần cài lại alpha.38 hay đổi
 các settings VS Code từ tệp đính kèm để xử lý thiếu sót của Chrome GTK.
+
+## Thu kết quả desktop sau alpha.50
+
+Có [bộ ca Chrome/VS Code và công cụ tổng hợp diagnostics](UBUNTU_DESKTOP_QA.md)
+để tách lỗi thiếu capability, chờ surrounding-text và hạn chế định danh bridge.
+Công cụ không xuất nội dung gõ và không thay guard của NativeDirect. Chưa có
+kết quả desktop mới chứng minh Chrome omnibox hoặc terminal VS Code đã đạt.

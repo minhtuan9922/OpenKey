@@ -65,6 +65,8 @@ struct Mock {
         if (self.configured) {
             if (result >= 0) result = sd_bus_message_append(reply, "(ss)", "openkey-telex", "");
             if (result >= 0) result = sd_bus_message_append(reply, "(ss)", "openkey-vni", "");
+            if (result >= 0) result = sd_bus_message_append(reply, "(ss)", "openkey-simple-telex1", "");
+            if (result >= 0) result = sd_bus_message_append(reply, "(ss)", "openkey-simple-telex2", "");
         }
         if (result >= 0 && self.englishConfigured)
             result = sd_bus_message_append(reply, "(ss)", "keyboard-us", "");
@@ -83,6 +85,8 @@ struct Mock {
         if (!self.ignoreWrite) {
             if (std::string(name) == "openkey-telex") self.method = "openkey-telex";
             else if (std::string(name) == "openkey-vni") self.method = "openkey-vni";
+            else if (std::string(name) == "openkey-simple-telex1") self.method = "openkey-simple-telex1";
+            else if (std::string(name) == "openkey-simple-telex2") self.method = "openkey-simple-telex2";
             else if (std::string(name) == "keyboard-us") self.method = "keyboard-us";
             else return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Unsafe target");
         }
@@ -130,6 +134,8 @@ int main() {
     require(openkey::switchFcitxInputMethod(InputMethod::Telex) == ActionResult::Unavailable,
             "Actions must not auto-activate a missing daemon");
     require(openkey::readFcitxStatus() == InputStatus::Unavailable, "Missing daemon must not be activated");
+    require(openkey::classifyInput(2, "openkey-simple-telex1") == InputStatus::SimpleTelex1, "Simple Telex 1 classification");
+    require(openkey::classifyInput(2, "openkey-simple-telex2") == InputStatus::SimpleTelex2, "Simple Telex 2 classification");
     require(openkey::classifyInput(0, "openkey-telex") == InputStatus::Unknown, "No recent context is unknown");
     require(openkey::classifyInput(7, "keyboard-us") == InputStatus::Unknown, "Invalid state must not show E");
     require(openkey::classifyInput(2, "") == InputStatus::Unknown, "Empty IM must not show V/E");
@@ -173,6 +179,11 @@ int main() {
             std::string(mock.method.load()) == "openkey-vni", "VNI action must confirm the actual IM");
     require(openkey::switchFcitxInputMethod(InputMethod::Telex) == ActionResult::Changed,
             "Telex action must confirm the actual IM");
+    require(openkey::switchFcitxInputMethod(InputMethod::SimpleTelex1) == ActionResult::Changed &&
+            std::string(mock.method.load()) == "openkey-simple-telex1", "Simple Telex 1 action");
+    require(openkey::switchFcitxInputMethod(InputMethod::SimpleTelex2) == ActionResult::Changed &&
+            std::string(mock.method.load()) == "openkey-simple-telex2", "Simple Telex 2 action");
+    require(openkey::switchFcitxInputMethod(InputMethod::Telex) == ActionResult::Changed, "Restore Telex fixture");
     const int writesBeforeGuards = mock.writes;
     mock.configured = false;
     require(openkey::switchFcitxInputMethod(InputMethod::Vni) == ActionResult::NotConfigured,

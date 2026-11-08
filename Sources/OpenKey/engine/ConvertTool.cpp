@@ -7,7 +7,6 @@
 //
 #include <algorithm>
 #include <locale>
-#include <codecvt>
 #include "ConvertTool.h"
 #include "Engine.h"
 #include <iostream>
@@ -33,6 +32,11 @@ static bool findKeyCode(const Uint32& charCode, const Uint8& code, int& j, int& 
             if (charCode == it->second[z]) {
                 j = it->first;
                 k = z;
+                // TCVN3 reuses some vowel bytes for upper/lower font glyphs.
+                // Without font metadata prefer the lowercase entry, matching
+                // ordinary .VnTime text instead of producing mixed-case words.
+                if (code == 1 && z % 2 == 0 && static_cast<size_t>(z + 1) < it->second.size() &&
+                    it->second[z + 1] == charCode) ++k;
                 return true;
             }//end if
         }
@@ -56,6 +60,7 @@ string convertUtil(const string& sourceString) {
     vector<wchar_t> _temp;
     bool hasBreak = false;
     bool shouldUpperCase = false;
+    const bool sentenceCase = convertToolToCapsFirstLetter || convertToolToCapsEachWord;
     if (convertToolToCapsFirstLetter || convertToolToCapsEachWord)
         shouldUpperCase = true;
     if (convertToolToAllNonCaps)
@@ -91,7 +96,7 @@ string convertUtil(const string& sourceString) {
                 target = _codeTable[convertToolToCode][j][k];
                 if ((convertToolToAllCaps || shouldUpperCase) && k % 2 != 0) {
                     target = _codeTable[convertToolToCode][j][k-1];
-                } else if ((convertToolToAllNonCaps || !shouldUpperCase) && k % 2 == 0) {
+                } else if ((convertToolToAllNonCaps || (sentenceCase && !shouldUpperCase)) && k % 2 == 0) {
                     target = _codeTable[convertToolToCode][j][k+1];
                 }
                 
@@ -134,7 +139,7 @@ string convertUtil(const string& sourceString) {
             target = _codeTable[convertToolToCode][j][k];
             if ((convertToolToAllCaps || shouldUpperCase) && k % 2 != 0) {
                 target = _codeTable[convertToolToCode][j][k-1];
-            } else if ((convertToolToAllNonCaps || !shouldUpperCase) && k % 2 == 0) {
+            } else if ((convertToolToAllNonCaps || (sentenceCase && !shouldUpperCase)) && k % 2 == 0) {
                 target = _codeTable[convertToolToCode][j][k+1];
             }
             
@@ -157,7 +162,7 @@ string convertUtil(const string& sourceString) {
         //if dont find => normal char
         if (convertToolToAllCaps || shouldUpperCase)
             _temp.push_back(towupper(data[i]));
-        else if (convertToolToAllNonCaps || !shouldUpperCase)
+        else if (convertToolToAllNonCaps || (sentenceCase && !shouldUpperCase))
             _temp.push_back(towlower(data[i]));
         else
             _temp.push_back(data[i]);
@@ -174,7 +179,6 @@ string convertUtil(const string& sourceString) {
             hasBreak = false;
         }
     }
-    _temp.push_back(0);
     wstring str(_temp.begin(), _temp.end());
     return wideStringToUtf8(str);
 }

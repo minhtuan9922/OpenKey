@@ -3,6 +3,8 @@
 #include "TextConverter.h"
 #include "AboutInfo.h"
 #include "ClipboardBridge.h"
+#include "InputConfigBackup.h"
+#include "BackupFiles.h"
 #include <QGuiApplication>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -13,6 +15,10 @@
 #include <QQmlError>
 #include <QQmlProperty>
 #include <QQuickItem>
+#include "MacroModel.h"
+#include "InputMethodController.h"
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QSemaphore>
@@ -33,6 +39,12 @@ class StyleControllerDouble : public QObject {
     Q_PROPERTY(bool spellingSupported MEMBER supportsSpelling NOTIFY changed)
     Q_PROPERTY(QString runtimeCheckSpelling MEMBER checkSpelling NOTIFY changed)
     Q_PROPERTY(QString runtimeModernOrthography MEMBER modernOrthography NOTIFY changed)
+    Q_PROPERTY(QVariantMap runtimeAdvanced MEMBER advanced NOTIFY changed)
+    Q_PROPERTY(bool applicationRulesSupported MEMBER supportsRules NOTIFY changed)
+    Q_PROPERTY(QString runtimeApplicationRules MEMBER appRules NOTIFY changed)
+    Q_PROPERTY(bool macrosSupported MEMBER supportsMacros NOTIFY changed)
+    Q_PROPERTY(QString runtimeMacrosEnabled MEMBER macrosEnabled NOTIFY changed)
+    Q_PROPERTY(QString runtimeMacroTable MEMBER macroTable NOTIFY changed)
     Q_PROPERTY(bool quickTelexSupported MEMBER supportsQuickTelex NOTIFY changed)
     Q_PROPERTY(QString runtimeQuickTelex MEMBER quickTelex NOTIFY changed)
     Q_PROPERTY(QString result MEMBER result NOTIFY changed)
@@ -45,6 +57,15 @@ public:
     bool supportsSpelling = true;
     bool supportsCommitOnly = false;
     bool supportsNativeDirect = false;
+    QVariantMap advanced{{"FreeMark", "False"}, {"AllowConsonantZFWJ", "False"}, {"QuickStartConsonant", "False"}, {"QuickEndConsonant", "False"}, {"RestoreWrongSpelling", "False"}};
+    Q_INVOKABLE void applyAdvanced(const QString& key, const QString& value) { advanced[key] = value; emit changed(); }
+    bool supportsRules = true;
+    QString appRules;
+    Q_INVOKABLE void applyApplicationRules(const QString& value) { appRules = value; emit changed(); }
+    bool supportsMacros = true;
+    QString macrosEnabled = "False", macroTable;
+    Q_INVOKABLE void applyMacrosEnabled(const QString& value) { macrosEnabled = value; emit changed(); }
+    Q_INVOKABLE void applyMacroTable(const QString& value) { macroTable = value; emit changed(); }
     bool supportsQuickTelex = true;
     QString quickTelex = "False";
     int quickTelexApplies = 0;
@@ -52,6 +73,27 @@ public:
     int applies = 0, reloads = 0;
     int diagnosticsApplies = 0;
     int spellingApplies = 0, modernApplies = 0;
+    int backupInspections = 0, backupRestores = 0;
+    QVariantMap backupRuntime() const {
+        return {{"InputStyle", style}, {"DirectDiagnostics", diagnosticsValue},
+            {"CommitOnlySupported", supportsCommitOnly}, {"NativeDirectSupported", supportsNativeDirect}};
+    }
+    Q_INVOKABLE QString backupJson() const { return InputConfigBackup::encode(backupRuntime()); }
+    Q_INVOKABLE QVariantMap inspectBackup(const QString& json) {
+        ++backupInspections;
+        QVariantMap patch;
+        const bool ok = InputConfigBackup::decode(json, patch) && InputConfigBackup::supported(patch, backupRuntime());
+        return {{"ok", ok}, {"settings", patch}, {"current", backupRuntime()}};
+    }
+    Q_INVOKABLE void restoreBackup(const QString& json) {
+        ++backupRestores;
+        QVariantMap patch;
+        if (!InputConfigBackup::decode(json, patch)) return;
+        style = patch.value("InputStyle").toString();
+        diagnosticsValue = patch.value("DirectDiagnostics").toString();
+        result = "confirmed";
+        emit changed();
+    }
     Q_INVOKABLE void apply(const QString& value) {
         ++applies;
         style = value;
@@ -78,6 +120,41 @@ signals:
     void changed();
 };
 
+class InputMethodsDouble : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(QString current MEMBER current NOTIFY changed)
+    Q_PROPERTY(QStringList methods MEMBER methods NOTIFY changed)
+    Q_PROPERTY(bool active MEMBER active NOTIFY changed)
+    Q_PROPERTY(bool ready MEMBER ready NOTIFY changed)
+    Q_PROPERTY(bool busy MEMBER busy NOTIFY changed)
+    Q_PROPERTY(QString result MEMBER result NOTIFY changed)
+public:
+    QString current = "openkey-telex", result = "loaded";
+    QStringList methods{"keyboard-us", "openkey-telex", "openkey-vni", "openkey-simple-telex1", "openkey-simple-telex2"};
+    bool active = true, ready = true, busy = false;
+    int reloads = 0, selections = 0;
+    Q_INVOKABLE QString backupJson() const { return QString::fromUtf8(QJsonDocument(QJsonObject{{"format", "openkey-input-method"}, {"version", 1}, {"method", current}}).toJson()); }
+    Q_INVOKABLE QVariantMap inspectBackup(const QString& json) const { const auto method = InputMethodController::methodFromBackup(json); return {{"ok", !method.isEmpty()}, {"method", method}}; }
+    Q_INVOKABLE void reload() { ++reloads; emit changed(); }
+    Q_INVOKABLE void select(const QString& method) { ++selections; current = method; active = true; result = "confirmed"; emit changed(); }
+signals:
+    void changed();
+};
+
+class FileConversionDouble : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(bool busy MEMBER busy NOTIFY changed)
+    Q_PROPERTY(QString state MEMBER state NOTIFY changed)
+public:
+    bool busy = false;
+    QString state = "idle", source, target;
+    int starts = 0, cancels = 0;
+    Q_INVOKABLE void start(const QUrl&, const QUrl&, const QString& from, const QString& to) { ++starts; source = from; target = to; busy = true; state = "running"; emit changed(); }
+    Q_INVOKABLE void cancel() { ++cancels; busy = false; state = "cancelled"; emit changed(); }
+signals:
+    void changed();
+};
+
 class HotkeyOverviewDouble : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString state MEMBER state NOTIFY changed)
@@ -85,7 +162,10 @@ class HotkeyOverviewDouble : public QObject {
 public:
     QString state = "ready";
     QVariantMap shortcuts;
-    int reloads = 0;
+    int reloads = 0, writes = 0;
+    Q_INVOKABLE void apply(const QString& field, const QString& keys) { ++writes; shortcuts[field] = keys.split('\n'); emit changed(); }
+    Q_INVOKABLE QString backupJson() { return "{}"; }
+    Q_INVOKABLE QVariantMap inspectBackup(const QString&) { return {{"ok", false}}; }
     Q_INVOKABLE void reload() { ++reloads; emit changed(); }
 signals:
     void changed();
@@ -160,6 +240,9 @@ class LinuxSettingsTests : public QObject {
             target->mapToScene(QPointF(target->width()/2, target->height()/2)).toPoint());
     }
     void reveal(QQuickItem* target) {
+        // Page visibility changes schedule a layout polish. Scroll using its
+        // final geometry rather than the position from the previous page.
+        QTest::qWait(30);
         auto* scroll = item("contentScroll");
         QVERIFY(scroll && target);
         auto* flickable = scroll->property("contentItem").value<QObject*>();
@@ -568,6 +651,115 @@ private slots:
         QVERIFY(last->width() <= item("contentScroll")->width());
         QVERIFY(!window->grabWindow().isNull());
     }
+    void typingTest_data() {
+        QTest::addColumn<QString>("theme");
+        QTest::newRow("light") << QString("light");
+        QTest::newRow("dark") << QString("dark");
+    }
+    void typingTest() {
+        QFETCH(QString, theme);
+        window->setProperty("themeMode", theme);
+        StyleControllerDouble controller;
+        window->setProperty("configController", QVariant::fromValue(&controller));
+        auto* card = item("typingTestCard");
+        auto* input = item("typingTestInput");
+        auto* sample = item("typingTestSample");
+        auto* clear = item("clearTypingTest");
+        QVERIFY(card && input && sample && clear);
+        QVERIFY(!card->isVisible());
+        QVERIFY(input->property("text").toString().isEmpty());
+        click("nav-compatibility");
+        QVERIFY(card->isVisible());
+        QVERIFY(!clear->isEnabled());
+        auto* start = item("focusTypingTest");
+        QVERIFY(start);
+        reveal(start);
+        click("focusTypingTest");
+        QTRY_VERIFY(input->hasActiveFocus());
+        for (char key : QByteArray("coongj")) QTest::keyClick(window, key);
+        QCOMPARE(input->property("text").toString(), QString("coongj"));
+        QTest::keyClick(window, Qt::Key_Backspace);
+        QCOMPARE(input->property("text").toString(), QString("coong"));
+        QTest::keyClick(window, Qt::Key_Return);
+        for (char key : QByteArray("hoaf")) QTest::keyClick(window, key);
+        QCOMPARE(input->property("text").toString(), QString("coong\nhoaf"));
+        const QString draft = QString::fromUtf8("cộng hoà xã hội chủ nghĩa\nThử tiếp");
+        input->setProperty("text", draft);
+        reveal(sample);
+        sample->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Home);
+        QTest::keyClick(window, Qt::Key_Down);
+        QCOMPARE(sample->property("currentIndex").toInt(), 1);
+        QVERIFY(item("typingTestInstructions")->property("text").toString().contains("co6ng5"));
+        QCOMPARE(input->property("text").toString(), draft);
+        click("nav-convert");
+        QVERIFY(!card->isVisible());
+        click("nav-compatibility");
+        QCOMPARE(input->property("text").toString(), draft);
+        // The test area works offline without enabling or applying a mode.
+        window->setProperty("configController", QVariant::fromValue<QObject*>(nullptr));
+        QVERIFY(input->isEnabled());
+        window->resize(720, 560);
+        reveal(clear);
+        QVERIFY(card->width() <= item("contentScroll")->width());
+        QVERIFY(!window->grabWindow().isNull());
+        click("clearTypingTest");
+        QTRY_VERIFY(input->property("text").toString().isEmpty());
+        QVERIFY(input->hasActiveFocus());
+        QVERIFY(!clear->isEnabled());
+        QCOMPARE(controller.applies, 0);
+        QCOMPARE(controller.reloads, 0);
+        QCOMPARE(controller.diagnosticsApplies, 0);
+    }
+    void legacyConversionControls() {
+        TextConverter converter;
+        UiClipboard fake;
+        ClipboardBridge clipboard(&fake);
+        window->setProperty("legacyConverter", QVariant::fromValue(&converter));
+        window->setProperty("clipboardBridge", QVariant::fromValue(&clipboard));
+        click("nav-convert");
+        auto* input = item("legacyConversionSource");
+        auto* output = item("legacyConversionResult");
+        auto* convert = item("convertLegacyText");
+        auto* copy = item("copyLegacyResult");
+        QVERIFY(input && output && convert && copy);
+        QVERIFY(!convert->isEnabled());
+        QVERIFY(!copy->isEnabled());
+        input->setProperty("text", QString::fromUtf8("tiếng việt"));
+        QCOMPARE(converter.state(), QString("idle"));
+        reveal(convert);
+        click("convertLegacyText");
+        QTRY_COMPARE(converter.state(), QString("converted"));
+        QCOMPARE(output->property("text").toString(), QString::fromUtf8("tiÕng viÖt"));
+        QVERIFY(output->property("readOnly").toBool());
+        QCOMPARE(fake.reads + fake.writes, 0);
+        reveal(copy);
+        click("copyLegacyResult");
+        QCOMPARE(fake.written, converter.result());
+        QCOMPARE(fake.writes, 1);
+        auto* target = item("legacyTargetEncoding");
+        reveal(target);
+        target->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_Home);
+        QCOMPARE(converter.state(), QString("idle"));
+        QVERIFY(!copy->isEnabled());
+        reveal(convert);
+        click("convertLegacyText");
+        QTRY_COMPARE(converter.state(), QString("converted"));
+        QCOMPARE(converter.result(), QString::fromUtf8("tiếng việt"));
+        click("nav-overview");
+        click("nav-convert");
+        QCOMPARE(input->property("text").toString(), QString::fromUtf8("tiếng việt"));
+        window->resize(720, 560);
+        reveal(item("clearLegacyConversion"));
+        QVERIFY(item("legacyConversion")->width() <= item("contentScroll")->width());
+        click("clearLegacyConversion");
+        QVERIFY(input->property("text").toString().isEmpty());
+        QCOMPARE(converter.state(), QString("idle"));
+        QVERIFY(!copy->isEnabled());
+        window->setProperty("legacyConverter", QVariant::fromValue<QObject*>(nullptr));
+        window->setProperty("clipboardBridge", QVariant::fromValue<QObject*>(nullptr));
+    }
     void unicodeConversion() {
         TextConverter converter;
         window->setProperty("textConverter", QVariant::fromValue(&converter));
@@ -814,6 +1006,161 @@ private slots:
         QVERIFY(!copy->isEnabled());
         window->setProperty("textConverter", QVariant::fromValue<QObject*>(nullptr));
     }
+    void fileConversionActions() {
+        FileConversionDouble converter;
+        window->setProperty("fileConversion", QVariant::fromValue(&converter));
+        window->setProperty("pageIndex", 6);
+        auto* card = item("fileConversionSettings");
+        card->setProperty("inputFile", QUrl::fromLocalFile("/tmp/source.txt"));
+        card->setProperty("outputFile", QUrl::fromLocalFile("/tmp/result.txt"));
+        auto* target = item("fileConversionTarget"); reveal(target); target->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_End);
+        QCOMPARE(converter.starts, 0);
+        reveal(item("startFileConversion")); click("startFileConversion");
+        QCOMPARE(converter.starts, 1); QCOMPARE(converter.source, "unicode"); QCOMPARE(converter.target, "cp1258");
+        QVERIFY(!item("startFileConversion")->isEnabled());
+        QVERIFY(!item("chooseConversionInput")->isEnabled());
+        click("cancelFileConversion"); QCOMPARE(converter.cancels, 1);
+        window->setProperty("fileConversion", QVariant::fromValue<QObject*>(nullptr));
+    }
+    void advancedControls() {
+        StyleControllerDouble controller;
+        window->setProperty("configController", QVariant::fromValue(&controller));
+        for (const auto& key : {QString("FreeMark"), QString("AllowConsonantZFWJ"), QString("QuickStartConsonant"), QString("QuickEndConsonant"), QString("RestoreWrongSpelling")}) {
+            window->setProperty("pageIndex", key == "FreeMark" || key == "AllowConsonantZFWJ" ? 4 : 1);
+            auto prefix = key; prefix[0] = prefix[0].toLower();
+            auto* picker = item(qPrintable(prefix + "Picker")); QVERIFY(picker);
+            reveal(picker); picker->forceActiveFocus(); QTest::keyClick(window, Qt::Key_End);
+            QCOMPARE(controller.advanced.value(key).toString(), "False");
+            reveal(item(qPrintable("apply" + key))); click(qPrintable("apply" + key));
+            QCOMPARE(controller.advanced.value(key).toString(), "True");
+            QCOMPARE(controller.applies, 0);
+        }
+        window->setProperty("configController", QVariant::fromValue<QObject*>(nullptr));
+    }
+    void inputMethodSelector_data() {
+        QTest::addColumn<QString>("theme");
+        QTest::newRow("light") << QString("light"); QTest::newRow("dark") << QString("dark");
+    }
+    void inputMethodSelector() {
+        QFETCH(QString, theme);
+        window->setProperty("themeMode", theme);
+        InputMethodsDouble methods;
+        window->setProperty("inputMethodController", QVariant::fromValue(&methods));
+        auto* picker = item("inputMethodPicker");
+        QTRY_COMPARE(picker->property("count").toInt(), 5);
+        QTRY_COMPARE(picker->property("currentIndex").toInt(), 1);
+        reveal(picker); picker->forceActiveFocus();
+        QTest::keyClick(window, Qt::Key_End);
+        QCOMPARE(methods.selections, 0);
+        QCOMPARE(picker->property("currentIndex").toInt(), 4);
+        reveal(item("selectInputMethod")); click("selectInputMethod");
+        QCOMPARE(methods.selections, 1);
+        QCOMPARE(methods.current, "openkey-simple-telex2");
+        QVERIFY(item("currentInputMethod")->property("text").toString().contains("Simple Telex 2"));
+        methods.current = "openkey-vni"; emit methods.changed();
+        QTRY_COMPARE(picker->property("currentIndex").toInt(), 2);
+        methods.busy = true; emit methods.changed();
+        QTRY_VERIFY(!item("selectInputMethod")->isEnabled());
+        QVERIFY(!item("reloadInputMethods")->isEnabled());
+        methods.busy = false; emit methods.changed();
+        reveal(item("reloadInputMethods")); click("reloadInputMethods");
+        QCOMPARE(methods.reloads, 1); QCOMPARE(methods.selections, 1);
+        reveal(item("exportInputMethod")); click("exportInputMethod");
+        QVERIFY(item("inputMethodBackupJson")->property("text").toString().contains("openkey-input-method"));
+        item("inputMethodBackupJson")->setProperty("text", "{\"format\":\"openkey-input-method\",\"version\":1,\"method\":\"openkey-simple-telex1\"}");
+        reveal(item("inspectInputMethodBackup")); click("inspectInputMethodBackup");
+        QCOMPARE(methods.selections, 1);
+        QTRY_COMPARE(picker->property("currentIndex").toInt(), 3);
+        methods.methods = {"keyboard-us", "openkey-vni"}; emit methods.changed();
+        QTRY_COMPARE(picker->property("count").toInt(), 2);
+        QTRY_COMPARE(picker->property("currentIndex").toInt(), 1);
+        window->setProperty("inputMethodController", QVariant::fromValue<QObject*>(nullptr));
+        QTRY_VERIFY(!picker->isEnabled());
+    }
+    void applicationRulesActions() {
+        StyleControllerDouble controller;
+        MacroModel rules(nullptr, true);
+        window->setProperty("configController", QVariant::fromValue(&controller));
+        window->setProperty("applicationRulesModel", QVariant::fromValue(&rules));
+        window->setProperty("pageIndex", 3);
+        reveal(item("loadApplicationRules")); click("loadApplicationRules");
+        item("applicationProgram")->setProperty("text", "org.test.Editor");
+        reveal(item("putApplicationRule")); click("putApplicationRule");
+        QCOMPARE(rules.entries().size(), 1);
+        QVERIFY(controller.appRules.isEmpty());
+        reveal(item("applyApplicationRules")); click("applyApplicationRules");
+        QCOMPARE(controller.appRules, rules.encoded());
+        item("applicationProgram")->setProperty("text", "gnome-shell");
+        reveal(item("putApplicationRule")); click("putApplicationRule");
+        QCOMPARE(rules.entries().size(), 1);
+        controller.appRules = "636f6465:50726565646974;";
+        emit controller.changed();
+        QTRY_VERIFY(!item("applyApplicationRules")->isEnabled());
+        window->setProperty("applicationRulesModel", QVariant::fromValue<QObject*>(nullptr));
+        window->setProperty("configController", QVariant::fromValue<QObject*>(nullptr));
+    }
+    void hotkeyEditorActions() {
+        HotkeyOverviewDouble hotkeys;
+        hotkeys.shortcuts = {{"TriggerKeys", QStringList{"Control+space"}}};
+        window->setProperty("hotkeyOverview", QVariant::fromValue(&hotkeys));
+        window->setProperty("pageIndex", 2);
+        reveal(item("loadHotkeyDraft")); click("loadHotkeyDraft");
+        QCOMPARE(item("hotkeyEditKeys")->property("text").toString(), "Control+space");
+        item("hotkeyEditKeys")->setProperty("text", "Control+Alt+v");
+        QCOMPARE(hotkeys.writes, 0);
+        reveal(item("applyHotkeyDraft")); click("applyHotkeyDraft");
+        QCOMPARE(hotkeys.writes, 1);
+        QCOMPARE(hotkeys.shortcuts.value("TriggerKeys").toStringList(), QStringList{"Control+Alt+v"});
+        hotkeys.state = "applying"; emit hotkeys.changed();
+        QTRY_VERIFY(!item("applyHotkeyDraft")->isEnabled());
+        QVERIFY(!item("reloadHotkeys")->isEnabled());
+        window->setProperty("hotkeyOverview", QVariant::fromValue<QObject*>(nullptr));
+    }
+    void macroEditorActions() {
+        StyleControllerDouble controller;
+        MacroModel macros;
+        BackupFiles files;
+        window->setProperty("configController", QVariant::fromValue(&controller));
+        window->setProperty("macroModel", QVariant::fromValue(&macros));
+        window->setProperty("backupFiles", QVariant::fromValue(&files));
+        window->setProperty("pageIndex", 5);
+        reveal(item("loadMacros"));
+        click("loadMacros");
+        item("macroKey")->setProperty("text", "vn");
+        item("macroValue")->setProperty("text", "Việt Nam");
+        reveal(item("putMacro"));
+        click("putMacro");
+        QCOMPARE(macros.entries().size(), 1);
+        QVERIFY(controller.macroTable.isEmpty());
+        reveal(item("exportMacros"));
+        click("exportMacros");
+        const auto json = item("macroJson")->property("text").toString();
+        QVERIFY(json.contains("openkey-macros"));
+        item("macroJson")->setProperty("text", "{}");
+        reveal(item("importMacros"));
+        click("importMacros");
+        QCOMPARE(macros.entries().size(), 1);
+        reveal(item("applyMacros"));
+        click("applyMacros");
+        QCOMPARE(controller.macroTable, macros.encoded());
+        window->setProperty("pageIndex", 0);
+        window->setProperty("pageIndex", 5);
+        QCOMPARE(macros.entries().size(), 1);
+        QCOMPARE(item("macroJson")->property("text").toString(), "{}");
+        QTemporaryDir dir;
+        const auto url = QUrl::fromLocalFile(dir.filePath("gõ tắt.json"));
+        item("macroJson")->setProperty("text", json);
+        QVERIFY(QMetaObject::invokeMethod(item("macroSettings"), "saveFile", Q_ARG(QVariant, url)));
+        QCOMPARE(files.loadMacros(url).value("text").toString(), json);
+        controller.macroTable = "61:62;";
+        emit controller.changed();
+        macros.put("x", "xin chào");
+        QTRY_VERIFY(!item("applyMacros")->isEnabled());
+        window->setProperty("macroModel", QVariant::fromValue<QObject*>(nullptr));
+        window->setProperty("backupFiles", QVariant::fromValue<QObject*>(nullptr));
+        window->setProperty("configController", QVariant::fromValue<QObject*>(nullptr));
+    }
     void nativeDirectStyleControls() {
         StyleControllerDouble controller;
         controller.supportsCommitOnly = true;
@@ -858,6 +1205,238 @@ private slots:
         QTRY_COMPARE(picker->property("currentIndex").toInt(), 0);
     }
 
+    void uiBackupFileActions_data() {
+        QTest::addColumn<QString>("theme");
+        QTest::newRow("light") << QString("light");
+        QTest::newRow("dark") << QString("dark");
+    }
+    void uiBackupFileActions() {
+        QFETCH(QString, theme);
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const auto config = dir.filePath("ui.ini");
+        UiPreferences preferences(config);
+        preferences.load();
+        BackupFiles files;
+        window->setProperty("themeMode", theme);
+        window->setProperty("uiPreferences", QVariant::fromValue(&preferences));
+        window->setProperty("backupFiles", QVariant::fromValue(&files));
+        click("nav-advanced");
+        QTest::qWait(50);
+        auto* card = item("preferencesBackup");
+        auto* text = item("uiBackupText");
+        auto* open = item("openUiBackupFile");
+        auto* save = item("saveUiBackupFile");
+        auto* restore = item("restoreUiBackup");
+        QVERIFY(card && text && open && save && restore);
+        QVERIFY(open->isEnabled());
+        QVERIFY(!save->isEnabled());
+        reveal(item("exportUiBackup"));
+        click("exportUiBackup");
+        const auto json = text->property("text").toString();
+        QVERIFY(files.validUiBackup(json));
+        QVERIFY(save->isEnabled());
+        auto* openDialog = window->findChild<QObject*>("uiBackupOpenDialog");
+        auto* saveDialog = window->findChild<QObject*>("uiBackupSaveDialog");
+        QVERIFY(openDialog && saveDialog);
+        reveal(open);
+        click("openUiBackupFile");
+        QTRY_VERIFY(openDialog->property("visible").toBool());
+        QVERIFY(QMetaObject::invokeMethod(openDialog, "reject"));
+        QTRY_VERIFY(!openDialog->property("visible").toBool());
+        QCOMPARE(text->property("text").toString(), json);
+        reveal(save);
+        click("saveUiBackupFile");
+        QTRY_VERIFY(saveDialog->property("visible").toBool());
+        QVERIFY(QMetaObject::invokeMethod(saveDialog, "reject"));
+        QTRY_VERIFY(!saveDialog->property("visible").toBool());
+        QVERIFY(!QFile::exists(config));
+        const auto url = QUrl::fromLocalFile(dir.filePath("ui-backup.json"));
+        QVERIFY(QMetaObject::invokeMethod(card, "saveFile", Q_ARG(QVariant, QVariant(url))));
+        QCOMPARE(files.loadUi(url).value("text").toString(), json);
+        const auto targetTheme = theme == "light" ? QString("dark") : QString("light");
+        const auto imported = preferences.backupJson(targetTheme, false);
+        QCOMPARE(files.saveUi(url, imported), "saved");
+        QVERIFY(QMetaObject::invokeMethod(card, "loadFile", Q_ARG(QVariant, QVariant(url))));
+        QCOMPARE(text->property("text").toString(), imported);
+        QCOMPARE(window->property("themeMode").toString(), theme);
+        QVERIFY(!restore->isEnabled());
+        QVERIFY(!QFile::exists(config));
+        // A valid input-method backup is still the wrong format for this pane.
+        const auto inputJson = InputConfigBackup::encode({{"InputStyle", "Direct"}, {"DirectDiagnostics", "False"}});
+        QCOMPARE(files.save(url, inputJson), "saved");
+        QVERIFY(QMetaObject::invokeMethod(card, "loadFile", Q_ARG(QVariant, QVariant(url))));
+        QCOMPARE(text->property("text").toString(), imported);
+        QVERIFY(item("uiBackupFeedback")->property("text").toString().contains("JSON bộ gõ"));
+        QVERIFY(!restore->isEnabled());
+        reveal(item("previewUiBackup"));
+        click("previewUiBackup");
+        QVERIFY(restore->isEnabled());
+        reveal(restore);
+        click("restoreUiBackup");
+        QCOMPARE(window->property("themeMode").toString(), targetTheme);
+        QCOMPARE(window->property("sidebarExpanded").toBool(), false);
+        QVERIFY(QFile::exists(config));
+        QCOMPARE(preferences.status(), QString("saved"));
+        text->setProperty("text", QString("{}"));
+        QVERIFY(!save->isEnabled());
+        window->setProperty("backupFiles", QVariant::fromValue<QObject*>(nullptr));
+        QVERIFY(!open->isEnabled());
+        window->setProperty("uiPreferences", QVariant::fromValue<QObject*>(nullptr));
+    }
+    void inputBackupFileActions() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        BackupFiles files;
+        window->setProperty("backupFiles", QVariant::fromValue(&files));
+        click("nav-advanced");
+        QTest::qWait(50);
+        auto* card = item("inputSettingsBackup");
+        auto* text = item("inputBackupText");
+        auto* save = item("saveInputBackupFile");
+        auto* open = item("openInputBackupFile");
+        auto* restore = item("restoreInputBackup");
+        QVERIFY(card && text && save && open && restore);
+        QVERIFY(open->isEnabled());
+        QVERIFY(!save->isEnabled());
+        const auto json = InputConfigBackup::encode({{"InputStyle", "Direct"}, {"DirectDiagnostics", "False"}});
+        text->setProperty("text", json);
+        QVERIFY(save->isEnabled());
+        auto* openDialog = window->findChild<QObject*>("inputBackupOpenDialog");
+        auto* saveDialog = window->findChild<QObject*>("inputBackupSaveDialog");
+        QVERIFY(openDialog && saveDialog);
+        reveal(open);
+        click("openInputBackupFile");
+        QTRY_VERIFY(openDialog->property("visible").toBool());
+        QVERIFY(QMetaObject::invokeMethod(openDialog, "reject"));
+        QTRY_VERIFY(!openDialog->property("visible").toBool());
+        QCOMPARE(text->property("text").toString(), json);
+        reveal(save);
+        click("saveInputBackupFile");
+        QTRY_VERIFY(saveDialog->property("visible").toBool());
+        QCOMPARE(saveDialog->property("defaultSuffix").toString(), QString("json"));
+        QVERIFY(QMetaObject::invokeMethod(saveDialog, "reject"));
+        QTRY_VERIFY(!saveDialog->property("visible").toBool());
+        QCOMPARE(QDir(dir.path()).entryList(QDir::Files | QDir::NoDotAndDotDot).size(), 0);
+        const auto path = dir.filePath("backup.json");
+        const auto url = QUrl::fromLocalFile(path);
+        // Exercise accepted-path handlers without driving a native chooser.
+        QVERIFY(QMetaObject::invokeMethod(card, "saveFile", Q_ARG(QVariant, QVariant(url))));
+        QVERIFY(QFile::exists(path));
+        text->setProperty("text", QString("unfinished draft"));
+        QVERIFY(!save->isEnabled());
+        QVERIFY(QMetaObject::invokeMethod(card, "loadFile", Q_ARG(QVariant, QVariant(url))));
+        QCOMPARE(text->property("text").toString(), json);
+        QVERIFY(!restore->isEnabled()); // Import never authorizes a restore.
+        const auto missing = QUrl::fromLocalFile(dir.filePath("missing.json"));
+        QVERIFY(QMetaObject::invokeMethod(card, "loadFile", Q_ARG(QVariant, QVariant(missing))));
+        QCOMPARE(text->property("text").toString(), json);
+        QVERIFY(item("inputBackupFeedback")->property("text").toString().contains("Giữ nguyên"));
+        StyleControllerDouble controller;
+        window->setProperty("configController", QVariant::fromValue(&controller));
+        controller.busy = true;
+        emit controller.changed();
+        QVERIFY(!save->isEnabled());
+        QVERIFY(!open->isEnabled());
+        text->setProperty("text", QString("keep"));
+        QVERIFY(QMetaObject::invokeMethod(card, "loadFile", Q_ARG(QVariant, QVariant(url))));
+        QCOMPARE(text->property("text").toString(), QString("keep"));
+        QCOMPARE(controller.backupRestores, 0);
+        QCOMPARE(controller.applies, 0);
+        window->setProperty("configController", QVariant::fromValue<QObject*>(nullptr));
+        window->setProperty("backupFiles", QVariant::fromValue<QObject*>(nullptr));
+        QVERIFY(!open->isEnabled());
+    }
+    void inputSettingsBackup_data() {
+        QTest::addColumn<QString>("theme");
+        QTest::newRow("light") << QString("light");
+        QTest::newRow("dark") << QString("dark");
+    }
+    void inputSettingsBackup() {
+        QFETCH(QString, theme);
+        window->setProperty("themeMode", theme);
+        click("nav-advanced");
+        auto* text = item("inputBackupText");
+        auto* restore = item("restoreInputBackup");
+        auto* inspect = item("previewInputBackup");
+        QVERIFY(text && restore && inspect);
+        QVERIFY(!item("exportInputBackup")->isEnabled());
+        QVERIFY(!restore->isEnabled());
+        StyleControllerDouble controller;
+        window->setProperty("configController", QVariant::fromValue(&controller));
+        reveal(item("exportInputBackup"));
+        click("exportInputBackup");
+        const auto json = text->property("text").toString();
+        QVERIFY(json.contains("openkey-input-settings"));
+        QCOMPARE(controller.backupRestores, 0);
+        controller.style = "Direct";
+        emit controller.changed();
+        reveal(inspect);
+        click("previewInputBackup");
+        QVERIFY(restore->isEnabled());
+        QCOMPARE(controller.backupInspections, 1);
+        QVERIFY(item("inputBackupPreview")->property("text").toString().contains("Direct → Preedit"));
+        text->setProperty("text", json + " ");
+        QVERIFY(!restore->isEnabled());
+        reveal(inspect);
+        click("previewInputBackup");
+        QVERIFY(restore->isEnabled());
+        emit controller.changed();
+        QVERIFY(!restore->isEnabled());
+        reveal(inspect);
+        click("previewInputBackup");
+        reveal(restore);
+        click("restoreInputBackup");
+        QCOMPARE(controller.backupRestores, 1);
+        QCOMPARE(controller.style, "Preedit");
+        QVERIFY(!restore->isEnabled());
+        QCOMPARE(controller.applies, 0);
+        QCOMPARE(controller.diagnosticsApplies, 0);
+        click("nav-overview");
+        click("nav-advanced");
+        QCOMPARE(text->property("text").toString(), json + " ");
+        text->setProperty("text", QString("{}"));
+        reveal(inspect);
+        click("previewInputBackup");
+        QVERIFY(!restore->isEnabled());
+        QVERIFY(item("inputBackupFeedback")->property("text").toString().contains("không hợp lệ"));
+        text->setProperty("text", QString(4097, 'x'));
+        QVERIFY(!inspect->isEnabled());
+        window->resize(720, 560);
+        reveal(restore);
+        QVERIFY(item("inputSettingsBackup")->width() <= item("contentScroll")->width());
+        QVERIFY(!window->grabWindow().isNull());
+        window->setProperty("configController", QVariant::fromValue<QObject*>(nullptr));
+    }
+    void runtimeStyleSynchronization() {
+        StyleControllerDouble controller;
+        controller.supportsCommitOnly = true;
+        controller.supportsNativeDirect = true;
+        window->setProperty("configController", QVariant::fromValue(&controller));
+        auto* picker = item("inputStylePicker");
+        auto* label = item("inputStyleRuntimeLabel");
+        QVERIFY(picker && label);
+        QTRY_COMPARE(picker->property("currentIndex").toInt(), 0);
+        // Simulate readback after another configuration window changed Fcitx.
+        controller.style = "NativeDirect";
+        QVERIFY(QMetaObject::invokeMethod(window, "synchronizeRuntime"));
+        QCOMPARE(controller.reloads, 1);
+        QTRY_COMPARE(picker->property("currentIndex").toInt(), 3);
+        QTRY_VERIFY(label->property("text").toString().contains("NativeDirect"));
+        QCOMPARE(controller.applies, 0);
+        controller.busy = true;
+        QVERIFY(QMetaObject::invokeMethod(window, "synchronizeRuntime"));
+        QCOMPARE(controller.reloads, 1); // Never overlap a write/read in flight.
+        controller.busy = false;
+        controller.style = "CommitOnly";
+        QVERIFY(QMetaObject::invokeMethod(window, "synchronizeRuntime"));
+        QTRY_COMPARE(picker->property("currentIndex").toInt(), 2);
+        QVERIFY(!item("applyInputStyle")->isEnabled());
+        window->setProperty("configController", QVariant::fromValue<QObject*>(nullptr));
+        QVERIFY(QMetaObject::invokeMethod(window, "synchronizeRuntime"));
+        QCOMPARE(controller.reloads, 2);
+        QCOMPARE(controller.applies, 0);
+    }
     void inputStyleControls() {
         auto* picker = item("inputStylePicker");
         auto* apply = item("applyInputStyle");
@@ -875,6 +1454,7 @@ private slots:
         QTest::keyClick(window, Qt::Key_End);
         QCOMPARE(controller.applies, 0); // Selecting does not apply.
         QTRY_VERIFY(apply->isEnabled());
+        reveal(apply);
         click("applyInputStyle");
         QCOMPARE(controller.applies, 1);
         QCOMPARE(controller.style, "Direct");
@@ -894,7 +1474,7 @@ private slots:
         QTest::addColumn<QString>("pickerName");
         QTest::addColumn<bool>("compatibilityPage");
         for (const auto& theme : {"light", "dark"}) {
-            for (const auto& pickerName : {"inputStylePicker", "themePicker", "diagnosticsPicker",
+            for (const auto& pickerName : {"inputStylePicker", "inputMethodPicker", "themePicker", "diagnosticsPicker",
                                            "checkSpellingPicker", "modernOrthographyPicker", "quickTelexPicker",
                                            "conversionNormalization", "conversionCase", "conversionMarks"}) {
                 const QByteArray name = QByteArray(theme) + '-' + pickerName;
@@ -908,12 +1488,17 @@ private slots:
         QFETCH(QString, theme);
         QFETCH(QString, pickerName);
         QFETCH(bool, compatibilityPage);
+        InputMethodsDouble methods;
+        window->setProperty("inputMethodController", QVariant::fromValue(&methods));
         StyleControllerDouble controller;
         controller.style = "Direct"; // Reproduce the selected row in the report.
         window->setProperty("configController", QVariant::fromValue(&controller));
         window->setProperty("themeMode", theme);
         if (compatibilityPage) {
             click("nav-compatibility");
+            // The test area becomes visible on this page; let the shared
+            // column finish its new layout before scrolling to the picker.
+            QTest::qWait(50);
             reveal(item("inputStylePicker"));
         }
         if (pickerName.startsWith("conversion")) {
@@ -931,6 +1516,7 @@ private slots:
         }
         auto* picker = item(qPrintable(pickerName));
         QVERIFY(picker);
+        if (pickerName != "themePicker") reveal(picker);
         click(qPrintable(pickerName));
         auto* popup = picker->property("popup").value<QObject*>();
         QVERIFY(popup);

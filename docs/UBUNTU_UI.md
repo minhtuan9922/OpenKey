@@ -25,8 +25,32 @@ Giữ khung cửa sổ native Linux; không giả lập toàn bộ title bar c�
   không sửa hoặc đăng ký phím tắt toàn hệ thống.
 - Trang Ứng dụng & tương thích có môi trường cửa sổ UI, điều khiển chế độ chung
   và hướng dẫn Direct/VS Code. Chưa có danh sách hoặc quy tắc riêng theo app.
+- UI preview.3 thêm khu vực **Thử gõ tiếng Việt** tại trang này: mẫu Telex/VNI,
+  kết quả tham chiếu, nút Bắt đầu thử và Xóa nội dung thử. Chọn mẫu không đổi IM
+  hoặc cấu hình. Ô nhập nhận bộ gõ thật của phiên desktop; không tự chuyển dấu.
+  Bản nháp giữ khi chuyển trang, mất khi đóng cửa sổ; không lưu vào file.
+  Đây chỉ là thử trên ô Qt của OpenKey, không xác nhận Chrome/VS Code/terminal.
+- UI preview.4 đọc lại cấu hình runtime khi quay về cửa sổ OpenKey sau khi
+  đổi chế độ trong công cụ Fcitx5. Chờ 150 ms sau activation, bỏ qua khi controller
+  đang bận; không tự Apply, ghi file hoặc restart daemon. Phiên offline không
+  truy vấn. Card “Chế độ đã lưu” vẫn chỉ phản ánh file, độc lập với runtime.
+
+Nếu đã cài UI vào `~/.local` trước khi dùng DEB, D-Bus activation của người
+dùng có thể vẫn mở binary cũ, kể cả khi `/usr/bin/openkey-settings` đã nâng
+cấp. Ca thực tế: binary local chưa hỗ trợ CommitOnly/NativeDirect, trong khi
+addon runtime và file đều là NativeDirect. Cần cập nhật bản local đó hoặc
+chuyển launcher/activation sang bản hệ thống; chỉ cài lại addon không sửa UI.
+Đóng cửa sổ cũ rồi mở lại sau khi cập nhật binary; tiến trình đang chạy vẫn
+giữ phiên bản đã nạp. Không đóng tự động để tránh mất bản nháp.
 - Trang Chuyển mã có công cụ Unicode thủ công: NFC/NFD, hoa/thường, bỏ dấu
   tiếng Việt. Không tự đọc clipboard hoặc thay văn bản trong ứng dụng khác.
+- Preview.8 bổ sung card Chuyển mã VNI/TCVN3: chọn nguồn/đích Unicode, VNI
+  Windows, TCVN3, CP1258 hoặc Unicode tổ hợp. Đây là văn bản hiển thị ký tự
+  bảng mã trong ô nhập, không đọc byte của file DOC/DOCX hoặc đổi font. Chuyển
+  thủ công, không đổi bảng mã đang gõ của Fcitx5. Unicode tổ hợp dùng NFC/NFD
+  của Qt; TCVN3 mất thông tin hoa/thường ở byte trùng nên ưu tiên chữ thường.
+  Dùng worker, Hủy, giới hạn như công cụ Unicode; các worker legacy khóa tùy
+  chọn ConvertTool global trong tiến trình UI. Không tự thao tác clipboard.
 - Trang Giới thiệu có phiên bản nguồn UI/Qt, ghi nguồn dự án và giấy phép GPL
   v3 đóng kèm; không suy ra phiên bản addon hoặc kiểm tra cập nhật trên mạng.
 - Mở từ menu tray “Cài đặt OpenKey…” khi đã cài component UI. Bản normal dùng
@@ -40,6 +64,51 @@ Giữ khung cửa sổ native Linux; không giả lập toàn bộ title bar c�
 
 ## SDK và build
 
+### Sao lưu cấu hình bộ gõ — preview.5
+
+Trong **Cài đặt nâng cao**, chọn **Tạo JSON bộ gõ** để lấy các giá trị runtime
+đã đọc từ addon: InputStyle, DirectDiagnostics và các tùy chọn chính tả/đặt dấu/
+QuickTelex được schema hiện tại hỗ trợ. Chọn JSON rồi Ctrl+C để lưu thủ công.
+Không gồm phím tắt toàn cục Fcitx5, macro, IM đang chọn, theme hoặc nội dung ô thử.
+
+Để khôi phục, dán JSON và nhấn **Kiểm tra / xem trước cấu hình**. Bảng hiển thị
+giá trị hiện tại và giá trị sẽ khôi phục. Kết thúc từ đang gõ, rồi nhấn
+**Khôi phục cấu hình bộ gõ**. Chỉ thao tác xác nhận này gửi SetConfig.
+Đọc lại runtime hoặc sửa JSON sẽ khóa nút khôi phục cho đến khi xem trước lại.
+
+Định dạng `openkey-input-settings`, version 1, tối đa 4096 đơn vị UTF-16;
+chỉ chấp nhận khóa đã biết, enum đúng và boolean JSON (không phải chuỗi).
+Bản sao tối thiểu có chế độ gõ và chẩn đoán; thiết lập không có trong bản sao
+được giữ nguyên. Nếu addon thiếu bất kỳ thiết lập trong bản sao, từ chối toàn
+bộ thao tác, không bỏ qua âm thầm. Không nhập JSON theme vào phần này.
+
+Trước ghi, đọc lại và kiểm tra các trường định khôi phục chưa đổi từ lúc xem
+trước. Gửi cả nhóm bằng một SetConfig và đọc lại từng giá trị để xác nhận.
+API Fcitx5 không có compare-and-swap: một thay đổi ngoài UI giữa GetConfig và
+SetConfig vẫn có thể tranh chấp. ACK mất/readback sai được báo chưa xác nhận;
+không tự retry hoặc rollback. Xác nhận runtime không chứng minh file đã lưu
+thành công; nghiệm thu lưu bền cần đóng/mở và kiểm tra riêng.
+
+JSON là bản nháp trong cửa sổ. Tạo JSON dùng snapshot runtime đang có; có thể
+nhấn Đọc lại trước khi xuất nếu cần. Clipboard chỉ dùng qua copy/paste thủ công.
+
+Từ **preview.6**, chọn **Lưu thành file…** để lưu JSON trong ô nhập hoặc
+**Mở file JSON…** để đưa bản sao vào ô. Hộp chọn file chỉ mở khi click; hủy
+hộp chọn giữ bản nháp. Khi lưu đè, hộp chọn file yêu cầu xác nhận theo Qt/platform.
+Chỉ chấp nhận file local dạng thường, UTF-8 (có thể có BOM), tối đa 16384 byte
+và 4096 đơn vị UTF-16 sau giải mã, đúng schema bộ gõ. Từ chối URL mạng,
+symlink cuối đường dẫn, FIFO/device và dữ liệu sai. Lỗi mở file giữ bản nháp,
+không đưa nội dung file tùy ý vào ô. Lưu bằng QSaveFile, không truncate trực
+tiếp bản cũ khi atomic save không thực hiện được. Không tự tạo thư mục.
+
+Mở file thành công vẫn cần **Kiểm tra / xem trước** và **Khôi phục** riêng;
+không tự áp dụng hay tự khôi phục file lần trước. Nếu addon không hỗ trợ các
+giá trị trong file, bước xem trước từ chối. Nút mở/lưu hoạt động theo thao tác
+trong phiên normal; offline/smoke/screenshot không có file-access model.
+Hộp chọn native/portal trên Wayland/X11 vẫn cần nghiệm thu desktop.
+
+### Công cụ build
+
 Chọn Qt 6/Qt Quick/QML, yêu cầu Qt >= 6.4; đã build/test với Qt 6.10.2 trên máy
 Ubuntu hiện tại. Chưa chạy xác minh trên SDK 6.4 hoặc Ubuntu cũ hơn.
 UI opt-in bằng `OPENKEY_BUILD_UI=ON`, mặc định OFF; engine/addon/service vẫn build
@@ -50,7 +119,7 @@ Qt Test, `dbus-run-session` và `dbus-monitor` cần khi bật test.
 sudo apt install qt6-base-dev qt6-declarative-dev \
   qml6-module-qtquick qml6-module-qtquick-controls \
   qml6-module-qtquick-layouts qml6-module-qtquick-window \
-  qml6-module-qtquick-templates qml6-module-qtqml-workerscript
+  qml6-module-qtquick-templates qml6-module-qtqml-workerscript qml6-module-qtquick-dialogs
 
 cmake -S . -B build/ubuntu-ui -DCMAKE_BUILD_TYPE=Release \
   -DOPENKEY_BUILD_UI=ON -DOPENKEY_BUILD_SMOKE_TESTS=ON \
@@ -200,8 +269,17 @@ smoke/screenshot không có model preferences nên các nút bị khóa.
 
 Model và kiểm thử: [UiPreferences](../Sources/OpenKey/linux/ui/UiPreferences.h),
 [UI sao lưu](../Sources/OpenKey/linux/ui/qml/PreferencesBackup.qml).
-Chưa có file picker, tự ghi file sao lưu, backup bộ gõ hoặc rollback nhiều
-khóa runtime Fcitx5. Đừng dùng JSON giao diện để khôi phục cấu hình bộ gõ.
+Từ **preview.7**, phần giao diện có **Mở file giao diện…** và **Lưu thành file…**.
+Tạo JSON trước khi lưu, hoặc mở file để đưa vào nháp; luôn xem trước và xác
+nhận **Khôi phục giao diện** riêng. Mở file không đổi theme/menu hoặc ghi INI.
+Hủy hộp chọn giữ nháp; file sai định dạng, quá lớn hoặc không đọc được giữ
+nội dung cũ và hủy xem trước. Chỉ file local thường, UTF-8/BOM và giới hạn
+giống file bộ gõ; lưu QSaveFile. Offline/smoke/screenshot không mở/lưu file.
+
+Sao lưu bộ gõ là phần riêng, có mở/lưu file từ preview.6. Hai phần từ chối
+JSON của nhau cả khi đọc và ghi; không dùng JSON giao diện để khôi phục bộ gõ.
+Chưa có rollback tự động nhiều khóa runtime Fcitx5. Hộp chọn native/portal
+và lưu bền sau khôi phục vẫn cần nghiệm thu desktop.
 
 ## Điều hướng bàn phím trong UI
 
@@ -754,3 +832,50 @@ Mã nguồn: [UI](../Sources/OpenKey/linux/ui/),
 [kiểm thử UI](../Tests/LinuxSettingsTests.cpp),
 [kiểm thử model](../Tests/LinuxSettingsModelTests.cpp). Theo dõi trong
 [Ubuntu tasks](UBUNTU_TASKS.md#v04--ui-giống-windows).
+
+## Preview.9
+
+Thêm Macro CRUD/JSON/file (backend addon alpha.49), editor từng hành động
+phím tắt Fcitx5 và quy tắc InputStyle theo program ID cụ thể; hỗ trợ trạng
+thái Simple Telex 1/2. [Cách dùng và giới hạn](UBUNTU_FEATURES_49.md).
+Các ô nhập mới có màu nền/chữ/placeholder/selection theo theme.
+
+## Preview.10 — chọn bộ gõ
+
+Trang **Tổng quan → Chọn bộ gõ** có Telex, VNI, Simple Telex 1/2 và tiếng Anh
+US, tùy các mục đã thêm trong nhóm Fcitx5 hiện tại. Chọn trong danh sách rồi
+nhấn **Chuyển bộ gõ**; chỉ thay lựa chọn trên combo chưa gửi lệnh. Nút Đọc lại
+và lúc cửa sổ trở lại active đọc danh sách/trạng thái từ Fcitx5.
+
+Controller Qt D-Bus hoạt động độc lập service tray: resolve owner, đọc nhóm và
+list/current/state, kiểm tra lại nhóm; trước chuyển đối chiếu nhóm/current/state
+với mốc đã đọc, kiểm tra target vẫn trong nhóm. SetCurrentIM một lần rồi đọc
+lại target/trạng thái; mất ACK/owner/timeout báo chưa xác nhận, không retry.
+Không sửa profile/list IM, cấu hình addon, clipboard hay khởi động Fcitx5.
+API Fcitx5 không có compare-and-swap; vẫn có race giữa preflight và ghi. Mẫu
+thuộc context gần nhất của Fcitx5, không cam kết mọi app giữ cùng một bộ gõ.
+
+Nếu thiếu Simple Telex, thêm vào nhóm trong Fcitx5 Configuration → Input
+Method → Add, bỏ Only Show Current Language, tìm OpenKey Simple Telex 1/2;
+sau đó quay lại UI và Đọc lại. Cần addon alpha.49 trở lên để có descriptor.
+
+Menu icon **OpenKey** có các mục chuyển Telex/VNI/Simple Telex 1/2/tiếng Anh,
+dấu radio theo trạng thái service lấy mẫu, và Cài đặt OpenKey/Cấu hình Fcitx5.
+Source menu đã có từ alpha.49; lần này build/cập nhật binary tray local và nạp
+lại riêng `openkey-tray.service` để menu mới có hiệu lực. Truy vấn menu live
+xác nhận đủ năm action và radio; không tự chọn IM để thử trên tài liệu thật.
+Không coi menu trả dữ liệu là đã nghiệm thu việc gõ trong mọi ứng dụng.
+
+Gói UI: `dist/linux/openkey-settings_3.1.0~preview.10-1_amd64.deb`.
+UI đang mở bản cũ cần đóng rồi mở lại. Tray local và Fcitx5 addon cài độc lập.
+
+## Alpha.50 / UI preview.11
+
+Context riêng, năm tùy chọn nâng cao, chuyển file lớn có Hủy/timeout và
+sao lưu IM/phím tắt bằng file: [hướng dẫn và giới hạn](UBUNTU_FEATURES_50.md).
+
+## Preview.12 — mở trang từ menu icon
+
+Service mới có lệnh Gõ tắt, Chuyển mã và Giới thiệu, mở đúng trang trong
+singleton UI qua ShowPage. UI cũ cần đóng/mở sau cập nhật; gói UI không kèm
+service. [Cài thử, giao thức và giới hạn](UBUNTU_TRAY_PAGES.md).

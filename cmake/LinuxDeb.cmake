@@ -31,13 +31,16 @@ install(FILES "${PROJECT_SOURCE_DIR}/docs/UBUNTU_COMMIT_ONLY.md"
 install(FILES "${PROJECT_SOURCE_DIR}/docs/UBUNTU_NATIVE_DIRECT.md"
     DESTINATION share/doc/fcitx5-openkey RENAME NATIVE_DIRECT.md COMPONENT openkey_fcitx5)
 
+install(FILES "${PROJECT_SOURCE_DIR}/docs/UBUNTU_FEATURES_50.md"
+    DESTINATION share/doc/fcitx5-openkey RENAME FEATURES.md COMPONENT openkey_fcitx5)
+
 set(CPACK_GENERATOR DEB)
 set(CPACK_PACKAGE_NAME fcitx5-openkey)
 set(CPACK_PACKAGE_VENDOR "OpenKey contributors")
 set(CPACK_PACKAGE_CONTACT "TuanPham <minhtuan9922@gmail.com>")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Experimental OpenKey Vietnamese input method for Fcitx5")
-set(CPACK_PACKAGE_DESCRIPTION "OpenKey engine by Mai Vu Tuyen, with experimental Linux integration.\n Telex and VNI with Preedit, Direct, CommitOnly, or NativeDirect input.\n Settings UI is packaged separately. Installation does not change input-method\n profiles or restart Fcitx5.")
-set(CPACK_PACKAGE_VERSION "3.1.0~alpha.47")
+set(CPACK_PACKAGE_DESCRIPTION "OpenKey engine by Mai Vu Tuyen, with experimental Linux integration.\n Telex, VNI and Simple Telex with Preedit, Direct, CommitOnly, or NativeDirect input.\n Settings UI is packaged separately. Installation does not change input-method\n profiles or restart Fcitx5.")
+set(CPACK_PACKAGE_VERSION "3.1.0~alpha.50")
 set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
 set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "${OPENKEY_DEB_ARCH}")
 set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)

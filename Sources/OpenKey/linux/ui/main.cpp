@@ -8,6 +8,11 @@
 #include "TextConverter.h"
 #include "AboutInfo.h"
 #include "ClipboardBridge.h"
+#include "BackupFiles.h"
+#include "MacroModel.h"
+#include "InputMethodController.h"
+#include "FileConversion.h"
+#include <cstring>
 #include <QGuiApplication>
 #include <QCommandLineParser>
 #include <QFileInfo>
@@ -23,6 +28,7 @@
 #include <memory>
 
 int main(int argc, char** argv) {
+    if (argc > 1 && std::strcmp(argv[1], "--file-worker") == 0) return runFileConversionWorker(argc, argv);
     QGuiApplication app(argc, argv);
     app.setApplicationName("OpenKey Settings Preview");
     app.setDesktopFileName("org.openkey.Settings");
@@ -36,7 +42,7 @@ int main(int argc, char** argv) {
     parser.addOption({"offline", "Preview without reading config or connecting to the session service."});
     parser.process(app);
     const QStringList themes{"system", "light", "dark"};
-    const QStringList pages{"overview", "spelling", "hotkeys", "compatibility", "advanced", "macro", "convert", "about"};
+    const auto& pages = SettingsActivation::pages();
     if (!themes.contains(parser.value("theme")) || !pages.contains(parser.value("page")) ||
         !parser.positionalArguments().isEmpty()) { qCritical() << "Invalid theme/page/arguments"; return 2; }
     const auto screenshot = parser.value("screenshot");
@@ -67,16 +73,26 @@ int main(int argc, char** argv) {
             .filePath("fcitx5/conf/openkey.conf"));
     std::unique_ptr<SettingsController> controller;
     std::unique_ptr<HotkeyOverview> hotkeys;
+    std::unique_ptr<InputMethodController> inputMethods;
     if (online) {
         controller = std::make_unique<SettingsController>(QDBusConnection::sessionBus());
+        inputMethods = std::make_unique<InputMethodController>(QDBusConnection::sessionBus());
+        QObject::connect(inputMethods.get(), &InputMethodController::changed, &overview, [&] {
+            if (inputMethods->result() == "confirmed") overview.refresh();
+        });
         hotkeys = std::make_unique<HotkeyOverview>(QDBusConnection::sessionBus());
         QObject::connect(controller.get(), &SettingsController::changed, &overview, [&] {
             if (controller->result() == "confirmed") overview.refresh();
         });
     }
+    FileConversion files(QCoreApplication::applicationFilePath());
     TextConverter converter;
+    TextConverter legacyConverter;
     AboutInfo about;
     ClipboardBridge clipboard;
+    BackupFiles backupFiles;
+    MacroModel macros;
+    MacroModel appRules(nullptr, true);
     QQmlApplicationEngine engine;
     bool warnings = false;
     QObject::connect(&engine, &QQmlApplicationEngine::warnings, &app,
@@ -88,9 +104,15 @@ int main(int argc, char** argv) {
                                  {"overviewModel", QVariant::fromValue(&overview)},
                                  {"configController", QVariant::fromValue(controller.get())},
                                  {"hotkeyOverview", QVariant::fromValue(hotkeys.get())},
+                                 {"inputMethodController", QVariant::fromValue(inputMethods.get())},
                                  {"textConverter", QVariant::fromValue(&converter)},
+                                 {"fileConversion", QVariant::fromValue(online ? &files : nullptr)},
+                                 {"legacyConverter", QVariant::fromValue(&legacyConverter)},
+                                 {"macroModel", QVariant::fromValue(&macros)},
+                                 {"applicationRulesModel", QVariant::fromValue(&appRules)},
                                  {"aboutInfo", QVariant::fromValue(&about)},
                                  {"clipboardBridge", QVariant::fromValue(&clipboard)},
+                                 {"backupFiles", QVariant::fromValue(online ? &backupFiles : nullptr)},
                                  {"uiEnvironment", UiEnvironment::snapshot(
                                      online ? qEnvironmentVariable("XDG_SESSION_TYPE") : QString(),
                                      QGuiApplication::platformName())}});
@@ -102,6 +124,7 @@ int main(int argc, char** argv) {
     if (online) {
         overview.start();
         controller->reload();
+        inputMethods->reload();
         hotkeys->reload();
     }
     if (parser.isSet("smoke-test") || !screenshot.isEmpty()) {

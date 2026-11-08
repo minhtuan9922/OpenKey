@@ -90,9 +90,29 @@ int main(int argc, char** args) {
     group.inputMethodList().clear();
     group.inputMethodList().emplace_back("openkey-telex");
     group.inputMethodList().emplace_back("openkey-vni");
+    for (const auto* name : {"openkey-simple-telex1", "openkey-simple-telex2"}) {
+        require(manager.entry(name), "Simple Telex descriptor not discovered");
+        group.inputMethodList().emplace_back(name);
+    }
     group.setDefaultInputMethod("openkey-telex");
     manager.setGroup(std::move(group));
 
+    for (const auto* name : {"openkey-simple-telex1", "openkey-simple-telex2"}) {
+        Editor simple(instance.inputContextManager());
+        simple.focusIn();
+        instance.setCurrentInputMethod(&simple, name, false);
+        simple.type("tieengs");
+        require(simple.preedit() == "tiếng", "Simple Telex pipeline preedit");
+        require(simple.send(fcitx::Key(FcitxKey_BackSpace)), "Simple Backspace not consumed");
+        require(simple.preedit() == "tiến", "Simple Backspace result");
+        simple.type("g");
+        simple.send(fcitx::Key(FcitxKey_space));
+        require(simple.committed == "tiếng", "Simple Telex commit");
+        simple.type("w");
+        require(simple.preedit() == (std::string(name) == "openkey-simple-telex1" ? "w" : "ư"),
+                "Simple Telex standalone W semantics");
+        simple.focusOut();
+    }
     Editor first(instance.inputContextManager());
     first.focusIn();
     instance.setCurrentInputMethod(&first, "openkey-telex", false);

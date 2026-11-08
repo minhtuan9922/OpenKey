@@ -113,7 +113,7 @@ int execute(const std::string& command, bool enableHotkey) {
         require(sendLine(socket.value, hotkey ? "hotkey-status\n" : tray ? "tray-status\n" : input ? "input-status\n" :
             (command == "--status" ? "status\n" : "quit\n")), "Cannot send request");
         const auto response = readLine(socket.value, input ? 1000 : 250);
-        const bool knownInput = response == "telex" || response == "vni" || response == "english" ||
+        const bool knownInput = response == "telex" || response == "vni" || response == "simple-telex1" || response == "simple-telex2" || response == "english" ||
             response == "inactive" || response == "other" || response == "unknown" || response == "unavailable";
         const bool knownTray = response == "disabled" || response == "unavailable" ||
             response == "waiting-host" || response == "registered";

@@ -97,7 +97,9 @@ public:
     HotkeyWire::Types types;
     QVariant rawOverride;
     bool hold = false, fail = false, wrongSignature = false;
-    int reads = 0, writes = 0;
+    int reads = 0, writes = 0, expectedWrites = 0;
+    bool allowWrite = false, ignoreWrite = false, rejectWrite = false;
+    QVariantMap lastPatch;
     QStringList violations;
     QList<QDBusMessage> pending;
     QString introspect(const QString&) const override { return {}; }
@@ -114,6 +116,23 @@ public:
         for (const auto& message : messages) reply(message);
     }
     bool handleMessage(const QDBusMessage& message, const QDBusConnection&) override {
+        if (message.member() == "SetConfig" && allowWrite) {
+            ++writes;
+            if (message.signature() != "sv" || message.arguments().first().toString() != "fcitx://config/global")
+                violations.append("Invalid write URI/signature");
+            const auto decodedMap = [](const QVariant& value) {
+                return value.metaType() == QMetaType::fromType<QDBusArgument>() ? qdbus_cast<QVariantMap>(value.value<QDBusArgument>()) : value.toMap();
+            };
+            lastPatch = decodedMap(message.arguments()[1].value<QDBusVariant>().variant());
+            const auto patch = decodedMap(lastPatch.value("Hotkey"));
+            if (lastPatch.size() != 1 || patch.size() != 1 || !fields.contains(patch.firstKey())) violations.append("Invalid hotkey patch");
+            if (rejectWrite) bus.send(message.createErrorReply(QDBusError::Failed, "write failed"));
+            else {
+                if (!ignoreWrite) hotkeys[patch.firstKey()] = patch.first();
+                bus.send(message.createReply());
+            }
+            return true;
+        }
         if (message.member() != "GetConfig") {
             ++writes;
             violations.append("Unexpected method " + message.member());
@@ -191,7 +210,7 @@ private slots:
         }
         QCOMPARE(offset, wire.size());
         QVERIFY(calls >= mock->reads);
-        QCOMPARE(mock->writes, 0);
+        QCOMPARE(mock->writes, mock->expectedWrites);
         QVERIFY2(mock->violations.isEmpty(), qPrintable(mock->violations.join('\n')));
         server->unregisterService(service);
         server->unregisterObject(path);
@@ -200,6 +219,64 @@ private slots:
         client.reset();
         QDBusConnection::disconnectFromBus(serverName);
         QDBusConnection::disconnectFromBus(clientName);
+    }
+    void editorAppliesOneField() {
+        HotkeyOverview model(*client);
+        ready(model);
+        const auto original = model.shortcuts();
+        const auto json = model.backupJson();
+        const auto inspected = model.inspectBackup(json);
+        QVERIFY(inspected.value("ok").toBool());
+        QCOMPARE(inspected.value("shortcuts").toMap(), original);
+        QVERIFY(!model.inspectBackup("{}").value("ok").toBool());
+        mock->allowWrite = true;
+        mock->expectedWrites = 1;
+        model.apply("TriggerKeys", "Control+Alt+v\nF6");
+        QTRY_COMPARE(model.state(), QString("ready"));
+        QCOMPARE(mock->writes, 1);
+        QCOMPARE(model.shortcuts().value("TriggerKeys").toStringList(), (QStringList{"Control+Alt+v", "F6"}));
+        QCOMPARE(model.shortcuts().value("AltTriggerKeys"), original.value("AltTriggerKeys"));
+        model.apply("TriggerKeys", "Control+Alt+v\nF6");
+        QTRY_COMPARE(model.state(), QString("ready"));
+        QCOMPARE(mock->writes, 1); // No-op never writes.
+        mock->expectedWrites = 2;
+        model.apply("TriggerKeys", "");
+        QTRY_COMPARE(model.state(), QString("ready"));
+        QVERIFY(model.shortcuts().value("TriggerKeys").toStringList().isEmpty());
+    }
+    void editorValidation_data() {
+        QTest::addColumn<QString>("target");
+        QTest::addColumn<QString>("result");
+        QTest::newRow("duplicate-action") << "Super+space" << "duplicate";
+        QTest::newRow("duplicate-reordered") << "Super+Shift+space" << "duplicate";
+        QTest::newRow("duplicate-in-list") << "Alt+Control+v\nControl+Alt+v" << "duplicate";
+        QTest::newRow("unknown-name") << "Control+notakey" << "invalid";
+        QTest::newRow("repeated-modifier") << "Control+Control+v" << "invalid";
+        QTest::newRow("space") << " Control+space" << "invalid";
+        QTest::newRow("newline") << "F6\n" << "invalid";
+    }
+    void editorValidation() {
+        QFETCH(QString, target); QFETCH(QString, result);
+        HotkeyOverview model(*client);
+        ready(model);
+        model.apply("TriggerKeys", target);
+        QCOMPARE(model.state(), result);
+        QCOMPARE(mock->writes, 0);
+    }
+    void editorConflictAndUnconfirmed() {
+        HotkeyOverview model(*client);
+        ready(model);
+        mock->hotkeys["ActivateKeys"] = QVariantMap{{"0", "F10"}};
+        model.apply("TriggerKeys", "F6");
+        QTRY_COMPARE(model.state(), QString("conflict"));
+        QCOMPARE(mock->writes, 0);
+        ready(model);
+        mock->allowWrite = true;
+        mock->ignoreWrite = true;
+        mock->expectedWrites = 1;
+        model.apply("TriggerKeys", "F6");
+        QTRY_COMPARE(model.state(), QString("unconfirmed"));
+        QCOMPARE(mock->writes, 1);
     }
     void initialAndValid() {
         HotkeyOverview model(*client);

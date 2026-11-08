@@ -1,14 +1,16 @@
 #pragma once
 
 #include "Engine.h"
+#include "EngineContext.h"
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace openkey {
 
-// Prototype isolation: replay a bounded word for each context. The shared
-// legacy engine is not reentrant; callers must stay on Fcitx's event thread.
+// Each word owns independent engine state. Append/Backspace process one event;
+// history is replayed only when changing options on an unfinished word.
+// Table access remains confined to Fcitx's event thread.
 class Composition {
 public:
     static constexpr std::size_t MaxEvents = 256;
@@ -17,18 +19,28 @@ public:
         bool checkSpelling = true;
         bool useModernOrthography = true;
         bool quickTelex = false;
+        bool freeMark = false;
+        bool allowConsonantZFWJ = false;
+        bool quickStartConsonant = false;
+        bool quickEndConsonant = false;
+        bool restoreWrongSpelling = false;
     };
 
     explicit Composition(int mode = vTelex) : Composition(mode, Options{}) {}
-    Composition(int mode, Options options) : mode_(mode), options_(options) {}
+    Composition(int mode, Options options) : mode_(mode), options_(options), context_(engineOptions()) {}
     void setOptions(Options options) {
         options_ = options;
-        if (!events_.empty()) render();
+        render();
     }
     bool empty() const { return text_.empty(); }
     bool full() const { return events_.size() >= MaxEvents; }
     const std::string& text() const { return text_; }
-    void clear() { events_.clear(); text_.clear(); }
+    std::string finishedText() const {
+        auto copy = *this;
+        copy.process({KEY_SPACE, 0, false}, true);
+        return copy.text();
+    }
+    void clear() { events_.clear(); text_.clear(); output_.clear(); context_ = EngineContext(engineOptions()); }
 
     // ASCII symbols, not physical X11/evdev keycodes. The engine's Linux key
     // constants are mapped explicitly, so this works on Wayland as well.
@@ -47,7 +59,7 @@ public:
         else if (lower >= '0' && lower <= '9') code = digits[lower - '0'];
         else return false;
         events_.push_back({code, symbol, caps});
-        render();
+        process(events_.back());
         return true;
     }
 
@@ -55,7 +67,7 @@ public:
         if (empty()) return false;
         if (full()) return false;
         events_.push_back({KEY_DELETE, '\b', false});
-        render();
+        process(events_.back());
         if (empty()) clear();
         return true;
     }
@@ -67,38 +79,42 @@ private:
     std::vector<Stroke> events_;
     std::string text_;
 
+    std::wstring output_;
+    EngineContext::Options engineOptions() const {
+        return {mode_, options_.checkSpelling, options_.useModernOrthography, options_.quickTelex,
+            options_.freeMark, options_.allowConsonantZFWJ, options_.quickStartConsonant,
+            options_.quickEndConsonant, options_.restoreWrongSpelling};
+    }
+    EngineContext context_;
     void render() {
-        vInputType = mode_;
-        vQuickTelex = options_.quickTelex && mode_ == vTelex;
-        vCodeTable = 0;
-        vUseMacro = 0;
-        vRestoreIfWrongSpelling = 0;
-        vCheckSpelling = options_.checkSpelling;
-        vUseModernOrthography = options_.useModernOrthography;
-        auto* state = static_cast<vKeyHookState*>(vKeyInit());
-        startNewSession();
-        std::wstring output;
-        for (const auto& stroke : events_) {
-            vKeyHandleEvent(Keyboard, KeyDown, stroke.code, stroke.caps ? 2 : 0);
-            if (state->code == vDoNothing) {
-                if (stroke.code == KEY_DELETE) {
-                    if (!output.empty()) output.pop_back();
-                } else output.push_back(stroke.visible);
-                continue;
-            }
-            if (state->backspaceCount > output.size()) {
-                throw std::runtime_error("Invalid OpenKey replacement range");
-            }
-            output.resize(output.size() - state->backspaceCount);
-            for (int i = state->newCharCount - 1; i >= 0; --i) {
-                const auto ch = state->charData[i];
-                output.push_back(static_cast<wchar_t>((ch & CHAR_CODE_MASK)
-                    ? (ch & CHAR_MASK) : keyCodeToCharacter(ch)));
-            }
-            if (state->code == vRestore || state->code == vRestoreAndStartNewSession)
-                output.push_back(stroke.visible);
+        context_ = EngineContext(engineOptions());
+        output_.clear();
+        for (const auto& stroke : events_) process(stroke);
+        text_ = wideStringToUtf8(output_);
+    }
+    void process(const Stroke& stroke, bool boundary = false) {
+        const auto* state = &context_.process(stroke.code, stroke.caps);
+
+        if (state->code == vDoNothing) {
+            if (boundary) return;
+            if (stroke.code == KEY_DELETE) {
+                if (!output_.empty()) output_.pop_back();
+            } else output_.push_back(stroke.visible);
+            text_ = wideStringToUtf8(output_);
+            return;
         }
-        text_ = wideStringToUtf8(output);
+        if (state->backspaceCount > output_.size()) {
+            throw std::runtime_error("Invalid OpenKey replacement range");
+        }
+        output_.resize(output_.size() - state->backspaceCount);
+        for (int i = state->newCharCount - 1; i >= 0; --i) {
+            const auto ch = state->charData[i];
+            output_.push_back(static_cast<wchar_t>((ch & CHAR_CODE_MASK)
+                ? (ch & CHAR_MASK) : keyCodeToCharacter(ch)));
+        }
+        if (!boundary && (state->code == vRestore || state->code == vRestoreAndStartNewSession))
+            output_.push_back(stroke.visible);
+        text_ = wideStringToUtf8(output_);
     }
 };
 } // namespace openkey

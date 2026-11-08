@@ -15,7 +15,7 @@ endif()
 install(TARGETS openkey_fcitx5 DESTINATION ${CMAKE_INSTALL_LIBDIR}/fcitx5 COMPONENT openkey_fcitx5)
 install(FILES openkey-addon.conf DESTINATION ${CMAKE_INSTALL_DATADIR}/fcitx5/addon
     RENAME openkey.conf COMPONENT openkey_fcitx5)
-install(FILES openkey-telex.conf openkey-vni.conf DESTINATION ${CMAKE_INSTALL_DATADIR}/fcitx5/inputmethod
+install(FILES openkey-telex.conf openkey-vni.conf openkey-simple-telex1.conf openkey-simple-telex2.conf DESTINATION ${CMAKE_INSTALL_DATADIR}/fcitx5/inputmethod
     COMPONENT openkey_fcitx5)
 
 if(OPENKEY_BUILD_SMOKE_TESTS)
@@ -24,6 +24,11 @@ if(OPENKEY_BUILD_SMOKE_TESTS)
     if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}" OR IS_ABSOLUTE "${CMAKE_INSTALL_DATADIR}")
         message(FATAL_ERROR "Fcitx5 tests require relative CMAKE_INSTALL_LIBDIR and CMAKE_INSTALL_DATADIR")
     endif()
+    add_executable(openkey_engine_context_tests ${PROJECT_SOURCE_DIR}/Tests/LinuxEngineContextTests.cpp)
+    target_include_directories(openkey_engine_context_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(openkey_engine_context_tests PRIVATE openkey_engine)
+    target_compile_options(openkey_engine_context_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    add_test(NAME openkey_engine_context_tests COMMAND openkey_engine_context_tests)
     add_executable(openkey_composition_tests ${PROJECT_SOURCE_DIR}/Tests/LinuxCompositionTests.cpp)
     target_include_directories(openkey_composition_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(openkey_composition_tests PRIVATE openkey_engine)

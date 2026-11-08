@@ -1,10 +1,16 @@
 #include "TextConverter.h"
+#include "ConvertTool.h"
 
 #include <iterator>
 #include <QFutureWatcher>
 #include <QtConcurrentRun>
+#include <mutex>
 
 namespace {
+std::mutex legacyConversionMutex; // Legacy ConvertTool options are process globals.
+int encodingIndex(const QString& name) {
+    return QStringList{"unicode", "tcvn3", "vni", "compound", "cp1258"}.indexOf(name);
+}
 
 // Each six-character group is a Vietnamese vowel and its five tones.
 // Uppercase is explicit: never derive this mapping from case conversion.
@@ -54,7 +60,8 @@ void removeMarks(QString& text, const std::atomic_bool& cancelled) {
 }
 }
 
-TextConverter::TextConverter(QObject* parent) : QObject(parent) {}
+TextConverter::TextConverter(QObject* parent, qsizetype maxInput, qsizetype maxOutput)
+    : QObject(parent), maxInput_(maxInput), maxOutput_(maxOutput) {}
 
 TextConverter::~TextConverter() {
     if (cancellation_) cancellation_->store(true);
@@ -80,15 +87,23 @@ void TextConverter::cancel() {
 
 void TextConverter::convert(const QString& input, const QString& normalization,
                             const QString& letterCase, bool removeVietnameseMarks) {
+    convertInternal(input, normalization, letterCase, removeVietnameseMarks, "unicode", "unicode", false);
+}
+void TextConverter::convertLegacy(const QString& input, const QString& source, const QString& target) {
+    convertInternal(input, "none", "keep", false, source, target, true);
+}
+void TextConverter::convertInternal(const QString& input, const QString& normalization,
+    const QString& letterCase, bool removeVietnameseMarks, const QString& source, const QString& target, bool legacy) {
     // Cancel/clear invalidate immediately, but keep the slot occupied until
     // the previous worker retires: repeated clicks cannot create a job queue.
     if (busy_) return;
     if ((normalization != "none" && normalization != "nfc" && normalization != "nfd") ||
-        (letterCase != "keep" && letterCase != "upper" && letterCase != "lower")) {
+        (letterCase != "keep" && letterCase != "upper" && letterCase != "lower") ||
+        (legacy && (encodingIndex(source) < 0 || encodingIndex(target) < 0))) {
         finish(QStringLiteral("invalid"));
         return;
     }
-    if (input.size() > inputLimit) {
+    if (input.size() > maxInput_) {
         finish(QStringLiteral("too-large"));
         return;
     }
@@ -114,9 +129,23 @@ void TextConverter::convert(const QString& input, const QString& normalization,
         if (!token->load()) finish(outcome.state, outcome.text);
         else emit changed(); // Preserve idle/cancelled, never republish stale text.
     });
-    watcher->setFuture(QtConcurrent::run([input, normalization, letterCase, removeVietnameseMarks, token]() -> Outcome {
+    watcher->setFuture(QtConcurrent::run([input, normalization, letterCase, removeVietnameseMarks, source, target, legacy, token, limit = maxOutput_]() -> Outcome {
         if (token->load()) return {};
         QString output = input;
+        if (legacy) {
+            std::lock_guard<std::mutex> lock(legacyConversionMutex);
+            if (token->load()) return {};
+            convertToolFromCode = static_cast<Uint8>(source == "compound" ? 0 : encodingIndex(source));
+            convertToolToCode = static_cast<Uint8>(target == "compound" ? 0 : encodingIndex(target));
+            convertToolToAllCaps = convertToolToAllNonCaps = false;
+            convertToolToCapsFirstLetter = convertToolToCapsEachWord = convertToolRemoveMark = false;
+            try {
+                const auto canonical = source == "compound" ? input.normalized(QString::NormalizationForm_C) : input;
+                output = QString::fromUtf8(convertUtil(canonical.toUtf8().toStdString()));
+                if (target == "compound") output = output.normalized(QString::NormalizationForm_D);
+            }
+            catch (const std::range_error&) { return {QStringLiteral("invalid"), {}}; }
+        }
         // Qt's individual normalization/case calls cannot be interrupted.
         // Check cancellation between phases; never touch UI from this thread.
         if (removeVietnameseMarks) {
@@ -131,7 +160,7 @@ void TextConverter::convert(const QString& input, const QString& normalization,
         if (normalization == "nfc") output = output.normalized(QString::NormalizationForm_C);
         else if (normalization == "nfd") output = output.normalized(QString::NormalizationForm_D);
         if (token->load()) return {};
-        if (output.size() > outputLimit) return {QStringLiteral("too-large"), {}};
+        if (output.size() > limit) return {QStringLiteral("too-large"), {}};
         if (!validText(output)) return {QStringLiteral("invalid"), {}};
         return {QStringLiteral("converted"), output};
     }));

@@ -2,6 +2,9 @@
 
 Nhánh triển khai hiện tại: `fix/ubuntu-direct-focus`
 
+Yêu cầu xử lý toàn bộ backlog: xem [phạm vi còn lại và điều kiện hoàn thành](UBUNTU_REMAINING_WORK.md).
+Không đánh đồng các test tự động với nghiệm thu desktop hoặc chạy lại mọi alpha lịch sử.
+
 Mốc nền tảng v0.1: commit `b22c3eb`. Hướng dẫn build/cài thử và giới hạn của
 prototype: [Linux README](../Sources/OpenKey/linux/README.md).
 
@@ -13,7 +16,10 @@ prototype: [Linux README](../Sources/OpenKey/linux/README.md).
 - [x] Bổ sung test hồi quy cho Telex, xử lý Backspace và macro.
 - [x] Chuẩn hóa cảnh báo compiler trên GCC và Clang qua CMake/CI.
 - [x] Tạo workflow build Linux trên CI.
-- [ ] Thay `std::wstring_convert` đã deprecated bằng bộ chuyển UTF-8 có test Unicode riêng.
+- [x] Thay `std::wstring_convert` bằng codec UTF-8 có kiểm tra strict, không dùng
+  trạng thái global; giữ biểu diễn UTF-16 của engine, round-trip đủ 1.112.064
+  scalar hợp lệ, NUL trong range và test dữ liệu lỗi. Bỏ ngoại lệ compiler cho
+  deprecated declarations. Sửa NUL thừa và giữ hoa/thường mặc định của ConvertTool.
 - [ ] Tách các API platform khỏi engine nếu phát hiện phụ thuộc ngoài Linux.
 
 ## v0.2 — Input method
@@ -29,8 +35,13 @@ prototype: [Linux README](../Sources/OpenKey/linux/README.md).
 - [x] Sửa lỗi commit lặp từ khi mất focus; test focus-out cho client preedit,
   ClientUnfocusCommit và server-side preedit, chuyển Telex/VNI và quay lại ô cũ.
 - [ ] Kiểm thử cài vào desktop, phát hiện input method và focus-out thực tế.
-- [ ] Đo độ trễ replay, thiết kế engine context riêng trước beta.
-- [ ] Kết nối macro/cấu hình lưu bền và các kiểu gõ còn lại vào addon.
+- [x] Thêm microbenchmark replay opt-in, p50/p95/p99/max theo mỗi append, gồm
+  Telex, VNI và từ dài tối đa; xem [báo cáo replay](UBUNTU_REPLAY_BENCHMARK.md).
+- [x] EngineContext riêng cho Composition, xử lý tăng dần từng phím; alpha.50.
+  Differential 64.000 sự kiện, copy/isolation/đổi tùy chọn; API legacy còn
+  singleton, lookup table vẫn dùng trên event thread. Benchmark không đo desktop.
+- [x] Kết nối macro/cấu hình lưu bền và Simple Telex 1/2 vào addon; alpha.49.
+  Output IM legacy/NFD và nghiệm thu frontend thực tế còn riêng trong backlog.
 - [ ] Kiểm thử Firefox/Chrome, LibreOffice, VS Code, GTK và Qt.
 - [ ] Kiểm thử X11 và Wayland.
 - [ ] Đánh giá IBus fallback.
@@ -76,6 +87,8 @@ Checklist nghiệm thu thủ công: [Ubuntu input QA](UBUNTU_INPUT_QA.md).
   Log qua bridge GNOME/IBus, chưa chứng minh snapshot thay đổi do thành phần nào.
 - [ ] Dựa trên log mới chọn sửa tương thích hoặc xác định giới hạn backend;
   chưa bỏ guard an toàn, chưa tăng timeout và chưa công bố VS Code được hỗ trợ.
+  Công cụ báo cáo v2 và kết quả đọc journal mới: xem mục “Điều tra diagnostics
+  theo thứ tự bản ghi” ở cuối tài liệu; mục nghiệm thu desktop này vẫn mở.
 
 ### Alpha.6 — Giữ lịch sử qua echo muộn đã biết
 
@@ -221,8 +234,9 @@ Giữ chế độ preedit hiện tại để tương thích với các ứng d�
 - [x] Test headless ACK chậm/cũ, burst nhiều từ, timeout/overflow, cursor/selection,
   đổi chế độ, không làm mất panel của IM khác và không ghi đè selection từ phím chờ.
   Chữ chờ ở context đã thay đổi được giữ trong bảng phụ, Enter để chèn, Escape hủy.
-- [ ] Thêm test context cập nhật chậm, gõ nhanh liên tiếp, selection/cursor thay đổi,
-  chấp nhận completion, focus-out và fallback; không mất/lặp ký tự hoặc sửa sai vùng.
+- [x] Test headless context chậm/cũ, burst, selection/cursor, completion chọn đuôi,
+  focus-out và fallback trong LinuxDirectInputTests. Frontend giả bỏ delete chỉ
+  kiểm chứng dừng sửa tiếp; không chứng minh edit đầu đúng hoặc nghiệm thu desktop.
 - [ ] Kiểm thử VS Code thực tế: gõ identifier ASCII như `console`/`print` và xác
   nhận popup IntelliSense xuất hiện/cập nhật trước Space; nhận gợi ý bằng Tab/Enter
   không làm hỏng nội dung. Kiểm tra inline completion riêng nếu đang dùng.
@@ -506,7 +520,13 @@ UI/tray đã cài ở tài khoản thử, chưa thêm vào `.deb`; không restar
   scale 100%/200%. Đã cài riêng UI mới; không cập nhật addon hoặc restart bộ gõ.
 - [ ] Nghiệm thu Giới thiệu desktop: metadata, mở/ẩn/cuộn giấy phép, chọn địa
   chỉ nguồn, cửa sổ nhỏ/theme và không ảnh hưởng bộ gõ khi đóng UI.
-- [ ] Hoàn thiện Nâng cao, Macro và chuyển mã legacy.
+- [x] Chuyển mã legacy thủ công trong UI: VNI Windows, TCVN3, CP1258, Unicode
+  dựng sẵn/tổ hợp; worker riêng với Hủy/giới hạn, lựa chọn bảng mã và copy chủ động.
+  Dùng bảng mã của engine, khóa tùy chọn global giữa các worker UI; không chạy
+  engine nhập phím trong UI. TCVN3 chọn chữ thường khi byte hoa/thường trùng nhau.
+- [x] Năm tùy chọn nâng cao FreeMark/AllowConsonantZFWJ/QuickStartConsonant/
+  QuickEndConsonant/RestoreWrongSpelling nối addon–UI–backup; macro CRUD/file
+  đã có. Direct cần snapshot xác nhận để thay từ khi Space/Enter; còn QA desktop.
 - [x] Thêm job CI UI riêng trên Ubuntu 24.04, Qt từ APT, addon/service OFF;
   offscreen/software/compose, toàn bộ CTest và HiDPI, JUnit/log giữ 7 ngày.
   Kiểm tra cài component UI vào staging và chạy smoke, không cài vào hệ thống.
@@ -526,6 +546,98 @@ UI/tray đã cài ở tài khoản thử, chưa thêm vào `.deb`; không restar
   test headless không thay kiểm chứng screen reader hoặc phím do compositor giữ.
 
 ## v0.5 — Tính năng nâng cao
+
+- [x] Preview.10: bộ chọn Telex/VNI/Simple Telex 1/2/English trong Tổng quan,
+  chỉ gửi SetCurrentIM theo nút Chuyển bộ gõ; đọc nhóm/list/current/state,
+  preflight owner/nhóm/current, readback và không retry khi chưa xác nhận.
+  Không sửa nhóm IM. Đồng bộ khi Đọc lại/quay lại cửa sổ; không cần service tray.
+- [x] Menu icon OpenKey có đủ năm action và dấu radio; build/cập nhật service
+  local, nạp lại riêng openkey-tray.service. Đã đọc GetLayout live xác nhận
+  menu/radio; không gửi switch tới Fcitx5 thật trong kiểm thử.
+- [x] Kiểm tra preview.10: controller mới qua private D-Bus (chuyển năm IM,
+  no-op, inactive, conflict, target bị gỡ, busy, timeout, mất owner, phản hồi sai);
+  UI tương tác/theme/popup hai scale 100%/200%, resource smoke và activation.
+  Service qua Fcitx action/tray tests. Chưa thay bằng nghiệm thu gõ desktop.
+
+- [x] Alpha.49: descriptor/activate cho Simple Telex 1/2, giữ semantics W của
+  engine; source service/tray và UI nhận trạng thái S1/S2. Test composition,
+  discovery/pipeline, Direct/NativeDirect, Backspace và switch/isolation.
+- [x] Alpha.49 / preview.9: bảng macro addon lưu bền, bật/tắt riêng; UI CRUD,
+  JSON và file import/export với bản nháp, preflight/readback/xung đột. Khớp
+  từ hiển thị ở Space/Enter. Direct cần snapshot đầy đủ đã xác nhận; nhánh
+  không có ownership/capability bỏ qua mở rộng. Chưa nghiệm thu frontend thật.
+- [x] Preview.9: sửa từng hành động phím tắt Fcitx5, kiểm trùng, owner/preflight,
+  một patch rồi readback; xuất JSON/lấy một hành động từ JSON vào nháp.
+  Không đăng ký global shortcut Wayland hoặc restore tám hành động nguyên tử.
+- [x] Alpha.49 / preview.9: quy tắc InputStyle theo program ID chính xác, CRUD
+  và JSON nháp qua API addon; từ chối ID bridge chung như gnome-shell.
+  Không suy đoán Chrome/Code khi frontend không cung cấp định danh riêng.
+- [x] Kiểm thử bản mới: addon 9/9 CTest; UI 18/18 gồm hai scale 100%/200%,
+  controller 258 ca private D-Bus; service/addon 17/17 với X11 hotkey OFF.
+  Macro/rule parser 12 ca và file 25 ca qua ASan/UBSan có leak detection.
+  Cấu hình X11 hotkey cũ không chạy được vì Xvfb trong cache đã mất; không
+  đánh dấu kiểm thử key grab X11 mới đạt. Gói addon qua verifier/pipeline thật
+  từ prefix giải nén; UI qua smoke resource/dependency/checksum và lifecycle
+  payload trong root tạm. AppImage chỉ UI, extract-and-run smoke.
+- [ ] Nghiệm thu desktop các tính năng alpha.49/preview.9: Simple Telex,
+  macro, phím tắt, lưu bền, program ID thật; xem [hướng dẫn](UBUNTU_FEATURES_49.md).
+
+- [x] UI preview.8: chuyển mã legacy nguồn/đích Unicode/VNI/TCVN3/CP1258/NFD;
+  test fixture, toàn bộ chữ tiếng Việt, giữ case, emoji, hai worker đồng thời,
+  Hủy và giới hạn. UI chuyển đổi/copy/xóa và giữ nháp qua navigation ở hai scale.
+  17/17 CTest UI, addon alpha.48 đạt 9/9; engine sanitizer riêng đạt 4/4.
+
+- [x] UI preview.7: file picker mở/lưu bản sao giao diện (theme/sidebar),
+  dùng chung I/O giới hạn/atomic save với bản sao bộ gõ nhưng kiểm schema
+  riêng. Mở file chỉ cập nhật nháp; vẫn cần xem trước/Khôi phục giao diện.
+  JSON giao diện và bộ gõ bị từ chối khi nhập/xuất nhầm phần.
+- [x] Preview.7 đạt 16/16 CTest: 24 ca file, 60 ca UI mỗi scale 100%/200%.
+  Có mở/hủy hộp chọn, giữ nháp khi sai định dạng và xác nhận riêng trước khi
+  đổi theme/menu. Gói qua checksum, dependency, QML giải nén và vòng đời payload
+  trong root tạm; không thay nghiệm thu native/portal trên desktop.
+- [ ] Nghiệm thu file giao diện trên desktop: hộp chọn native/portal,
+  hủy/lưu đè, khôi phục rồi đóng/mở UI; không đánh dấu QA bộ gõ theo kết quả này.
+
+- [x] UI preview.6: mở/lưu file JSON cho bản sao cấu hình bộ gõ qua hộp chọn Qt.
+  Đọc UTF-8 có giới hạn và kiểm schema trước khi đưa vào nháp, không tự restore;
+  ghi QSaveFile, lỗi giữ nháp. Không mở URL mạng hoặc special file. Hộp chọn
+  chỉ theo click, không có file-access model ở offline/smoke/screenshot.
+- [x] Preview.6 đạt 16/16 CTest; 18 ca file với tên Unicode, UTF-8/BOM,
+  dữ liệu sai, giới hạn kích thước và lỗi đường dẫn; UI thử mở/hủy hộp chọn,
+  nhận file vào nháp, giữ nháp khi lỗi và không tự restore. Gói DEB qua kiểm
+  checksum/dependency, QML giải nén và vòng đời payload trong root tạm.
+- [ ] Nghiệm thu hộp chọn native/portal trên desktop Wayland/X11: hủy,
+  tên file tiếng Việt, lưu đè, quyền ghi, mở file rồi xem trước/khôi phục.
+
+- [x] Kiểm thử đồng bộ UI: runtime thay đổi được cập nhật vào bộ chọn/nhãn,
+  refresh không gửi Apply, bỏ qua khi bận/offline; 15 nhóm CTest preview.4 đạt.
+  Đã phát hiện và cập nhật binary local cũ che bản DEB; đóng/mở lại để nạp.
+  Chưa tự đánh dấu QA tương thích Chrome/VS Code hoặc đồng bộ desktop toàn bộ.
+- [x] UI preview.5: sao lưu JSON cấu hình runtime bộ gõ, kiểm tra/xem trước
+  rồi khôi phục nhóm thiết lập qua một SetConfig. Chỉ các trường addon hỗ trợ,
+  không gồm phím tắt, macro, Telex/VNI hoặc theme. JSON sửa/đọc lại runtime làm
+  mất xác nhận; kiểm schema và xung đột trước ghi, đọc lại sau ghi, không retry
+  khi mất xác nhận. Không tự đọc/ghi file sao lưu hay clipboard.
+- [x] Preview.5 đạt 15/15 CTest: controller 256 ca qua D-Bus riêng, UI 57 ca
+  ở mỗi scale 100%/200%. Bao gồm JSON sai/không hỗ trợ, xem trước bị vô hiệu,
+  xung đột, mất owner, timeout trước/sau ghi, readback sai và trường hợp không
+  cần ghi. Không gửi SetConfig đến Fcitx5 thật trong các test này.
+- [ ] Nghiệm thu sao lưu/khôi phục bộ gõ trên desktop: copy/paste JSON thủ công,
+  xung đột từ công cụ Fcitx5, đóng/mở UI, addon cũ và cấu hình lưu bền.
+
+- [x] UI preview.4: đọc lại runtime khi cửa sổ được kích hoạt để cập nhật bộ
+  chọn chế độ sau thay đổi ngoài UI; không gửi Apply, không đọc khi đang bận
+  hoặc offline. Giá trị file đã lưu vẫn được trình bày riêng với runtime.
+
+- [x] UI preview.3: khu vực Thử gõ trong Ứng dụng & tương thích, mẫu Telex/VNI,
+  kết quả tham chiếu, focus ô nhập và xóa bản nháp. Mẫu không đổi IM/cấu hình;
+  bản nháp chỉ giữ trong cửa sổ. Không dùng kết quả Qt để đánh dấu QA app khác.
+- [x] Kiểm tra UI preview.3: 15 nhóm CTest đạt sau khi sửa bước chờ layout của
+  test popup; tương tác UI 54 ca ở scale 100% và 200%, gồm nhập/xóa, chọn mẫu,
+  giữ nháp khi chuyển trang, offline, theme sáng/tối và cửa sổ 720×560.
+  Kiểm tra ảnh render sáng/tối; test dùng compose/offscreen, không thay QA Fcitx5.
+- [ ] Nghiệm thu ô Thử gõ với Fcitx5 trên desktop: Telex/VNI, composition,
+  Backspace, Enter, Undo/Redo và đổi focus trên Wayland/X11.
 
 - [ ] Ưu tiên sửa trực tiếp lỗi mất từ đầu trong terminal VS Code: ca người
   dùng `tieengs vieetj` → `' vieêt'`. Người dùng xác nhận Wayland, lỗi lặp sau
@@ -561,7 +673,7 @@ UI/tray đã cài ở tài khoản thử, chưa thêm vào `.deb`; không restar
   và adapter VS Code; đóng VSIX tám file, không kèm node_modules/test.
   npm audit không báo lỗ hổng tại lần kiểm tra; CI Node 22 build/test/đóng gói,
   chưa chạy remote. Chưa cài VSIX, chưa đổi EN/VI hoặc restart Fcitx5 thật.
-- [ ] Nghiệm thu VSIX trên desktop Ubuntu: Telex/VNI/English, Ctrl+` hai
+- **Đã ngừng theo phạm vi hiện tại:** nghiệm thu VSIX trên desktop Ubuntu: Telex/VNI/English, Ctrl+` hai
   chiều, nhiều terminal, đổi IM thủ công, mất focus giữa thao tác, Wayland/
   XWayland và Remote SSH. Delay focus không phải ACK frontend Fcitx5.
   Xem [hướng dẫn extension](../tools/vscode-terminal-english/README.md).
@@ -571,12 +683,12 @@ UI/tray đã cài ở tài khoản thử, chưa thêm vào `.deb`; không restar
   quên lịch sử, không đọc Text/Value/name/description, không sửa VS Code.
   Có 21 test policy/bridge giả lập; 75 test extension cũ vẫn đạt. Probe thật
   trên Ubuntu đăng ký listener và dừng sạch, chưa bật chuyển EN/VI thật.
-- [ ] Nghiệm thu metadata và chuột trên desktop: bật accessibility nếu cần,
+- **Đã ngừng theo phạm vi hiện tại:** nghiệm thu helper metadata/chuột trên desktop: bật accessibility nếu cần,
   probe phải phân biệt editor/terminal kể cả click lại cùng terminal; sau đó
   mới thử `--switch` với Telex/VNI/English, nhiều cửa sổ, Quick Open, Alt+Tab,
   đổi IM thủ công, Wayland/XWayland. Nếu class DOM không expose thì unknown,
   chưa coi hỗ trợ chuột hoàn tất. Tắt extension keyboard khi dùng helper.
-- [ ] Macro editor và import/export.
+- [x] Macro editor và JSON/file import/export: preview.9; xem giới hạn Direct và QA phía trên.
 - [x] Clipboard thủ công cho Chuyển mã: Dán nguồn/Sao chép kết quả chỉ khi click,
   giới hạn/Unicode/plain text, giữ bản nháp và clipboard khi lỗi; không poll,
   không đọc lại khi copy, không tự dán hoặc sửa tài liệu ứng dụng khác.
@@ -600,9 +712,11 @@ UI/tray đã cài ở tài khoản thử, chưa thêm vào `.deb`; không restar
 - [ ] Nghiệm thu chuyển đổi nền trên desktop: Unicode dài, Hủy/sửa nguồn/
   tùy chọn/Xóa, chuyển trang khi đang xử lý, đóng/mở UI và clipboard native.
   Hủy không ngắt giữa một lời gọi Qt; chờ worker cũ trước khi nhận tác vụ mới.
-- [ ] Tài liệu trên 65536 đơn vị UTF-16, tiến trình riêng/hủy CPU tức thời và
-  timeout xử lý Unicode; hiện vẫn giới hạn bộ nhớ, chưa có đọc/ghi file lớn.
-- [ ] Cấu hình theo ứng dụng.
+- [x] Luồng file riêng trên 65536 đơn vị: worker tiến trình con, Hủy kill worker,
+  timeout 30 giây; nguồn UTF-8 16 MiB/kết quả 64 MiB. Ghi tạm rồi công bố,
+  test hủy/timeout/lỗi/xung đột. Không đọc raw-byte legacy hoặc DOC/DOCX.
+- [ ] Nghiệm thu file chooser, chuyển file lớn/Hủy và quyền file trên desktop.
+- [x] Quy tắc InputStyle theo program ID chính xác: alpha.49/preview.9; ID bridge chung không hỗ trợ.
 - [x] Phần UI của lưu/khôi phục: tạo JSON theme/sidebar trong Nâng cao,
   kiểm tra/xem trước rồi xác nhận; sửa JSON khóa khôi phục đến khi xem lại.
   Kiểm tra schema/giới hạn, lưu hai giá trị atomic một lần; lỗi không thay
@@ -612,8 +726,11 @@ UI/tray đã cài ở tài khoản thử, chưa thêm vào `.deb`; không restar
   và smoke headless đạt; không thay addon hoặc restart Fcitx5/tray.
 - [ ] Nghiệm thu JSON giao diện desktop: chọn/sao chép/dán thủ công, xem
   trước, khôi phục hai theme/menu, lỗi file/quyền, đóng/mở và DPI.
-- [ ] Lưu/khôi phục cấu hình bộ gõ Fcitx5, macro và hotkey; JSON giao diện
-  không phải bản sao toàn bộ OpenKey. File picker/xuất file riêng chưa có.
+- [x] Lưu/khôi phục nhóm cấu hình addon OpenKey qua JSON runtime và API Fcitx5;
+  xem giới hạn preview.5 ở trên. JSON giao diện vẫn là bản sao riêng.
+- [x] JSON/file macro, hotkey và lựa chọn IM. IM nhập nháp rồi Chuyển bộ gõ;
+  hotkey áp dụng từng hành động qua preflight/readback. Chưa restore nhóm IM
+  hoặc tất cả hotkey nguyên tử; còn nghiệm thu desktop.
 - [x] Tổng quan có bảng kết nối/lỗi: phân biệt mẫu service/input method,
   API cấu hình runtime và file đã lưu; hướng dẫn cho conflict/unconfirmed/
   unsupported, service timeout/protocol-error và file lỗi. Không coi thiếu
@@ -631,7 +748,10 @@ UI/tray đã cài ở tài khoản thử, chưa thêm vào `.deb`; không restar
 
 ## v0.6 — Đóng gói
 
-- [ ] Tạo AppImage thử nghiệm.
+- [x] Tạo AppImage thử nghiệm cho UI preview.8 amd64: bundle Qt/QML và dependency,
+  source OpenKey tương ứng, copyright notices, checksum; AppDir và image thật
+  đạt smoke offscreen (extract-and-run, không cần FUSE). Chưa nghiệm thu desktop
+  hoặc bản Ubuntu cũ; addon Fcitx5 vẫn cài riêng. Xem [AppImage](UBUNTU_APPIMAGE.md).
 - [x] Tạo gói `.deb` alpha cho addon Fcitx5 (chưa có UI).
 - [x] Đóng gói UI độc lập `openkey-settings` preview.1: component riêng,
   launcher menu ứng dụng và D-Bus activation; khai báo Qt/QML runtime,
@@ -672,3 +792,71 @@ APT trên máy desktop vẫn chưa nghiệm thu; không đánh dấu xong mục 
 - Tray, hotkey và autostart hoạt động đúng trên desktop được hỗ trợ.
 - UI có theme sáng/tối, tiếng Việt và điều hướng bằng bàn phím.
 - Có gói cài đặt và hướng dẫn gỡ cài đặt.
+
+## Đợt tiếp tục 2026-11-08 — alpha.50 / preview.11
+
+[Hướng dẫn và giới hạn](UBUNTU_FEATURES_50.md): context riêng, năm tùy chọn
+nâng cao, chuyển file bằng tiến trình riêng, sao lưu IM/hotkey. Addon và
+ASan/UBSan đều đạt 10/10 CTest; UI 20/20. Tích hợp UI → service → menu tray
+đạt trên private D-Bus/Fcitx giả. Chưa nghiệm thu Chrome omnibox và desktop;
+các checkbox QA/Flatpak/CI remote còn mở.
+
+Đã đóng gói addon alpha.50 và UI preview.11: payload/dependency/module load,
+Direct integration từ addon giải nén và vòng đời UI sáu bước root tạm đều đạt.
+AppImage preview.11 đạt smoke image thật và worker chuyển file 177.000 byte.
+Đã cập nhật riêng UI user-local bằng thay file nguyên tử, giữ backup và smoke
+binary cài; cửa sổ cũ cần đóng/mở lại. Không cài addon hoặc restart Fcitx5/tray.
+
+## Đợt tiếp tục — chuẩn bị nghiệm thu Chrome/VS Code
+
+- [x] Thêm công cụ `scripts/linux-compat-report.py`: chỉ đọc journal hoặc file
+  thường, tổng hợp allowlist enum/nhóm ứng dụng/capability/boolean, không xuất
+  log thô, nội dung gõ, đường dẫn, timestamp hay định danh ứng dụng lạ.
+  Giới hạn đầu vào/nhóm, timeout journal, file mới 0600 và không ghi đè.
+- [x] 14 ca Python kiểm tra lọc dữ liệu, bridge ID, transient capability,
+  malformed/giới hạn, quyền file/symlink/FIFO và journal rỗng/lỗi/timeout.
+  Đăng ký CTest khi có Python3; không thay addon hoặc restart bộ gõ.
+- [x] [Bộ ca nghiệm thu desktop](UBUNTU_DESKTOP_QA.md): tách Chrome web/omnibox,
+  autocomplete, terminal sau Enter/focus, Telex/VNI/Simple Telex và ASCII.
+- [ ] Chạy các ca trên desktop và sửa theo chuỗi thao tác/kết quả mới. Lần đọc
+  user journal 30 phút không có diagnostics phù hợp; chưa kết luận lỗi đã hết.
+
+## Đợt tiếp tục — menu mở trang UI preview.12
+
+- [x] Port ba lệnh TrayContract 990/980/1010: Gõ tắt, Chuyển mã, Giới thiệu.
+  Nối service worker → D-Bus ShowPage → cửa sổ hiện có; allowlist trang,
+  xử lý yêu cầu trước khi có window, giữ Show cũ và không tự Apply/chuyển IM.
+- [x] Menu có label/enabled thật; hover không mở UI, cùng slot in-flight,
+  timeout không retry; UI cũ hoặc từ chối không được báo thành công.
+- [ ] Nghiệm thu ba lệnh trên panel GNOME/KDE: UI chưa mở, đã mở/ẩn/minimize,
+  bản nháp, focus Wayland và đổi trang đúng. Test private bus không thay QA này.
+
+[Hướng dẫn menu preview.12](UBUNTU_TRAY_PAGES.md). Các lệnh TrayContract khác
+vẫn còn mở; không sửa Chrome/terminal trong đợt menu này.
+
+Kết quả: build tổng hợp addon/service/UI đạt 35/35 CTest. Sau khi ép sinh lại
+MOC để nhận ca tích hợp có điều kiện, nhóm activation chạy lại đạt 20 ca
+QtTest, gồm Event tray → ShowPage trên service thật/private bus. Fixture dùng
+runtime ngắn để tránh giới hạn Unix socket khi TMPDIR của runner dài.
+UI DEB preview.12 đạt hai nhóm activation/smoke, verifier payload/dependency
+và sáu bước lifecycle root tạm. AppImage preview.12 đạt extract-and-run smoke,
+checksum hai artifact khớp. Đã cập nhật nguyên tử UI/service user-local, giữ
+backup, chỉ restart unit tray; SNI đã đăng ký và đọc được ba menu đúng label/
+enabled. Không click menu trên desktop để tránh đổi cửa sổ của người dùng;
+không restart Fcitx5. Cửa sổ UI cũ cần người dùng đóng/mở lại.
+
+## Điều tra diagnostics theo thứ tự bản ghi — 2026-11-08
+
+- [x] Sửa công cụ báo cáo bỏ sót cause capability-withdrawn,
+  key-snapshot-not-current, queue-overflow và prepare-rejected.
+- [x] Schema v2 thêm 32 record cuối đã lọc, thứ tự đầu vào, reference,
+  boolean có/không xuất hiện; phân biệt false với thiếu dữ liệu.
+  Không gán trace theo context hoặc ứng dụng từ bridge GNOME.
+- [x] 19 ca Python đạt, gồm reset trước/sau khi dọn trạng thái, cause hủy,
+  dữ liệu lạ không bị lộ và giới hạn record. CTest nhóm báo cáo đạt.
+- [x] Đọc journal 30 phút: ba record NativeDirect passthrough chờ capability,
+  qua GNOME bridge/XIM. Chưa có mẫu định danh riêng VS Code/Chrome hoặc ca
+  gõ mới để quy nguyên nhân. Không thay addon/UI, tăng timeout hoặc restart.
+- [ ] Tái hiện desktop có chuỗi phím/kết quả cụ thể để quyết định sửa backend.
+
+[Cách đọc báo cáo v2 và chạy ca thử](UBUNTU_DESKTOP_QA.md).

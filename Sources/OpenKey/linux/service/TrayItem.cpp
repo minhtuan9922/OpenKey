@@ -15,8 +15,9 @@ constexpr int quitMenuId = 2000; // POPUP_OPENKEY_EXIT in Tests/TrayContract.jso
 constexpr int englishMenuId = 920; // Linux-only explicit selector, not Windows' toggle command 900.
 constexpr int configurationMenuId = 1001; // Opens Fcitx settings, not Windows' OpenKey control panel.
 constexpr int settingsMenuId = 1000; // OpenKey's own settings window.
-bool inputMenuId(int id) { return id == 910 || id == 911 || id == englishMenuId; }
-bool validMenuId(int id) { return (id >= 0 && id <= 4) || inputMenuId(id) || id == configurationMenuId || id == settingsMenuId || id == quitMenuId; }
+bool settingsMenuIdForPage(int id) { return id == settingsMenuId || id == 990 || id == 980 || id == 1010; }
+bool inputMenuId(int id) { return id == 910 || id == 911 || id == 912 || id == 913 || id == englishMenuId; }
+bool validMenuId(int id) { return (id >= 0 && id <= 4) || inputMenuId(id) || id == configurationMenuId || settingsMenuIdForPage(id) || id == quitMenuId; }
 int emptyPixmaps(sd_bus_message* reply) {
     int result = sd_bus_message_open_container(reply, 'a', "(iiay)");
     return result < 0 ? result : sd_bus_message_close_container(reply);
@@ -27,6 +28,11 @@ std::vector<uint8_t> renderIcon(InputStatus status, int size) {
     std::vector<Stroke> strokes;
     strokes.reserve(32);
     if (status == InputStatus::Telex) strokes = {{6, 5, 18, 5}, {12, 5, 12, 19}};
+    else if (status == InputStatus::SimpleTelex1 || status == InputStatus::SimpleTelex2) {
+        strokes = {{17, 5, 7, 5}, {7, 5, 7, 12}, {7, 12, 17, 12}, {17, 12, 17, 19}, {17, 19, 7, 19}};
+        if (status == InputStatus::SimpleTelex1) strokes.push_back({21, 15, 21, 20});
+        else { strokes.push_back({20, 15, 23, 15}); strokes.push_back({23, 15, 20, 20}); strokes.push_back({20, 20, 23, 20}); }
+    }
     else if (status == InputStatus::Vni)
         strokes = {{6, 19, 6, 5}, {6, 5, 18, 19}, {18, 19, 18, 5}};
     else if (status == InputStatus::English)
@@ -92,9 +98,14 @@ int menuFields(sd_bus_message* reply, int id, const std::string& title, ActionRe
         if (id == quitMenuId) text = "Thoát tray OpenKey (giữ bộ gõ)";
         else if (id == 910) text = "Chuyển sang Telex";
         else if (id == 911) text = "Chuyển sang VNI";
+        else if (id == 912) text = "Chuyển sang Simple Telex 1";
+        else if (id == 913) text = "Chuyển sang Simple Telex 2";
         else if (id == englishMenuId) text = "Chuyển sang tiếng Anh (US)";
         else if (id == configurationMenuId) text = "Cấu hình bộ gõ Fcitx5…";
         else if (id == settingsMenuId) text = "Cài đặt OpenKey…";
+        else if (id == 990) text = "Cấu hình gõ tắt…";
+        else if (id == 980) text = "Công cụ chuyển mã…";
+        else if (id == 1010) text = "Giới thiệu OpenKey";
         else if (id == 2) text = actionLabel(action);
         else if (id == 3) text = hotkeyHint(session, hotkey);
         else if (id == 4) text = "Đổi phím tắt trong cấu hình Fcitx5";
@@ -116,6 +127,8 @@ int menuFields(sd_bus_message* reply, int id, const std::string& title, ActionRe
             if (result >= 0) result = sd_bus_message_open_container(reply, 'v', "i");
             const bool selected = (id == 910 && status == InputStatus::Telex) ||
                                   (id == 911 && status == InputStatus::Vni) ||
+                                  (id == 912 && status == InputStatus::SimpleTelex1) ||
+                                  (id == 913 && status == InputStatus::SimpleTelex2) ||
                                   (id == englishMenuId && status == InputStatus::English);
             if (result >= 0) result = sd_bus_message_append(reply, "i", selected ? 1 : 0);
             if (result >= 0) result = sd_bus_message_close_container(reply);
@@ -125,7 +138,7 @@ int menuFields(sd_bus_message* reply, int id, const std::string& title, ActionRe
         if (result >= 0) result = sd_bus_message_append(reply, "s", "enabled");
         if (result >= 0) result = sd_bus_message_open_container(reply, 'v', "b");
         if (result >= 0) result = sd_bus_message_append(reply, "b", id == quitMenuId ||
-            ((inputMenuId(id) || id == configurationMenuId || id == settingsMenuId) && action != ActionResult::Busy));
+            ((inputMenuId(id) || id == configurationMenuId || settingsMenuIdForPage(id)) && action != ActionResult::Busy));
         if (result >= 0) result = sd_bus_message_close_container(reply);
         if (result >= 0) result = sd_bus_message_close_container(reply);
     }
@@ -138,7 +151,7 @@ int menuNode(sd_bus_message* reply, int id, int depth, const std::string& title,
     if (result >= 0) result = menuFields(reply, id, title, action, status, session, hotkey);
     if (result >= 0) result = sd_bus_message_open_container(reply, 'a', "v");
     if (result >= 0 && id == 0 && depth != 0) {
-        for (const int child : {1, 910, 911, englishMenuId, 2, settingsMenuId, configurationMenuId, 3, 4, quitMenuId}) {
+        for (const int child : {1, 910, 911, 912, 913, englishMenuId, 2, settingsMenuId, 990, 980, 1010, configurationMenuId, 3, 4, quitMenuId}) {
             if (result >= 0) result = sd_bus_message_open_container(reply, 'v', "(ia{sv}av)");
             if (result >= 0) result = menuNode(reply, child, 0, title, action, status, session, hotkey);
             if (result >= 0) result = sd_bus_message_close_container(reply);
@@ -152,6 +165,8 @@ int menuNode(sd_bus_message* reply, int id, int depth, const std::string& title,
 const char* TrayItem::label(InputStatus status) {
     if (status == InputStatus::Telex) return "T";
     if (status == InputStatus::Vni) return "N";
+    if (status == InputStatus::SimpleTelex1) return "S1";
+    if (status == InputStatus::SimpleTelex2) return "S2";
     if (status == InputStatus::English) return "E";
     if (status == InputStatus::Inactive) return "-";
     if (status == InputStatus::Other) return "O";
@@ -160,6 +175,8 @@ const char* TrayItem::label(InputStatus status) {
 std::string TrayItem::title() const {
     if (status_ == InputStatus::Telex) return "OpenKey — Telex (sampled)";
     if (status_ == InputStatus::Vni) return "OpenKey — VNI (sampled)";
+    if (status_ == InputStatus::SimpleTelex1) return "OpenKey — Simple Telex 1 (sampled)";
+    if (status_ == InputStatus::SimpleTelex2) return "OpenKey — Simple Telex 2 (sampled)";
     return std::string("OpenKey: ") + statusName(status_) + " (sampled)";
 }
 TrayItem::~TrayItem() { disconnect(); }
@@ -222,11 +239,14 @@ int TrayItem::menuEvent(sd_bus_message* message, void* data, sd_bus_error*) {
             sd_bus_flush(sd_bus_message_get_bus(message));
         } else if (!self.quitRequested_ && inputMenuId(id)) {
             self.actions_.request(id == 910 ? InputMethod::Telex :
-                                  id == 911 ? InputMethod::Vni : InputMethod::English);
+                                  id == 911 ? InputMethod::Vni :
+                                  id == 912 ? InputMethod::SimpleTelex1 :
+                                  id == 913 ? InputMethod::SimpleTelex2 : InputMethod::English);
         } else if (!self.quitRequested_ && id == configurationMenuId) {
             self.actions_.requestConfiguration();
-        } else if (!self.quitRequested_ && id == settingsMenuId) {
-            self.actions_.requestSettings();
+        } else if (!self.quitRequested_ && settingsMenuIdForPage(id)) {
+            self.actions_.requestSettings(id == 990 ? SettingsPage::Macro :
+                id == 980 ? SettingsPage::Convert : id == 1010 ? SettingsPage::About : SettingsPage::General);
         }
     }
     return result;
@@ -263,7 +283,7 @@ int TrayItem::groupProperties(sd_bus_message* message, void* data, sd_bus_error*
             return sd_bus_reply_method_errorf(message, SD_BUS_ERROR_INVALID_ARGS, "Too many menu IDs"); }
         ids.push_back(id);
     }
-    if (ids.empty()) ids = {0, 1, 910, 911, englishMenuId, 2, configurationMenuId, 3, 4, quitMenuId};
+    if (ids.empty()) ids = {0, 1, 910, 911, 912, 913, englishMenuId, 2, settingsMenuId, configurationMenuId, 3, 4, quitMenuId};
     for (const auto requested : ids) {
         id = requested;
         if (!validMenuId(id)) continue;

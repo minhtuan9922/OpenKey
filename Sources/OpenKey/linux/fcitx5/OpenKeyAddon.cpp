@@ -1,6 +1,9 @@
 #include "Composition.h"
 #include "DirectInput.h"
+#include "../MacroTable.h"
+#include "../ApplicationRules.h"
 #include <string>
+#include <string_view>
 #include <vector>
 #include <fcitx-config/enum.h>
 #include <fcitx-config/iniparser.h>
@@ -22,6 +25,14 @@ FCITX_CONFIG_ENUM(InputStyle, Preedit, Direct, CommitOnly, NativeDirect);
 FCITX_CONFIGURATION(InputConfig,
     fcitx::Option<InputStyle> style{this, "InputStyle", "Chế độ gõ / Input style", InputStyle::Preedit};
     fcitx::Option<bool> diagnostics{this, "DirectDiagnostics", "Direct diagnostics (no text content)", false};
+    fcitx::Option<std::string> applicationRules{this, "ApplicationRules", "Chế độ theo ứng dụng / Application rules (encoded)", ""};
+    fcitx::Option<bool> macrosEnabled{this, "MacrosEnabled", "Bật gõ tắt / Enable macros", false};
+    fcitx::Option<std::string> macroTable{this, "MacroTable", "Bảng gõ tắt / Macro table (encoded)", ""};
+    fcitx::Option<bool> freeMark{this, "FreeMark", "Đặt dấu tự do / Free tone placement", false};
+    fcitx::Option<bool> allowConsonantZFWJ{this, "AllowConsonantZFWJ", "Cho phép phụ âm Z F W J", false};
+    fcitx::Option<bool> quickStartConsonant{this, "QuickStartConsonant", "Gõ nhanh phụ âm đầu", false};
+    fcitx::Option<bool> quickEndConsonant{this, "QuickEndConsonant", "Gõ nhanh phụ âm cuối", false};
+    fcitx::Option<bool> restoreWrongSpelling{this, "RestoreWrongSpelling", "Khôi phục từ sai chính tả", false};
     fcitx::Option<bool> quickTelex{this, "QuickTelex", "Gõ nhanh Telex / Quick Telex", false};
     fcitx::Option<bool> checkSpelling{this, "CheckSpelling", "Kiểm tra chính tả / Check spelling", true};
     fcitx::Option<bool> useModernOrthography{this, "UseModernOrthography", "Đặt dấu kiểu mới / Modern tone placement", true};
@@ -226,12 +237,13 @@ public:
     explicit OpenKeyAddon(fcitx::Instance* instance) : instance_(instance) {
         instance->inputContextManager().registerProperty("openkeyState", &factory_);
         fcitx::readAsIni(config_, "conf/openkey.conf");
+        openkey::ApplicationRules::parse(*config_.applicationRules, appRules_);
         surroundingWatcher_ = instance->watchEvent(fcitx::EventType::InputContextSurroundingTextUpdated,
             fcitx::EventWatcherPhase::InputMethod, [this](fcitx::Event& event) {
                 auto* ic = static_cast<fcitx::InputContextEvent&>(event).inputContext();
                 auto& state = *ic->propertyFor(&factory_);
                 if (!state.active) return;
-                if (*config_.style == InputStyle::NativeDirect &&
+                if (styleFor(ic) == InputStyle::NativeDirect &&
                     (state.nativeExpected || state.nativeObserved)) {
                     // deleteSurroundingText notifies before commitString. That
                     // intermediate snapshot is not a focus change.
@@ -363,7 +375,15 @@ public:
     void setConfig(const fcitx::RawConfig& raw) override {
         const auto previous = config_;
         config_.load(raw, true);
+        openkey::MacroTable::Entries checkedMacros;
+        openkey::ApplicationRules::Entries checkedRules;
+        if (!openkey::MacroTable::parse(*config_.macroTable, checkedMacros) ||
+            !openkey::ApplicationRules::parse(*config_.applicationRules, checkedRules)) {
+            config_ = previous;
+            return; // Reject the entire malformed patch; leave runtime/file untouched.
+        }
         if (compositionConfigChanged(previous)) finishContexts();
+        openkey::ApplicationRules::parse(*config_.applicationRules, appRules_);
         // Keep future/third-party keys when applying a partial settings update.
         fcitx::RawConfig saved;
         fcitx::readAsIni(saved, "conf/openkey.conf");
@@ -378,7 +398,12 @@ public:
     void reloadConfig() override {
         const auto previous = config_;
         fcitx::readAsIni(config_, "conf/openkey.conf");
+        openkey::MacroTable::Entries macros;
+        openkey::ApplicationRules::Entries rules;
+        if (!openkey::MacroTable::parse(*config_.macroTable, macros) ||
+            !openkey::ApplicationRules::parse(*config_.applicationRules, rules)) { config_ = previous; return; }
         if (compositionConfigChanged(previous)) finishContexts();
+        openkey::ApplicationRules::parse(*config_.applicationRules, appRules_);
     }
 
     void activate(const fcitx::InputMethodEntry& entry, fcitx::InputContextEvent& event) override {
@@ -389,12 +414,14 @@ public:
         // previous method would swallow every following key.
         state->recovery.clear();
         clearDirect(*state);
-        state->composition = openkey::Composition(entry.uniqueName() == "openkey-vni" ? vVNI : vTelex,
+        state->composition = openkey::Composition(entry.uniqueName() == "openkey-vni" ? vVNI :
+            entry.uniqueName() == "openkey-simple-telex1" ? vSimpleTelex1 :
+            entry.uniqueName() == "openkey-simple-telex2" ? vSimpleTelex2 : vTelex,
                                                   compositionOptions());
         auto* ic = event.inputContext();
         // Some clients (Chrome address bar, Qt) ignore the first IM edit until a
         // preedit/focus handshake. Send an empty client preedit when Direct.
-        if (*config_.style == InputStyle::Direct &&
+        if (styleFor(ic) == InputStyle::Direct &&
             (ic->capabilityFlags() & fcitx::CapabilityFlag::Preedit)) {
             ic->inputPanel().reset();
             ic->inputPanel().setClientPreedit(fcitx::Text{});
@@ -415,11 +442,12 @@ public:
             update(ic);
             return;
         }
-        if (*config_.style == InputStyle::CommitOnly) {
+        if (finishBoundary(ic, event)) return;
+        if (styleFor(ic) == InputStyle::CommitOnly) {
             commitOnlyKey(ic, event);
             return;
         }
-        if (*config_.style == InputStyle::NativeDirect) {
+        if (styleFor(ic) == InputStyle::NativeDirect) {
             nativeDirectKey(ic, event);
             return;
         }
@@ -590,9 +618,9 @@ public:
         if (key.isModifier()) return;
         const auto symbol = fcitx::Key::keySymToUnicode(key.sym());
         const bool textKey = letterOrDigit(symbol);
-        const bool terminalPreedit = ibusClient(ic) && *config_.style == InputStyle::Direct &&
+        const bool terminalPreedit = ibusClient(ic) && styleFor(ic) == InputStyle::Direct &&
             directRewriteUnsafe(ic) && (ic->capabilityFlags() & fcitx::CapabilityFlag::Preedit);
-        state.hiddenPreedit = ibusClient(ic) && *config_.style == InputStyle::Direct && appendOnlyClient(ic);
+        state.hiddenPreedit = ibusClient(ic) && styleFor(ic) == InputStyle::Direct && appendOnlyClient(ic);
         if (terminalPreedit && state.plainCommit) {
             // The field changed under a Direct word (editor -> terminal). That
             // word is already in the document; start the next one in preedit.
@@ -604,7 +632,7 @@ public:
         }
         if (terminalPreedit && composition.empty() && letterOrDigit(fcitx::Key::keySymToUnicode(key.sym())))
             diagnose(ic, state.hiddenPreedit ? "fallback:commit-only-terminal" : "fallback:preedit-terminal");
-        if (ibusClient(ic) && *config_.style == InputStyle::Direct && !terminalPreedit) {
+        if (ibusClient(ic) && styleFor(ic) == InputStyle::Direct && !terminalPreedit) {
             // Keep the composed word in the document and the preedit empty.
             auto showWord = [this, ic]() {
                 auto& word = *ic->propertyFor(&factory_);
@@ -844,11 +872,11 @@ public:
             return;
         }
         if (!terminalPreedit && !state.forcePreedit && !state.direct && composition.empty() &&
-            *config_.style == InputStyle::Direct &&
+            styleFor(ic) == InputStyle::Direct &&
             !surroundingTextUnreliable(ic) &&
             (ic->capabilityFlags() & fcitx::CapabilityFlag::SurroundingText) &&
             openkey::Snapshot::read(ic->surroundingText(), true)) state.direct = true;
-        else if (!state.direct && *config_.style == InputStyle::Direct && surroundingTextUnreliable(ic) &&
+        else if (!state.direct && styleFor(ic) == InputStyle::Direct && surroundingTextUnreliable(ic) &&
                  composition.empty())
             diagnose(ic, "fallback:preedit-unreliable-surrounding");
         if (state.direct) {
@@ -868,7 +896,7 @@ public:
             // If the client withdrew capability/context while idle, process
             // this same key in Preedit, rather than lose the first keystroke.
         }
-        if (*config_.style == InputStyle::Direct && !state.forcePreedit && !surroundingTextUnreliable(ic) &&
+        if (styleFor(ic) == InputStyle::Direct && !state.forcePreedit && !surroundingTextUnreliable(ic) &&
             !terminalPreedit)
             diagnose(ic, !composition.empty() ? "fallback:preedit-word-in-progress" :
                 ((ic->capabilityFlags() & fcitx::CapabilityFlag::SurroundingText)
@@ -877,7 +905,7 @@ public:
         // preedit (e.g. many terminals): do not steal keys into an invisible
         // server composition. Preedit style still uses server-side preedit.
         // A client that CAN show preedit must still convert (chees → chế).
-        if (*config_.style == InputStyle::Direct && !state.forcePreedit &&
+        if (styleFor(ic) == InputStyle::Direct && !state.forcePreedit &&
             !(ic->capabilityFlags() & fcitx::CapabilityFlag::Preedit)) {
             diagnose(ic, "fallback:passthrough-no-preedit-capability");
             composition.clear();
@@ -956,7 +984,7 @@ public:
         // key apply only to what follows (hôị).
         auto* ic = event.inputContext();
         auto& state = *ic->propertyFor(&factory_);
-        if (*config_.style == InputStyle::NativeDirect && state.nativeKeepOnReset) {
+        if (styleFor(ic) == InputStyle::NativeDirect && state.nativeKeepOnReset) {
             state.nativeKeepOnReset = false;
             state.nativeResetHeld = true;
             return;
@@ -978,7 +1006,7 @@ public:
         // plainCommit text is already in the document. Committing it again duplicates.
         const bool clientHoldsPreedit = event.type() == fcitx::EventType::InputContextFocusOut &&
             (ic->capabilityFlags() & fcitx::CapabilityFlag::Preedit) && !state.direct &&
-            !state.plainCommit && !state.hiddenPreedit && *config_.style != InputStyle::CommitOnly;
+            !state.plainCommit && !state.hiddenPreedit && styleFor(ic) != InputStyle::CommitOnly;
         if (state.direct) settle(ic);
         else if (!sensitive && !clientHoldsPreedit && !state.composition.empty() && !state.plainCommit) {
             // Switching to English must not delete the character before the caret.
@@ -1134,8 +1162,7 @@ private:
             state.plainCommit = false;
         };
         const bool lateCapability = unsupported &&
-            std::char_traits<char>::compare(unsupported, "no-surrounding-capability", 25) == 0 &&
-            unsupported[25] == '\0';
+            std::string_view(unsupported) == "no-surrounding-capability";
         if (lateCapability && !state.nativeRawWord) {
             diagnose(ic, "native:passthrough", "awaiting-surrounding-capability");
             flushUnconfirmed(false);
@@ -1314,11 +1341,73 @@ private:
     fcitx::SimpleInputContextPropertyFactory<State> factory_;
     std::unique_ptr<fcitx::HandlerTableEntry<fcitx::EventHandler>> surroundingWatcher_;
 
+    bool finishBoundary(fcitx::InputContext* ic, fcitx::KeyEvent& event) {
+        const bool finishWord = *config_.quickStartConsonant || *config_.quickEndConsonant || *config_.restoreWrongSpelling;
+        if ((!*config_.macrosEnabled && !finishWord) || event.isRelease() || shortcutKey(event.key()) ||
+            (event.key().sym() != FcitxKey_space && !enterKey(event.key()))) return false;
+        auto& state = *ic->propertyFor(&factory_);
+        if (state.composition.empty() || !state.recovery.empty() || state.preeditDrifted) return false;
+        openkey::MacroTable::Entries entries;
+        if (*config_.macrosEnabled && !openkey::MacroTable::parse(*config_.macroTable, entries)) return false;
+        const auto found = entries.find(state.composition.text());
+        const auto replacement = found != entries.end() ? found->second :
+            finishWord ? state.composition.finishedText() : state.composition.text();
+        if (replacement == state.composition.text()) return false;
+        unsigned remove = 0;
+        const bool buffered = styleFor(ic) == InputStyle::Preedit || styleFor(ic) == InputStyle::CommitOnly ||
+            (styleFor(ic) == InputStyle::Direct && !state.direct && !state.owned &&
+             !state.plainCommit && !state.repairNativePrime && !state.nativePrime);
+        if (!buffered) {
+            // Macro replacement never uses predicted/stale echoes, selected autocomplete,
+            // or suffix-only ownership. No confirmed whole snapshot means no expansion.
+            if (!(ic->capabilityFlags() & fcitx::CapabilityFlag::SurroundingText) ||
+                appendOnlyClient(ic) || surroundingTextUnreliable(ic)) return false;
+            const auto snapshot = openkey::Snapshot::read(ic->surroundingText());
+            const auto* baseline = styleFor(ic) == InputStyle::NativeDirect ?
+                (state.nativeExpected && !state.nativeAwaitingUpdate && !state.nativeRawWord ? &*state.nativeExpected : nullptr) :
+                (!state.tracker.pending() ? state.tracker.confirmed() : nullptr);
+            if (!snapshot || !baseline || !(*snapshot == *baseline)) return false;
+            const auto placed = styleFor(ic) == InputStyle::NativeDirect ? state.placed : state.composition.text();
+            const auto word = openkey::codepoints(placed);
+            if (word.empty() || snapshot->cursor < word.size() ||
+                snapshot->text.substr(snapshot->cursor - word.size(), word.size()) != word) return false;
+            remove = static_cast<unsigned>(word.size());
+        }
+        state.composition.clear();
+        clearDirect(state);
+        update(ic);
+        state.emitting = true;
+        if (remove) ic->deleteSurroundingText(-static_cast<int>(remove), remove);
+        ic->commitString(replacement);
+        state.emitting = false;
+        // Boundary stays native, including Enter used to send a chat message.
+        return true;
+    }
+
+    openkey::ApplicationRules::Entries appRules_;
+    InputStyle styleFor(fcitx::InputContext* ic) const {
+        const auto found = appRules_.find(ic->program());
+        if (found == appRules_.end()) return *config_.style;
+        if (found->second == "Preedit") return InputStyle::Preedit;
+        if (found->second == "Direct") return InputStyle::Direct;
+        if (found->second == "CommitOnly") return InputStyle::CommitOnly;
+        return InputStyle::NativeDirect;
+    }
     openkey::Composition::Options compositionOptions() const {
-        return {*config_.checkSpelling, *config_.useModernOrthography, *config_.quickTelex};
+        return {*config_.checkSpelling, *config_.useModernOrthography, *config_.quickTelex,
+            *config_.freeMark, *config_.allowConsonantZFWJ, *config_.quickStartConsonant,
+            *config_.quickEndConsonant, *config_.restoreWrongSpelling};
     }
     bool compositionConfigChanged(const InputConfig& previous) const {
-        return *config_.style != *previous.style ||
+        return *config_.freeMark != *previous.freeMark ||
+            *config_.allowConsonantZFWJ != *previous.allowConsonantZFWJ ||
+            *config_.quickStartConsonant != *previous.quickStartConsonant ||
+            *config_.quickEndConsonant != *previous.quickEndConsonant ||
+            *config_.restoreWrongSpelling != *previous.restoreWrongSpelling ||
+            *config_.applicationRules != *previous.applicationRules ||
+            *config_.macrosEnabled != *previous.macrosEnabled ||
+            *config_.macroTable != *previous.macroTable ||
+            *config_.style != *previous.style ||
             *config_.checkSpelling != *previous.checkSpelling ||
             *config_.useModernOrthography != *previous.useModernOrthography ||
             *config_.quickTelex != *previous.quickTelex;
@@ -1329,7 +1418,7 @@ private:
         auto& state = *ic->propertyFor(&factory_);
         const auto snapshot = openkey::Snapshot::read(ic->surroundingText(), true);
         auto comparison = state.tracker.compare(snapshot);
-        const bool native = *config_.style == InputStyle::NativeDirect;
+        const bool native = styleFor(ic) == InputStyle::NativeDirect;
         if (native) {
             comparison = {};
             comparison.reference = state.nativeExpected ? "native-expected" : "none";
@@ -1751,7 +1840,7 @@ private:
 
     void update(fcitx::InputContext* ic) {
         const auto& state = *ic->propertyFor(&factory_);
-        const auto value = (state.direct || state.plainCommit || *config_.style == InputStyle::NativeDirect)
+        const auto value = (state.direct || state.plainCommit || styleFor(ic) == InputStyle::NativeDirect)
             ? std::string{} : state.composition.text();
         fcitx::Text text(value);
         text.setCursor(static_cast<int>(value.size()));
@@ -1762,7 +1851,7 @@ private:
         }
         // Append-only clients (xterm.js) get the word only from commitString;
         // the syllable is shown in the server panel while typing.
-        if (state.hiddenPreedit || *config_.style == InputStyle::CommitOnly) {
+        if (state.hiddenPreedit || styleFor(ic) == InputStyle::CommitOnly) {
             ic->inputPanel().setClientPreedit(fcitx::Text{});
             ic->inputPanel().setPreedit(text);
         } else {
@@ -1797,7 +1886,7 @@ private:
         composition.clear();
         // A promoted syllable is over. The next word follows InputStyle again,
         // so Direct does not stay underlined for the rest of the field.
-        if (*config_.style == InputStyle::Direct) state.forcePreedit = false;
+        if (styleFor(ic) == InputStyle::Direct) state.forcePreedit = false;
         update(ic);
         if (!text.empty() &&
             !(ic->capabilityFlags() & fcitx::CapabilityFlag::PasswordOrSensitive))

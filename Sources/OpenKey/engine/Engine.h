@@ -9,8 +9,7 @@
 #ifndef Engine_h
 #define Engine_h
 
-#include <locale>
-#include <codecvt>
+#include "Utf8.h"
 
 #include "DataType.h"
 #include "Vietnamese.h"

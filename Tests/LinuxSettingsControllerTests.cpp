@@ -1,6 +1,7 @@
 // No desktop bus or configuration files: main re-executes on a fresh private bus.
 // CMake may also wrap this executable in dbus-run-session; nesting is harmless.
 #include "SettingsController.h"
+#include "InputConfigBackup.h"
 
 #include <QCoreApplication>
 #include <QDBusArgument>
@@ -99,6 +100,7 @@ public:
     bool failWrite = false, ignoreApply = false, holdReads = false, holdReadback = false;
     int reads = 0, writes = 0;
     QVariantMap lastPatch;
+    bool allowBatch = false;
     QStringList calls, violations;
     QList<QDBusMessage> pendingReads;
 
@@ -187,19 +189,32 @@ public:
         const QVariant optionalValue = lastPatch.value(optionalKey);
         const bool optionalPatch = (optionalKey == QStringLiteral("CheckSpelling") ||
                                     optionalKey == QStringLiteral("UseModernOrthography") ||
-                                    optionalKey == QStringLiteral("QuickTelex")) &&
+                                    optionalKey == QStringLiteral("QuickTelex") || optionalKey == QStringLiteral("MacrosEnabled") ||
+                                    QStringList{"FreeMark", "AllowConsonantZFWJ", "QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling"}.contains(optionalKey)) &&
             optionalValue.metaType() == QMetaType::fromType<QString>() &&
             (optionalValue.toString() == QStringLiteral("True") || optionalValue.toString() == QStringLiteral("False"));
-        if (lastPatch.size() != 1 || (!stylePatch && !diagnosticsPatch && !optionalPatch)) {
+        bool validBatch = allowBatch && lastPatch.size() >= 2 && lastPatch.size() <= 10;
+        if (validBatch) {
+            for (auto it = lastPatch.cbegin(); it != lastPatch.cend(); ++it) {
+                validBatch = validBatch && it.value().metaType() == QMetaType::fromType<QString>();
+                if (it.key() == "InputStyle") validBatch = validBatch && stylePatch;
+                else if (it.key() == "DirectDiagnostics") validBatch = validBatch && diagnosticsPatch;
+                else validBatch = validBatch && optionalRuntime.contains(it.key()) &&
+                    (it.value() == QString("True") || it.value() == QString("False"));
+            }
+        }
+        if (!validBatch && (lastPatch.size() != 1 || (!stylePatch && !diagnosticsPatch && !optionalPatch && !((optionalKey == "MacroTable" || optionalKey == "ApplicationRules") && optionalValue.metaType() == QMetaType::fromType<QString>())))) {
             violations.append(QStringLiteral("SetConfig must contain exactly one known setting string patch"));
             bus_.send(message.createErrorReply(QDBusError::InvalidArgs, violations.last()));
         } else if (failWrite) {
             bus_.send(message.createErrorReply(QDBusError::Failed, QStringLiteral("Test write failure")));
         } else {
             if (!ignoreApply) {
-                if (stylePatch) runtime = style.toString();
-                else if (diagnosticsPatch) diagnostics = diagnosticsValue.toString();
-                else optionalRuntime[optionalKey] = optionalValue;
+                for (auto it = lastPatch.cbegin(); it != lastPatch.cend(); ++it) {
+                    if (it.key() == "InputStyle") runtime = it.value().toString();
+                    else if (it.key() == "DirectDiagnostics") diagnostics = it.value().toString();
+                    else optionalRuntime[it.key()] = it.value();
+                }
             }
             for (auto it = changesAfterWrite.cbegin(); it != changesAfterWrite.cend(); ++it) {
                 if (it.key() == QStringLiteral("InputStyle")) runtime = it.value().toString();
@@ -266,6 +281,63 @@ class LinuxSettingsControllerTests : public QObject {
     }
 
 private slots:
+    void advancedOptions() {
+        const QStringList fields{"FreeMark", "AllowConsonantZFWJ", "QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling"};
+        for (const auto& key : fields) {
+            mock_->optionalRuntime[key] = "False";
+            mock_->optionalSchema.append({key, "Boolean", key, QDBusVariant(QString("False")), {}});
+        }
+        SettingsController controller(*client_);
+        load(controller);
+        QCOMPARE(controller.runtimeAdvanced().size(), 5);
+        for (const auto& key : fields) {
+            controller.applyAdvanced(key, "True"); QTRY_COMPARE(controller.result(), QString("confirmed"));
+            QCOMPARE(controller.runtimeAdvanced().value(key).toString(), "True");
+        }
+        QCOMPARE(mock_->writes, 5);
+        const auto backup = controller.backupJson();
+        QVERIFY(backup.contains("QuickEndConsonant"));
+        controller.applyAdvanced("Unknown", "True"); QCOMPARE(controller.result(), QString("invalid"));
+        QCOMPARE(mock_->writes, 5);
+    }
+    void applicationRulesApply() {
+        mock_->optionalRuntime = {{"ApplicationRules", ""}};
+        mock_->optionalSchema = {{"ApplicationRules", "String", "App rules", QDBusVariant(QString("")), {}}};
+        SettingsController controller(*client_);
+        load(controller);
+        QVERIFY(controller.applicationRulesSupported());
+        controller.applyApplicationRules("636f6465:50726565646974;"); // code -> Preedit
+        QTRY_COMPARE(controller.result(), QString("confirmed"));
+        QCOMPARE(mock_->writes, 1);
+        controller.applyApplicationRules("676e6f6d652d7368656c6c:446972656374;");
+        QCOMPARE(controller.result(), QString("invalid"));
+        QCOMPARE(mock_->writes, 1);
+    }
+    void macrosApplyAndConflict() {
+        mock_->optionalRuntime = {{"MacrosEnabled", "False"}, {"MacroTable", ""}};
+        mock_->optionalSchema = {
+            {"MacrosEnabled", "Boolean", "Macros", QDBusVariant(QString("False")), {}},
+            {"MacroTable", "String", "Table", QDBusVariant(QString("")), {}}};
+        SettingsController controller(*client_);
+        load(controller);
+        QVERIFY(controller.macrosSupported());
+        controller.applyMacroTable("766e:5669e1bb8774204e616d;");
+        QTRY_COMPARE(controller.result(), QString("confirmed"));
+        QCOMPARE(mock_->writes, 1);
+        QCOMPARE(controller.runtimeMacroTable(), QString("766e:5669e1bb8774204e616d;"));
+        controller.applyMacrosEnabled("True");
+        QTRY_COMPARE(controller.result(), QString("confirmed"));
+        QCOMPARE(controller.runtimeMacrosEnabled(), QString("True"));
+        QCOMPARE(mock_->writes, 2);
+        controller.applyMacroTable("bad");
+        QCOMPARE(controller.result(), QString("invalid"));
+        QCOMPARE(mock_->writes, 2);
+        load(controller);
+        mock_->optionalRuntime["MacroTable"] = "61:62;";
+        controller.applyMacroTable("");
+        QTRY_COMPARE(controller.result(), QString("conflict"));
+        QCOMPARE(mock_->writes, 2);
+    }
     void initTestCase() {
         QVERIFY2(qEnvironmentVariableIsSet("OPENKEY_SETTINGS_TEST_PRIVATE_BUS"),
                  "Tests must run in the private dbus-run-session child");
@@ -326,6 +398,148 @@ private slots:
         QVERIFY(controller.runtimeModernOrthography().isEmpty());
         QVERIFY(mock_->reads >= 1);
         QCOMPARE(mock_->writes, 0);
+    }
+
+    void inputBackupRoundtrip() {
+        enableSpelling();
+        enableQuickTelex();
+        mock_->enumValues.insert("2", "CommitOnly");
+        mock_->enumValues.insert("3", "NativeDirect");
+        SettingsController controller(*client_);
+        load(controller);
+        const auto json = controller.backupJson();
+        QVERIFY(!json.isEmpty());
+        QVariantMap patch;
+        QVERIFY(InputConfigBackup::decode(json, patch));
+        QCOMPARE(patch.size(), 5);
+        QCOMPARE(mock_->writes, 0);
+        mock_->runtime = "NativeDirect";
+        mock_->diagnostics = "False";
+        mock_->optionalRuntime["QuickTelex"] = "False";
+        load(controller);
+        const auto preview = controller.inspectBackup(json);
+        QVERIFY(preview.value("ok").toBool());
+        QCOMPARE(mock_->writes, 0);
+        mock_->allowBatch = true;
+        controller.restoreBackup(json);
+        QTRY_VERIFY(!controller.busy());
+        QCOMPARE(controller.result(), QString("confirmed"));
+        QCOMPARE(controller.backupJson(), json);
+        QCOMPARE(mock_->writes, 1);
+        QCOMPARE(mock_->lastPatch, patch);
+        // Confirmation is single-use, even if the same text is submitted again.
+        controller.restoreBackup(json);
+        QCOMPARE(controller.result(), QString("invalid"));
+        QCOMPARE(mock_->writes, 1);
+    }
+
+    void invalidInputBackup_data() {
+        QTest::addColumn<QString>("json");
+        const QString good = InputConfigBackup::encode({{"InputStyle", "Direct"}, {"DirectDiagnostics", "True"}});
+        QTest::newRow("empty") << QString();
+        QTest::newRow("array") << QString("[]");
+        QTest::newRow("oversized") << QString(4097, ' ');
+        QTest::newRow("ui-format") << QString(good).replace("openkey-input-settings", "openkey-ui-settings");
+        QTest::newRow("wrong-version") << QString(good).replace("\"version\": 1", "\"version\": 2");
+        QTest::newRow("wrong-type") << QString(good).replace("true", "\"True\"");
+        QTest::newRow("unknown-style") << QString(good).replace("Direct\"", "Invalid\"");
+        QTest::newRow("missing-field") << QString("{\"format\":\"openkey-input-settings\",\"version\":1,\"settings\":{\"InputStyle\":\"Direct\"}}");
+        QTest::newRow("unknown-field") << QString(good).replace("\"InputStyle\"", "\"RunCommand\"");
+        QTest::newRow("root-field") << QString(good).replace("\"version\": 1", "\"extra\": true, \"version\": 1");
+        QTest::newRow("unpaired-spelling") << QString(good).replace("\"InputStyle\"", "\"CheckSpelling\":true, \"InputStyle\"");
+    }
+    void invalidInputBackup() {
+        QFETCH(QString, json);
+        SettingsController controller(*client_);
+        load(controller);
+        QVariantMap patch{{"old", "value"}};
+        QVERIFY(!InputConfigBackup::decode(json, patch));
+        QVERIFY(patch.isEmpty());
+        QVERIFY(!controller.inspectBackup(json).value("ok").toBool());
+        controller.restoreBackup(json);
+        QCOMPARE(controller.result(), QString("invalid"));
+        QCOMPARE(mock_->writes, 0);
+    }
+
+    void inputBackupFailure_data() {
+        QTest::addColumn<QString>("scenario");
+        for (const auto* scenario : {"conflict", "unsupported", "changed-json", "not-inspected", "reloaded",
+                                    "ignored", "write-error", "no-op", "busy", "readback-mismatch", "owner-loss",
+                                    "write-timeout", "readback-timeout", "preflight-timeout", "support-lost"})
+            QTest::newRow(scenario) << QString::fromLatin1(scenario);
+    }
+    void inputBackupFailure() {
+        QFETCH(QString, scenario);
+        SettingsController controller(*client_);
+        load(controller);
+        const auto json = InputConfigBackup::encode({{"InputStyle", "Direct"}, {"DirectDiagnostics", "False"}});
+        QVERIFY(controller.inspectBackup(json).value("ok").toBool());
+        QString expected = "invalid";
+        int writes = 0;
+        if (scenario == "conflict") { mock_->diagnostics = "False"; expected = "conflict"; }
+        else if (scenario == "preflight-timeout") { mock_->holdReads = true; expected = "error"; }
+        else if (scenario == "write-timeout" || scenario == "readback-timeout") {
+            mock_->holdWrites = scenario == "write-timeout";
+            mock_->holdReadback = scenario == "readback-timeout";
+            writes = 1; expected = "unconfirmed";
+        } else if (scenario == "support-lost") {
+            mock_->enumValues.insert("2", "CommitOnly");
+            mock_->enumValues.insert("3", "NativeDirect");
+            load(controller);
+            const auto newer = InputConfigBackup::encode({{"InputStyle", "NativeDirect"}, {"DirectDiagnostics", "False"}});
+            QVERIFY(controller.inspectBackup(newer).value("ok").toBool());
+            mock_->enumValues.remove("3");
+            controller.restoreBackup(newer);
+            QTRY_VERIFY(!controller.busy());
+            QCOMPARE(controller.result(), QString("unsupported"));
+            QCOMPARE(mock_->writes, 0);
+            return;
+        }
+        else if (scenario == "unsupported") {
+            const auto newer = InputConfigBackup::encode({{"InputStyle", "NativeDirect"}, {"DirectDiagnostics", "False"}});
+            QCOMPARE(controller.inspectBackup(newer).value("status").toString(), QString("unsupported"));
+        } else if (scenario == "not-inspected") {
+            SettingsController fresh(*client_);
+            load(fresh);
+            fresh.restoreBackup(json);
+            QCOMPARE(fresh.result(), QString("invalid"));
+            QCOMPARE(mock_->writes, 0);
+            return;
+        } else if (scenario == "reloaded") load(controller);
+        else if (scenario == "ignored" || scenario == "write-error" || scenario == "readback-mismatch") {
+            mock_->ignoreApply = scenario == "ignored";
+            mock_->failWrite = scenario == "write-error";
+            if (scenario == "readback-mismatch") mock_->changesAfterWrite["DirectDiagnostics"] = "True";
+            writes = 1; expected = "unconfirmed";
+        } else if (scenario == "no-op") {
+            const auto same = controller.backupJson();
+            QVERIFY(controller.inspectBackup(same).value("ok").toBool());
+            controller.restoreBackup(same);
+            QTRY_VERIFY(!controller.busy());
+            QCOMPARE(controller.result(), QString("confirmed"));
+            QCOMPARE(mock_->writes, 0);
+            return;
+        } else if (scenario == "busy") {
+            mock_->holdReads = true;
+            controller.reload();
+            controller.restoreBackup(json);
+            QCOMPARE(mock_->writes, 0);
+            mock_->holdReads = false;
+            QTRY_VERIFY(!controller.busy());
+            return;
+        } else if (scenario == "owner-loss") {
+            server_->unregisterService(service);
+            QTRY_VERIFY(!controller.ready());
+            controller.restoreBackup(json);
+            QCOMPARE(controller.result(), QString("unavailable"));
+            QCOMPARE(mock_->writes, 0);
+            return;
+        }
+        mock_->allowBatch = true;
+        controller.restoreBackup(scenario == "changed-json" ? json + " " : json);
+        QTRY_VERIFY(!controller.busy());
+        QCOMPARE(controller.result(), expected);
+        QCOMPARE(mock_->writes, writes);
     }
 
     void reloadNeverWrites() {

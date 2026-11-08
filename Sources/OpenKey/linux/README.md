@@ -1,6 +1,6 @@
 # OpenKey cho Linux — Fcitx5 proof-of-concept
 
-Bản thử tiếp theo: **NativeDirect** (addon 0.2.38 / alpha.47, UI preview.2) cho
+Bản thử tiếp theo: **NativeDirect** (addon 0.2.39 / alpha.48, UI preview.8) cho
 chữ hiện ngay bằng phím gốc, sửa dấu khi surrounding-text được xác nhận đầy đủ,
 không tự fallback ô nổi. Thiếu hỗ trợ thì giữ nguyên phím gõ; chưa nghiệm thu
 desktop/mọi ứng dụng. Alpha.38 thêm xử lý phần gợi ý đuôi được chọn trong ô URL
@@ -181,3 +181,16 @@ Xem [checklist nghiệm thu desktop](../../../docs/UBUNTU_INPUT_QA.md).
 Tham khảo [API phát triển Fcitx5](https://fcitx-im.org/wiki/Develop_an_simple_input_method),
 [kế hoạch Ubuntu](../../../docs/UBUNTU_DEVELOPMENT_PLAN.md) và
 [task Ubuntu](../../../docs/UBUNTU_TASKS.md).
+
+### Alpha.49 / UI preview.9
+
+Simple Telex 1/2, macro CRUD/JSON/file, sửa từng hotkey Fcitx5 và quy tắc
+InputStyle theo program ID: [hướng dẫn và giới hạn](../../../docs/UBUNTU_FEATURES_49.md).
+Các chức năng mới cần addon/UI tương ứng; cài gói không tự đổi IM hoặc restart.
+
+## Alpha.50 / UI preview.11
+
+Context riêng, năm tùy chọn nâng cao, chuyển file lớn có Hủy/timeout và
+sao lưu IM/phím tắt bằng file: [hướng dẫn và giới hạn](../../../docs/UBUNTU_FEATURES_50.md).
+
+UI preview.12 và service mới: [menu mở Gõ tắt/Chuyển mã/Giới thiệu](../../../docs/UBUNTU_TRAY_PAGES.md).
