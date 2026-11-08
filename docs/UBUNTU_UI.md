@@ -884,3 +884,30 @@ service. [Cài thử, giao thức và giới hạn](UBUNTU_TRAY_PAGES.md).
 
 Công tắc ở đầu trang Ứng dụng & tương thích; cần addon alpha.51.
 [Hướng dẫn sử dụng, lưu bền và giới hạn program ID](UBUNTU_APP_MEMORY.md).
+
+## Preview.14 — nhận diện app GNOME
+
+Thêm công tắc Nhận diện ứng dụng GNOME trong Ứng dụng & tương thích; cần
+addon alpha.52 và extension riêng. [Hướng dẫn](UBUNTU_GNOME_IDENTITY.md).
+
+## Quản lý bộ gõ theo ứng dụng — preview.15
+
+Trang Ứng dụng & tương thích có danh sách bộ gõ đã nhớ, nút Sửa/Xóa từng mục,
+ID focus đã xác nhận và trạng thái GNOME lần quan sát gần nhất. Cần addon
+alpha.53 trở lên; addon cũ hoặc không kết nối sẽ khóa chỉnh sửa. Dùng API
+subconfig riêng, không sửa file cấu hình trực tiếp. Xem [hướng dẫn quản lý,
+xung đột và giới hạn](UBUNTU_APP_MEMORY.md#quản-lý-danh-sách--alpha53--ui-preview15).
+
+## Sao lưu bảng nhớ ứng dụng — preview.16
+
+Trang Ứng dụng & tương thích có JSON/file sao lưu riêng cho bảng nhớ, chế độ
+Gộp/Thay thế, danh sách thay đổi và nút xác nhận. Đổi nội dung/cách nhập hoặc
+đọc lại dữ liệu sẽ hủy bản xem trước; kiểm tra baseline trước ghi tránh ghi
+đè dữ liệu học mới. Dùng addon alpha.53 hiện có. Xem [hướng dẫn bảng nhớ](UBUNTU_APP_MEMORY.md).
+
+## Cập nhật trạng thái ứng dụng nền — preview.17
+
+Đọc định kỳ hai giây không hiển thị loading hoặc khóa nút; chỉ cập nhật khi
+dữ liệu đổi. Đổi riêng định danh/trạng thái GNOME không dựng lại danh sách.
+Thao tác sửa/xóa/đọc chủ động/xem trước hủy phản hồi nền cũ. Lỗi kết nối vẫn
+được báo rõ và không giữ định danh cũ như dữ liệu đã xác nhận.

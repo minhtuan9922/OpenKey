@@ -1,4 +1,5 @@
 #include "BackupFiles.h"
+#include "ApplicationMemoryBackup.h"
 #include "InputConfigBackup.h"
 #include "UiPreferences.h"
 #include "MacroModel.h"
@@ -43,12 +44,18 @@ QVariantMap BackupFiles::loadMethod(const QUrl& url) const { return loadType(url
 QVariantMap BackupFiles::loadHotkeys(const QUrl& url) const { return loadType(url, 4); }
 QString BackupFiles::saveMethod(const QUrl& url, const QString& text) const { return saveType(url, text, 3); }
 QString BackupFiles::saveHotkeys(const QUrl& url, const QString& text) const { return saveType(url, text, 4); }
+bool BackupFiles::validApplicationMemoryBackup(const QString& text) const {
+    openkey::MacroTable::Entries entries;
+    return ApplicationMemoryBackup::decode(text, entries);
+}
+QVariantMap BackupFiles::loadApplicationMemory(const QUrl& url) const { return loadType(url, 5); }
+QString BackupFiles::saveApplicationMemory(const QUrl& url, const QString& text) const { return saveType(url, text, 5); }
 bool BackupFiles::validType(const QString& text, int kind) const {
     return kind == 0 ? validBackup(text) : kind == 1 ? validUiBackup(text) : kind == 2 ? validMacroBackup(text) :
-        kind == 3 ? validMethodBackup(text) : kind == 4 && validHotkeyBackup(text);
+        kind == 3 ? validMethodBackup(text) : kind == 4 ? validHotkeyBackup(text) : kind == 5 && validApplicationMemoryBackup(text);
 }
 QVariantMap BackupFiles::loadType(const QUrl& url, int kind) const {
-    const qint64 maxBytes = kind == 2 ? 524288 : kind == 4 ? 131072 : 16384;
+    const qint64 maxBytes = kind == 2 ? 524288 : (kind == 4 || kind == 5) ? 131072 : 16384;
     const auto path = selectedPath(url);
     if (path.isEmpty()) return failed("invalid-path");
     // Refuse special files without blocking on a FIFO/device. Bound both bytes

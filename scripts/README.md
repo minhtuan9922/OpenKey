@@ -55,3 +55,16 @@ tạo báo cáo và hiểu giới hạn. Chưa được đóng gói vào DEB alp
 Báo cáo tương thích hiện dùng schema v2: đủ cause hủy edit, thêm tối đa 32
 record cuối đã lọc/reference/boolean theo thứ tự đầu vào. Không phải trace
 của từng context, không tự tính độ trễ hoặc kết luận ứng dụng gõ đúng.
+
+## Ubuntu beta DEB
+
+Run `./scripts/build-linux-beta-deb.sh` for one complete native Ubuntu DEB.
+It builds/tests addon + service + settings, packages the GNOME extension,
+then verifies the extracted payload. Install using `sudo apt install ./file.deb`
+so APT resolves runtime libraries; maintainer scripts never download packages.
+See [beta setup](../docs/UBUNTU_BETA.md).
+
+`python3 scripts/uninstall-linux-user.py` lists exact user-local paths;
+`--apply` backs them up before removing OpenKey files and stopping its UI/tray.
+It preserves the shared Fcitx profile and other applications, and never removes
+system DEBs. Remove old system DEBs separately with authenticated APT.

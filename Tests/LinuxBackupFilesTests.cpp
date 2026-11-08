@@ -1,4 +1,9 @@
 #include "BackupFiles.h"
+#include "ApplicationMemoryBackup.h"
+#include "../Sources/OpenKey/linux/ApplicationMemory.h"
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include "InputConfigBackup.h"
 #include "UiPreferences.h"
 #include "MacroModel.h"
@@ -20,6 +25,57 @@ class LinuxBackupFilesTests : public QObject {
         return file.readAll();
     }
 private slots:
+    void applicationMemoryPlans() {
+        openkey::ApplicationMemory current, incoming;
+        current.remember("code", "keyboard-us"); current.remember("keep", "openkey-vni");
+        incoming.remember("code", "openkey-telex"); incoming.remember("gnome:google-chrome.desktop", "openkey-simple-telex1");
+        const auto text = ApplicationMemoryBackup::encode(QString::fromStdString(incoming.encode()));
+        openkey::MacroTable::Entries decoded;
+        QVERIFY(ApplicationMemoryBackup::decode(text, decoded)); QCOMPARE(decoded.size(), std::size_t(2));
+        const auto merge = ApplicationMemoryBackup::plan(text, "merge", QString::fromStdString(current.encode()));
+        QVERIFY(merge.value("ok").toBool()); QCOMPARE(merge.value("added").toInt(), 1);
+        QCOMPARE(merge.value("updated").toInt(), 1); QCOMPARE(merge.value("removed").toInt(), 0); QCOMPARE(merge.value("total").toInt(), 3);
+        const auto replace = ApplicationMemoryBackup::plan(text, "replace", QString::fromStdString(current.encode()));
+        QCOMPARE(replace.value("removed").toInt(), 1); QCOMPARE(replace.value("total").toInt(), 2);
+        const auto empty = ApplicationMemoryBackup::encode("");
+        const auto clear = ApplicationMemoryBackup::plan(empty, "replace", QString::fromStdString(current.encode()));
+        QVERIFY(clear.value("ok").toBool()); QCOMPARE(clear.value("removed").toInt(), 2); QCOMPARE(clear.value("target").toString(), QString(""));
+        QCOMPARE(ApplicationMemoryBackup::plan(empty, "merge", QString::fromStdString(current.encode())).value("changes").toList().size(), 0);
+        QVERIFY(!ApplicationMemoryBackup::plan(text, "unknown", "").value("ok").toBool());
+        for (int i = 0; i < 128; ++i) current.remember("app-" + std::to_string(i), "keyboard-us");
+        QCOMPARE(ApplicationMemoryBackup::plan(text, "merge", QString::fromStdString(current.encode())).value("status").toString(), "capacity");
+        QVERIFY(ApplicationMemoryBackup::plan(text, "replace", QString::fromStdString(current.encode())).value("ok").toBool());
+        auto root = QJsonDocument::fromJson(text.toUtf8()).object();
+        auto rows = root.value("entries").toArray(); rows.append(rows.first()); root["entries"] = rows;
+        QVERIFY(!ApplicationMemoryBackup::decode(QString::fromUtf8(QJsonDocument(root).toJson()), decoded));
+        QVERIFY(!ApplicationMemoryBackup::decode(json(), decoded));
+        QVERIFY(!ApplicationMemoryBackup::decode(QString(65537, ' '), decoded));
+        for (const auto& key : QStringList{"format", "version", "entries"}) {
+            auto broken = QJsonDocument::fromJson(text.toUtf8()).object(); broken[key] = false;
+            QVERIFY(!ApplicationMemoryBackup::decode(QString::fromUtf8(QJsonDocument(broken).toJson()), decoded));
+        }
+        for (const auto& app : QStringList{"gnome-shell", "unknown", "bad app"}) {
+            QJsonObject bad{{"format", "openkey-application-memory"}, {"version", 1},
+                {"entries", QJsonArray{QJsonObject{{"application", app}, {"method", "keyboard-us"}}}}};
+            QVERIFY(!ApplicationMemoryBackup::decode(QString::fromUtf8(QJsonDocument(bad).toJson()), decoded));
+        }
+    }
+    void applicationMemoryFiles() {
+        QTemporaryDir dir;
+        const auto text = ApplicationMemoryBackup::encode("");
+        const auto url = QUrl::fromLocalFile(dir.filePath("ứng dụng.json"));
+        QVERIFY(files.validApplicationMemoryBackup(text));
+        QCOMPARE(files.saveApplicationMemory(url, text), "saved");
+        QCOMPARE(files.loadApplicationMemory(url).value("text").toString(), text);
+        QVERIFY(!files.load(url).value("ok").toBool()); QVERIFY(!files.loadMacros(url).value("ok").toBool());
+        QCOMPARE(files.saveApplicationMemory(url, json()), "invalid-json"); QCOMPARE(read(url.toLocalFile()), text.toUtf8());
+        QVERIFY(!files.loadApplicationMemory(QUrl("https://example.com/test.json")).value("ok").toBool());
+        QVERIFY(QFile::link(url.toLocalFile(), dir.filePath("link.json")));
+        QVERIFY(!files.loadApplicationMemory(QUrl::fromLocalFile(dir.filePath("link.json"))).value("ok").toBool());
+        const auto tooLarge = dir.filePath("large.json"); QFile file(tooLarge); QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write(QByteArray(131073, ' ')); file.close();
+        QVERIFY(!files.loadApplicationMemory(QUrl::fromLocalFile(tooLarge)).value("ok").toBool());
+    }
     void methodAndHotkeyFiles() {
         QTemporaryDir dir;
         const QString method = "{\"format\":\"openkey-input-method\",\"version\":1,\"method\":\"openkey-simple-telex1\"}";

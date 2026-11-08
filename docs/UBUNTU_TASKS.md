@@ -885,3 +885,157 @@ các nhóm UI thay đổi chạy lại đều đạt, gồm scale 100%/200%. Gó
 qua verifier và lifecycle sáu bước root tạm, SHA-256 hai gói khớp.
 Đã cập nhật nguyên tử UI user-local, có backup và smoke; không cài addon,
 không restart Fcitx5/tray hoặc tự bật chức năng trong phiên desktop.
+
+## GNOME Application Identity — alpha.52 / preview.14
+
+- [x] Extension GNOME Shell 50 lấy desktop app ID từ cửa sổ focus, chỉ gửi
+  app ID/nonce/serial qua D-Bus; bỏ lock/overview/modal và ID không ổn định.
+- [x] Addon truy vấn async owner riêng của Shell, timeout, hai snapshot khớp,
+  vòng đời context/focus/key và hủy khi Changed/owner mất. Không đổi IM sau
+  khi bắt đầu gõ trong lúc chờ. Lưu riêng namespace gnome:desktop-id.
+- [x] Công tắc UseGnomeApplicationIdentity mặc định tắt trong UI, nối runtime/
+  preflight/readback/backup boolean; cần bật thêm nhớ bộ gõ theo ứng dụng.
+- [ ] Nghiệm thu Shell 50 thật: Alt+Tab/click, hai cửa sổ, typing sớm, focus
+  nhanh, lock/unlock, overview, enable/disable/restart extension và đăng nhập.
+
+[Hướng dẫn cài, giao thức và giới hạn đồng bộ](UBUNTU_GNOME_IDENTITY.md).
+Không cam kết focus nguyên tử giữa Shell và Fcitx5, không sửa Chrome omnibox
+hay phân biệt terminal/editor bên trong cùng app.
+
+Kết quả: native 13/13 CTest (khi có Node/GJS), sanitizer 13/13; integration
+mở rộng với serial/nonce/peer/timeout được chạy lại và đạt. UI 21/21 CTest,
+gồm scale 100%/200%. Addon từ gói giải nén đạt pipeline và Direct; UI DEB
+đạt verifier/lifecycle sáu bước root tạm. ZIP extension có đúng năm file
+metadata/extension/focusState/protocol/LICENSE và hash khớp source.
+Probe GNOME Shell 50.1 headless thật ở phiên bus/config/data/runtime riêng
+nạp extension và GetFocus đạt (chưa có app window, ID rỗng). Không thay
+phiên desktop người dùng, không coi probe này là nghiệm thu đổi app thật.
+Đã cập nhật nguyên tử UI user-local preview.14, giữ backup, hash và smoke
+binary cài đạt. Không cài addon hoặc extension vào desktop thật, không bật hai
+công tắc hoặc restart Fcitx5/tray. Cần người dùng cài gói và bật theo hướng dẫn.
+
+## Xác nhận desktop từ người dùng — 2026-11-08
+
+- [x] Người dùng xác nhận đã kiểm thử giao diện desktop và chạy được.
+- [ ] Nghiệm thu riêng khả năng nhớ/khôi phục bộ gõ theo ứng dụng trên
+  desktop: Chrome dùng Telex, VS Code dùng English, đổi qua lại bằng
+  Alt+Tab/click; kiểm tra hai cửa sổ, lock/unlock và đăng nhập lại.
+- [x] Bổ sung UI hiển thị ứng dụng đang nhận diện và trạng thái kết nối
+  extension; quản lý danh sách bộ gõ đã nhớ theo app (xem, sửa, xóa).
+  Đã triển khai trong alpha.53 / preview.15.
+
+Xác nhận giao diện chạy được chưa thay thế nghiệm thu gõ trong ứng dụng thật
+hoặc toàn bộ các tình huống GNOME Application Identity ở trên. Ưu tiên tiếp
+theo là kiểm tra nhớ bộ gõ theo app, rồi bổ sung giao diện quản lý để người
+dùng quan sát và sửa cấu hình đã nhớ.
+
+## Quản lý bộ gõ đã nhớ — alpha.53 / preview.15
+
+- [x] Trang Ứng dụng & tương thích có danh sách ID/bộ gõ đã nhớ, sửa một
+  trong năm bộ gõ và xóa từng mục; không tự đổi bộ gõ đang dùng.
+- [x] Hiển thị ID focus được addon xác nhận, che ID context nhạy cảm; trạng
+  thái GNOME ghi rõ lần quan sát gần nhất, không coi là kiểm tra kết nối liên tục.
+- [x] API subconfig riêng, kiểm tra schema/owner/preflight/readback. Addon
+  so sánh baseline cùng event thread với học tự động, từ chối trường chỉ đọc,
+  chỉ công bố bản sửa sau khi lưu file thành công.
+- [x] Kiểm thử bổ sung cho sửa/xóa, học đồng thời, addon cũ, dữ liệu/schema
+  sai, owner mất, ghi không áp dụng, lưu file lỗi và không đổi IM giữa focus.
+- [x] Người dùng xác nhận đã kiểm thử phần quản lý mới trên desktop.
+- [ ] Hoàn tất ma trận nghiệm thu chi tiết: hai cửa sổ, đăng nhập lại,
+  lock/unlock và vòng đời extension; chưa có kết quả riêng từng tình huống.
+
+[Hướng dẫn thao tác và giới hạn](UBUNTU_APP_MEMORY.md#quản-lý-danh-sách--alpha53--ui-preview15).
+Xác nhận desktop trước đó chỉ áp dụng giao diện đã có trước phần quản lý mới.
+Bảng nhớ vẫn chưa được xuất/nhập trong JSON sao lưu cấu hình.
+
+Kết quả alpha.53 / preview.15: native 13/13, ASan/UBSan với leak detection
+13/13, UI 21/21 gồm thao tác sửa/xóa và scale 100%/200%. Probe Controller1
+Fcitx5 thật trên D-Bus/config riêng đạt đọc schema, sửa, từ chối baseline cũ,
+xóa và kiểm tra file lưu. Addon từ DEB giải nén đạt integration/Direct; UI
+DEB đạt metadata/payload/QML smoke và lifecycle sáu bước trong root tạm.
+SHA-256 hai gói khớp. Đã cập nhật nguyên tử UI user-local preview.15, giữ
+backup và smoke đạt. Chưa cài/restart addon trong phiên desktop; người dùng
+cần cài alpha.53 và nghiệm thu phần quản lý mới theo hướng dẫn.
+
+## Sau xác nhận kiểm thử alpha.53 / preview.15
+
+Người dùng xác nhận đã kiểm thử phần quản lý mới; ghi nhận nghiệm thu chức
+năng theo báo cáo người dùng. Không suy rộng thành kết quả cho toàn bộ ma trận
+ứng dụng/desktop chưa có báo cáo riêng.
+
+Thứ tự phát triển đề xuất tiếp theo:
+
+1. Xuất/nhập bảng nhớ ứng dụng qua JSON/file: xem trước thay đổi, chọn gộp
+   hoặc thay thế, xác nhận áp dụng và bảo vệ khỏi ghi đè dữ liệu runtime mới.
+2. Nối menu icon bật/tắt chính tả và gõ tắt, đồng bộ trạng thái với giao diện.
+3. Chốt tương thích nhập liệu và đóng gói theo ma trận desktop còn mở.
+
+## Sao lưu bảng nhớ ứng dụng — preview.16 (addon alpha.53)
+
+- [x] Định dạng JSON riêng có phiên bản, chỉ chứa ID ứng dụng và bộ gõ;
+  kiểm tra giới hạn/ID/IM, từ chối mục trùng và định dạng khác.
+- [x] Xem trước Gộp/Thay thế với số lượng và chi tiết thêm/sửa/xóa; hỗ trợ
+  danh sách rỗng, không tự bật công tắc hoặc đổi bộ gõ đang dùng.
+- [x] Mở/lưu file qua picker, xác nhận áp dụng riêng; hủy preview khi đổi
+  JSON/cách nhập/runtime/owner. Tạm dừng poll khi preview hợp lệ; preflight,
+  CAS addon alpha.53 và readback bảo vệ khỏi ghi đè dữ liệu học mới.
+- [ ] Nghiệm thu desktop phần sao lưu mới: picker, gộp/thay thế, xung đột
+  khi học thêm app và khôi phục sau đăng nhập lại.
+
+[Hướng dẫn và định dạng](UBUNTU_APP_MEMORY.md#sao-lưu--khôi-phục-bảng-nhớ--ui-preview16).
+Đợt này chỉ cập nhật UI, dùng lại addon alpha.53 và extension GNOME v1.
+
+Kết quả preview.16: năm nhóm CTest liên quan (file/schema, controller D-Bus,
+UI thao tác, embedded QML smoke và HiDPI 200%) đều đạt; UI thường ở 100%.
+DEB đạt kiểm tra metadata/dependency/payload/QML và lifecycle sáu bước trong
+root tạm, SHA-256 khớp. Đã cập nhật nguyên tử UI user-local, giữ backup và
+smoke đạt. Không thay addon/extension; vẫn cần người dùng nghiệm thu picker
+và khôi phục danh sách trên phiên desktop thật.
+
+## Cập nhật nền phần nhận diện ứng dụng — preview.17
+
+- [x] Tách refresh định kỳ khỏi reload chủ động: không loading/busy/khóa nút
+  khi đọc nền, không báo cập nhật với mẫu dữ liệu không đổi.
+- [x] Thông báo riêng khi bảng nhớ đổi, tránh dựng lại danh sách khi chỉ đổi
+  ID focus/trạng thái GNOME; giữ lựa chọn đang sửa.
+- [x] Một yêu cầu nền tại một thời điểm; sửa/xóa/reload/xem trước hủy phản
+  hồi nền cũ. Vẫn dừng poll khi preview hợp lệ hoặc sau thao tác/lỗi.
+- [ ] Người dùng nghiệm thu trên desktop: hết nhấp nháy định kỳ và giữ mục
+  đang sửa khi trạng thái nhận diện cập nhật.
+
+Dùng lại addon alpha.53 và extension GNOME hiện có; không thay luồng nhập liệu.
+
+Kết quả preview.17: 4/4 nhóm CTest liên quan đạt (controller, thao tác UI
+100%/200%, embedded QML smoke). Regression xác nhận không phát tín hiệu với
+mẫu nền không đổi, không dựng lại bảng khi chỉ đổi ID, hủy reply cũ khi sửa/
+reload/xem trước, giữ lựa chọn đang sửa qua chu kỳ timer và xử lý mất owner.
+DEB đạt verifier/lifecycle sáu bước root tạm; SHA-256 khớp. UI user-local đã
+cập nhật nguyên tử, giữ backup và smoke đạt; cửa sổ đang mở cần mở lại để
+nạp bản mới. Chưa tự đánh dấu nghiệm thu desktop của người dùng.
+
+## Đóng gói beta hợp nhất và gỡ bản cũ — 2026-11-08
+
+- [x] Thêm chế độ build beta một DEB `openkey`: addon, UI, tray, XDG autostart,
+  D-Bus/desktop launcher, GNOME extension Shell 50, diagnostics và tài liệu.
+- [x] Khai báo Depends cho Fcitx/frontends/Qt/QML/Python và thư viện ELF;
+  APT tải dependency khi cài. Conflicts/Replaces hai package alpha cũ.
+- [x] Sao lưu và gỡ bản user-local trong tài khoản: UI/tray/helper, unit/
+  autostart/D-Bus override, extension và cấu hình riêng OpenKey. Giữ profile
+  Fcitx5 dùng chung, có backup trước mọi thao tác gỡ.
+- [ ] Gỡ hai gói hệ thống trên máy: `sudo -n apt-get remove` bị chặn vì cần
+  xác thực tương tác. Người dùng phải chạy lệnh APT trong terminal.
+- [ ] Nghiệm thu APT cài/nâng/gỡ thực tế và ma trận nhập liệu beta trên desktop.
+
+Gói beta không tự sửa profile người dùng hoặc tự bật extension GNOME; có
+[hướng dẫn thiết lập lần đầu](UBUNTU_BETA.md). Không coi việc đóng gói thành
+beta là đã xác nhận hết lỗi Chrome/VS Code hoặc toàn bộ nền tảng desktop.
+
+Kết quả beta.1: build hợp nhất 37/37 CTest đạt; helper gỡ user-local 2/2
+fixture đạt. DEB đã kiểm tra dependency/Conflicts/Replaces/checksum, toàn bộ
+payload, desktop/autostart/D-Bus, extension, QML smoke, addon integration và
+Direct. Lifecycle dpkg payload sáu bước root/database tạm đạt (cài, cài lại,
+nâng, gỡ, cài lại, purge), giữ file cấu hình fixture. APT mô phỏng xác nhận
+thay hai gói alpha bằng `openkey`; chưa chạy APT cài/gỡ thật do sudo yêu cầu
+xác thực tương tác. Còn hai gói hệ thống cũ; user-local và UI/tray đã dừng/gỡ.
+Backup tài khoản: `~/.local/state/openkey-uninstall/20261108T061205991406Z/`.
+Gói cuối: `dist/linux/openkey_3.1.0~beta.1-1_amd64.deb` và SHA-256 đi kèm.

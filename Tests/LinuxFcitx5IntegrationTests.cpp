@@ -2,8 +2,11 @@
 // Paths are isolated by Fcitx's test helper; no real display/frontend is loaded.
 #include "DirectInput.h"
 #include "../Sources/OpenKey/linux/ApplicationMemory.h"
+#include "GnomeFocusBridge.h"
 #include <fcitx-config/iniparser.h>
 #include <fcitx-utils/testing.h>
+#include <fcitx-utils/event.h>
+#include <fcitx-utils/misc.h>
 #include <fcitx/addonmanager.h>
 #include <fcitx/inputcontext.h>
 #include <fcitx/inputcontextmanager.h>
@@ -16,12 +19,45 @@
 #include <filesystem>
 #include <fstream>
 #include <cstdlib>
+#include <coroutine>
+#include <exception>
 #include <stdexcept>
 
 namespace {
 void require(bool value, const char* label) {
     if (!value) throw std::runtime_error(label);
 }
+// One event-loop execution for the asynchronous bridge scenarios. sd-event
+// loops cannot be restarted after exit(), so each wait resumes this coroutine.
+struct LoopTask {
+    struct promise_type {
+        fcitx::EventLoop* loop = nullptr;
+        std::exception_ptr error;
+        LoopTask get_return_object() { return {std::coroutine_handle<promise_type>::from_promise(*this)}; }
+        std::suspend_always initial_suspend() noexcept { return {}; }
+        struct Final {
+            bool await_ready() noexcept { return false; }
+            void await_suspend(std::coroutine_handle<promise_type> task) noexcept { task.promise().loop->exit(); }
+            void await_resume() noexcept {}
+        };
+        Final final_suspend() noexcept { return {}; }
+        void return_void() {}
+        void unhandled_exception() { error = std::current_exception(); }
+    };
+    std::coroutine_handle<promise_type> handle;
+    ~LoopTask() { handle.destroy(); }
+};
+struct LoopWait {
+    fcitx::EventLoop& loop;
+    std::vector<std::unique_ptr<fcitx::EventSourceTime>>& timers;
+    unsigned milliseconds;
+    bool await_ready() const noexcept { return false; }
+    void await_suspend(std::coroutine_handle<> handle) {
+        timers.push_back(loop.addTimeEvent(CLOCK_MONOTONIC, fcitx::now(CLOCK_MONOTONIC) + milliseconds * 1000, 0,
+            [handle](fcitx::EventSourceTime*, uint64_t) { handle.resume(); return false; }));
+    }
+    void await_resume() const noexcept {}
+};
 class Editor : public fcitx::InputContext {
 public:
     explicit Editor(fcitx::InputContextManager& manager, const std::string& program = {}) : InputContext(manager, program) {
@@ -29,7 +65,8 @@ public:
         setCapabilityFlags(fcitx::CapabilityFlag::Preedit);
     }
     ~Editor() override { destroy(); }
-    const char* frontend() const override { return "openkey-integration-test"; }
+    const char* frontendName = "openkey-integration-test";
+    const char* frontend() const override { return frontendName; }
     std::string committed;
     bool directDocument = false;
     std::string preedit() { return inputPanel().clientPreedit().toString(); }
@@ -376,5 +413,169 @@ int main(int argc, char** args) {
     disabled.focusIn();
     require(instance.inputMethod(&disabled) == "openkey-telex", "Disabled feature must not restore saved English preference");
     disabled.focusOut();
+
+    // Management endpoint: edits are persisted, compare-and-set is atomic,
+    // and changing a preference never switches a currently focused editor.
+    auto memorySnapshot = [&] {
+        fcitx::RawConfig view;
+        const auto* config = engine->getSubConfig("application-memory");
+        require(config, "Application memory management endpoint missing");
+        config->save(view);
+        return view;
+    };
+    require(!engine->getSubConfig("unknown"), "Unknown subconfig must not expose memory");
+    const auto beforeManagement = memorySnapshot();
+    const auto originalMemory = *beforeManagement.valueByPath("Entries");
+    require(*beforeManagement.valueByPath("IdentityStatus") == "disabled", "Disabled identity status");
+    openkey::ApplicationMemory edited;
+    require(edited.load(originalMemory), "Management snapshot parse");
+    edited.remember("test-code", "openkey-simple-telex1");
+    fcitx::RawConfig patch;
+    patch.setValueByPath("ExpectedEntries", originalMemory);
+    patch.setValueByPath("Entries", edited.encode());
+    code.focusIn();
+    const auto activeBeforeEdit = instance.inputMethod(&code);
+    engine->setSubConfig("application-memory", patch);
+    require(instance.inputMethod(&code) == activeBeforeEdit, "Management must not switch the active method");
+    require(*memorySnapshot().valueByPath("Entries") == edited.encode(), "Management edit readback");
+    code.focusOut();
+    fcitx::readAsIni(savedMemory, "conf/openkey-app-memory.conf");
+    require(*savedMemory.valueByPath("Entries") == edited.encode(), "Management edit must persist");
+    patch.setValueByPath("Entries", originalMemory); // Stale expected baseline.
+    engine->setSubConfig("application-memory", patch);
+    require(*memorySnapshot().valueByPath("Entries") == edited.encode(), "Stale edit must not overwrite new memory");
+    patch.setValueByPath("ExpectedEntries", edited.encode());
+    patch.setValueByPath("Entries", "invalid");
+    engine->setSubConfig("application-memory", patch);
+    require(*memorySnapshot().valueByPath("Entries") == edited.encode(), "Malformed memory must be rejected");
+    patch.setValueByPath("Entries", originalMemory);
+    patch.setValueByPath("CurrentApplication", "forged-app");
+    engine->setSubConfig("application-memory", patch);
+    require(*memorySnapshot().valueByPath("Entries") == edited.encode(), "Read-only management fields must reject write");
+    fcitx::RawConfig restoreMemory;
+    restoreMemory.setValueByPath("ExpectedEntries", edited.encode());
+    restoreMemory.setValueByPath("Entries", originalMemory);
+    engine->setSubConfig("application-memory", restoreMemory);
+    require(*memorySnapshot().valueByPath("Entries") == originalMemory, "Management fixture restore");
+
+    const auto memoryFile = paths.root / "config/conf/openkey-app-memory.conf";
+    const auto memoryBackup = paths.root / "config/conf/openkey-app-memory.conf.backup";
+    std::filesystem::rename(memoryFile, memoryBackup);
+    std::filesystem::create_directory(memoryFile); // Make atomic publish fail.
+    patch = fcitx::RawConfig();
+    patch.setValueByPath("ExpectedEntries", originalMemory);
+    patch.setValueByPath("Entries", edited.encode());
+    engine->setSubConfig("application-memory", patch);
+    require(*memorySnapshot().valueByPath("Entries") == originalMemory, "Failed persistence must not publish edited runtime");
+    std::filesystem::remove_all(memoryFile);
+    std::filesystem::rename(memoryBackup, memoryFile);
+    openkey::ApplicationMemory deleted;
+    require(deleted.load(originalMemory), "Delete fixture parse");
+    deleted.remember("test-code", "");
+    patch.setValueByPath("Entries", deleted.encode());
+    engine->setSubConfig("application-memory", patch);
+    require(*memorySnapshot().valueByPath("Entries") == deleted.encode(), "Management must delete an entry");
+    restoreMemory.setValueByPath("ExpectedEntries", deleted.encode());
+    engine->setSubConfig("application-memory", restoreMemory);
+    require(*memorySnapshot().valueByPath("Entries") == originalMemory, "Delete fixture restore");
+
+    // The test launcher supplies a private D-Bus. Claiming the Shell name
+    // without replacement also prevents accidentally impersonating a live Shell.
+    auto& loop = instance.eventLoop();
+    fcitx::dbus::Bus shell(fcitx::dbus::BusType::Session);
+    require(shell.isOpen() && shell.requestName("org.gnome.Shell", fcitx::dbus::RequestNameFlag::None), "Private Shell fixture name unavailable");
+    shell.attachEventLoop(&loop);
+    std::string app = "google-chrome.desktop", session = "12345678-1234-1234-1234-123456789abc";
+    uint32_t serial = 1;
+    bool malformed = false, hold = false, changing = false, sessionChanging = false;
+    auto endpoint = shell.addObject("/org/openkey/FocusedApplication", [&](fcitx::dbus::Message& message) {
+        if (message.member() != "GetFocus") return false;
+        if (hold) return true;
+        auto reply = message.createReply();
+        if (changing) ++serial;
+        if (sessionChanging) session.back() = session.back() == 'a' ? 'b' : 'a';
+        if (malformed) reply << app;
+        else reply << app << session << serial;
+        reply.send(); return true;
+    });
+    require(static_cast<bool>(endpoint), "Cannot export private identity fixture");
+    std::vector<std::unique_ptr<fcitx::EventSourceTime>> timers;
+    const auto pump = [&](unsigned ms = 40) { return LoopWait{loop, timers, ms}; };
+    const auto changed = [&] {
+        auto signal = shell.createSignal("/org/openkey/FocusedApplication", "org.openkey.FocusedApplication1", "Changed");
+        signal.send();
+    };
+    auto bridgeTests = [&]() -> LoopTask {
+    remember.setValueByPath("RememberInputMethodPerApplication", "True");
+    remember.setValueByPath("UseGnomeApplicationIdentity", "True");
+    engine->setConfig(remember);
+    Editor gnome(instance.inputContextManager(), "gnome-shell"); gnome.frontendName = "ibus";
+    gnome.focusIn(); co_await pump();
+    require(*memorySnapshot().valueByPath("IdentityStatus") == "connected" &&
+            *memorySnapshot().valueByPath("CurrentApplication") == "gnome:google-chrome.desktop", "Management must expose a confirmed GNOME context");
+    const auto regularCapabilities = gnome.capabilityFlags();
+    gnome.setCapabilityFlags(fcitx::CapabilityFlag::Password);
+    require(memorySnapshot().valueByPath("CurrentApplication")->empty(), "Management must hide sensitive context identities");
+    gnome.setCapabilityFlags(regularCapabilities);
+    instance.setCurrentInputMethod(&gnome, "openkey-simple-telex1", false); co_await pump(); gnome.focusOut();
+    app = "code.desktop"; ++serial; changed(); co_await pump(10);
+    gnome.focusIn(); co_await pump();
+    instance.setCurrentInputMethod(&gnome, "openkey-vni", false); co_await pump(); gnome.focusOut();
+    app = "google-chrome.desktop"; ++serial; changed(); co_await pump(10);
+    gnome.focusIn(); co_await pump();
+    require(instance.inputMethod(&gnome) == "openkey-simple-telex1", "GNOME app identity must restore Chrome separately from Code");
+    gnome.focusOut();
+    fcitx::readAsIni(savedMemory, "conf/openkey-app-memory.conf");
+    require(savedMemory.valueByPath("Entries") && loaded.load(*savedMemory.valueByPath("Entries")) &&
+        loaded.lookup("gnome:google-chrome.desktop") == "openkey-simple-telex1" &&
+        loaded.lookup("gnome:code.desktop") == "openkey-vni" && loaded.lookup("gnome-shell").empty(),
+        "Only namespaced desktop IDs may persist from the Shell bridge");
+    app = "code.desktop"; ++serial; changed(); co_await pump(10);
+    gnome.focusIn(); co_await pump(); gnome.focusOut();
+    app = "google-chrome.desktop"; ++serial; changed(); co_await pump(10);
+    gnome.focusIn();
+    {
+        fcitx::dbus::Bus unrelated(fcitx::dbus::BusType::Session);
+        auto spoof = unrelated.createSignal("/org/openkey/FocusedApplication", "org.openkey.FocusedApplication1", "Changed");
+        spoof.send(); co_await pump();
+        require(instance.inputMethod(&gnome) == "openkey-simple-telex1", "Signal from an unrelated bus peer must not invalidate the Shell binding");
+    }
+    gnome.focusOut();
+    app = "code.desktop"; ++serial; changed(); co_await pump(10);
+    gnome.focusIn(); co_await pump(); gnome.focusOut();
+    app = "google-chrome.desktop"; ++serial; changed(); co_await pump(10);
+    gnome.focusIn();
+    gnome.send(fcitx::Key(FcitxKey_a)); co_await pump();
+    require(instance.inputMethod(&gnome) == "openkey-vni", "Late bridge reply must not switch method after typing started");
+    gnome.focusOut();
+    for (int failure = 0; failure < 5; ++failure) {
+        app = failure == 0 ? "../private.desktop" : "google-chrome.desktop";
+        malformed = failure == 1; changing = failure == 2; sessionChanging = failure == 3; hold = failure == 4;
+        ++serial; changed(); co_await pump(10);
+        gnome.focusIn(); co_await pump(220);
+        require(instance.inputMethod(&gnome) == "openkey-vni", "Invalid, changing, malformed or timed-out identity must not restore");
+        gnome.focusOut();
+    }
+    hold = false; changing = false; malformed = false; sessionChanging = false;
+    app = "google-chrome.desktop"; ++serial; changed(); co_await pump(10);
+    gnome.focusIn(); gnome.focusOut(); co_await pump();
+    require(instance.inputMethod(&gnome) == "openkey-vni", "Reply after focus-out must not apply");
+    app.clear(); ++serial; changed(); co_await pump(10);
+    gnome.focusIn(); co_await pump();
+    require(*memorySnapshot().valueByPath("IdentityStatus") == "connected" && memorySnapshot().valueByPath("CurrentApplication")->empty(),
+        "Empty valid focus is connected but must not identify an application");
+    gnome.focusOut();
+    shell.releaseName("org.gnome.Shell"); co_await pump();
+    gnome.focusIn(); co_await pump();
+    require(instance.inputMethod(&gnome) == "openkey-vni", "Absent extension owner must not restore stale identity");
+    require(*memorySnapshot().valueByPath("IdentityStatus") == "unavailable" && memorySnapshot().valueByPath("CurrentApplication")->empty(),
+        "Missing owner must report unavailable without stale identity");
+    gnome.focusOut();
+    };
+    auto task = bridgeTests();
+    task.handle.promise().loop = &loop;
+    task.handle.resume();
+    if (!task.handle.done()) loop.exec();
+    if (task.handle.promise().error) std::rethrow_exception(task.handle.promise().error);
     std::cout << "Fcitx5 integration: installed descriptors, addon loading, key pipeline, focus and method switching passed\n";
 }

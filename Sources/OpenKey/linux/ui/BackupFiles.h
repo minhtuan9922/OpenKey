@@ -23,6 +23,9 @@ public:
     Q_INVOKABLE bool validHotkeyBackup(const QString& text) const;
     Q_INVOKABLE QVariantMap loadHotkeys(const QUrl& url) const;
     Q_INVOKABLE QString saveHotkeys(const QUrl& url, const QString& text) const;
+    Q_INVOKABLE bool validApplicationMemoryBackup(const QString& text) const;
+    Q_INVOKABLE QVariantMap loadApplicationMemory(const QUrl& url) const;
+    Q_INVOKABLE QString saveApplicationMemory(const QUrl& url, const QString& text) const;
 private:
     bool validType(const QString& text, int kind) const;
     QVariantMap loadType(const QUrl& url, int kind) const;

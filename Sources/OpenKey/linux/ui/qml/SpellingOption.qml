@@ -124,7 +124,7 @@ Pane {
                 "Addon đang chạy chưa hỗ trợ Gõ nhanh Telex. Cần alpha.11 hoặc schema QuickTelex tương thích; tùy chọn này bị khóa." :
                 card.settingKey === "CheckSpelling" || card.settingKey === "UseModernOrthography" ?
                 "Addon đang chạy chưa có schema chính tả tương thích. Cần alpha.10 hoặc bản mới hỗ trợ hai khóa; các điều khiển này bị khóa." :
-                "Addon đang chạy chưa hỗ trợ tùy chọn này. Cài " + (card.settingKey === "RememberInputMethodPerApplication" ? "alpha.51" : "alpha.50") + " hoặc bản mới có schema tương thích, rồi nạp lại addon để sử dụng.") : feedback.text
+                "Addon đang chạy chưa hỗ trợ tùy chọn này. Cài " + (card.settingKey === "UseGnomeApplicationIdentity" ? "alpha.52" : card.settingKey === "RememberInputMethodPerApplication" ? "alpha.51" : "alpha.50") + " hoặc bản mới có schema tương thích, rồi nạp lại addon để sử dụng.") : feedback.text
             wrapMode: Text.Wrap
             textFormat: Text.PlainText
             color: card.uiPalette.muted

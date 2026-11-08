@@ -4,7 +4,7 @@
 #include <QJsonParseError>
 
 namespace {
-const QStringList keys{"InputStyle", "DirectDiagnostics", "CheckSpelling", "UseModernOrthography", "QuickTelex", "FreeMark", "AllowConsonantZFWJ", "QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling", "RememberInputMethodPerApplication"};
+const QStringList keys{"InputStyle", "DirectDiagnostics", "CheckSpelling", "UseModernOrthography", "QuickTelex", "FreeMark", "AllowConsonantZFWJ", "QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling", "RememberInputMethodPerApplication", "UseGnomeApplicationIdentity"};
 bool validStyle(const QString& value) {
     return QStringList{"Preedit", "Direct", "CommitOnly", "NativeDirect"}.contains(value);
 }

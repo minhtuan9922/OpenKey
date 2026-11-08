@@ -1,6 +1,9 @@
 // No desktop bus or configuration files: main re-executes on a fresh private bus.
 // CMake may also wrap this executable in dbus-run-session; nesting is harmless.
 #include "SettingsController.h"
+#include "ApplicationMemoryController.h"
+#include "ApplicationMemoryBackup.h"
+#include "../Sources/OpenKey/linux/ApplicationMemory.h"
 #include "InputConfigBackup.h"
 
 #include <QCoreApplication>
@@ -81,6 +84,11 @@ class ControllerMock : public QDBusVirtualObject {
 public:
     explicit ControllerMock(const QDBusConnection& bus) : bus_(bus) {}
 
+    bool memoryMode = false, staleMemoryWrite = false;
+    QString memoryEntries;
+    QString memoryStatus = "connected";
+    QString memoryApplication = "gnome:google-chrome.desktop";
+    QString memorySchemaType = "String";
     QString runtime = QStringLiteral("Preedit");
     QString diagnostics = QStringLiteral("True");
     QVariant rawDiagnostics; // Optional malformed runtime value for strict decoding tests.
@@ -136,6 +144,16 @@ public:
             bus_.send(message.createErrorReply(QDBusError::Failed, QStringLiteral("Test read failure")));
             return;
         }
+        if (memoryMode) {
+            SettingsWire::Options options;
+            for (const auto& key : QStringList{"Entries", "ExpectedEntries", "CurrentApplication", "IdentityStatus"})
+                options.append({key, memorySchemaType, key, QDBusVariant(QString("")), {}});
+            const QVariantMap raw{{"Entries", memoryEntries}, {"ExpectedEntries", ""},
+                {"CurrentApplication", memoryApplication}, {"IdentityStatus", memoryStatus}};
+            bus_.send(message.createReply(QVariantList{QVariant::fromValue(QDBusVariant(raw)),
+                QVariant::fromValue(SettingsWire::Types{{"ApplicationMemoryView", options}})}));
+            return;
+        }
         QVariantMap raw{{QStringLiteral("InputStyle"), runtime},
                               {QStringLiteral("DirectDiagnostics"),
                                rawDiagnostics.isValid() ? rawDiagnostics : QVariant(diagnostics)}};
@@ -164,8 +182,12 @@ public:
         calls.append(message.member());
         if (get) ++reads;
         else ++writes;
+        if (!memoryMode && get && message.signature() == "s" && args.size() == 1 && args.first().toString() == uri + "/application-memory") {
+            bus_.send(message.createErrorReply(QDBusError::UnknownProperty, "Legacy addon has no application-memory subconfig"));
+            return true;
+        }
         if (message.signature() != (get ? QStringLiteral("s") : QStringLiteral("sv")) ||
-            args.isEmpty() || args.first().toString() != uri) {
+            args.isEmpty() || args.first().toString() != (memoryMode ? uri + "/application-memory" : uri)) {
             violations.append(QStringLiteral("Wrong request signature or URI"));
             bus_.send(message.createErrorReply(QDBusError::InvalidArgs, violations.last()));
             return true;
@@ -177,6 +199,22 @@ public:
         }
         const QVariant value = args.at(1).value<QDBusVariant>().variant();
         lastPatch = variantMap(value);
+        if (memoryMode) {
+            openkey::ApplicationMemory memory;
+            if (lastPatch.size() != 2 || !lastPatch.contains("ExpectedEntries") || !lastPatch.contains("Entries")) {
+                violations.append("Malformed management patch");
+                bus_.send(message.createErrorReply(QDBusError::InvalidArgs, violations.last()));
+            } else if (failWrite) {
+                bus_.send(message.createErrorReply(QDBusError::Failed, "Write failed"));
+            } else {
+                if (!ignoreApply && !staleMemoryWrite && lastPatch.value("ExpectedEntries").toString() == memoryEntries &&
+                    memory.load(lastPatch.value("Entries").toString().toStdString()))
+                    memoryEntries = QString::fromStdString(memory.encode());
+                if (holdWrites) pendingWrites.append(message);
+                else bus_.send(message.createReply());
+            }
+            return true;
+        }
         const QVariant style = lastPatch.value(QStringLiteral("InputStyle"));
         const QVariant diagnosticsValue = lastPatch.value(QStringLiteral("DirectDiagnostics"));
         const bool stylePatch = style.metaType() == QMetaType::fromType<QString>() &&
@@ -190,10 +228,10 @@ public:
         const bool optionalPatch = (optionalKey == QStringLiteral("CheckSpelling") ||
                                     optionalKey == QStringLiteral("UseModernOrthography") ||
                                     optionalKey == QStringLiteral("QuickTelex") || optionalKey == QStringLiteral("MacrosEnabled") ||
-                                    QStringList{"FreeMark", "AllowConsonantZFWJ", "QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling", "RememberInputMethodPerApplication"}.contains(optionalKey)) &&
+                                    QStringList{"FreeMark", "AllowConsonantZFWJ", "QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling", "RememberInputMethodPerApplication", "UseGnomeApplicationIdentity"}.contains(optionalKey)) &&
             optionalValue.metaType() == QMetaType::fromType<QString>() &&
             (optionalValue.toString() == QStringLiteral("True") || optionalValue.toString() == QStringLiteral("False"));
-        bool validBatch = allowBatch && lastPatch.size() >= 2 && lastPatch.size() <= 11;
+        bool validBatch = allowBatch && lastPatch.size() >= 2 && lastPatch.size() <= 12;
         if (validBatch) {
             for (auto it = lastPatch.cbegin(); it != lastPatch.cend(); ++it) {
                 validBatch = validBatch && it.value().metaType() == QMetaType::fromType<QString>();
@@ -281,25 +319,226 @@ class LinuxSettingsControllerTests : public QObject {
     }
 
 private slots:
+    void applicationMemorySilentRefresh() {
+        mock_->memoryMode = true;
+        openkey::ApplicationMemory memory; memory.remember("code", "keyboard-us");
+        mock_->memoryEntries = QString::fromStdString(memory.encode());
+        ApplicationMemoryController controller(*client_);
+        controller.reload(); QTRY_COMPARE(controller.result(), QString("loaded"));
+        QSignalSpy state(&controller, &ApplicationMemoryController::changed);
+        QSignalSpy table(&controller, &ApplicationMemoryController::entriesChanged);
+        mock_->holdReads = true;
+        const auto reads = mock_->reads;
+        controller.refresh(); QTRY_COMPARE(mock_->pendingReads.size(), 1);
+        QVERIFY(!controller.busy()); QVERIFY(controller.ready()); QCOMPARE(controller.result(), QString("loaded"));
+        QCOMPARE(state.size(), 0); QCOMPARE(table.size(), 0);
+        controller.refresh(); QTest::qWait(20); QCOMPARE(mock_->reads, reads + 1);
+        mock_->releaseReads(); QTest::qWait(30);
+        QCOMPARE(state.size(), 0); QCOMPARE(table.size(), 0); QCOMPARE(mock_->writes, 0);
+        mock_->memoryApplication = "code";
+        controller.refresh(); QTRY_COMPARE(controller.currentApplication(), QString("code"));
+        QCOMPARE(state.size(), 1); QCOMPARE(table.size(), 0);
+        memory.remember("chrome", "openkey-vni"); mock_->memoryEntries = QString::fromStdString(memory.encode());
+        controller.refresh(); QTRY_COMPARE(controller.entries().size(), 2);
+        QCOMPARE(state.size(), 2); QCOMPARE(table.size(), 1);
+        QVERIFY(controller.ready()); QVERIFY(!controller.busy()); QCOMPARE(mock_->writes, 0);
+    }
+    void applicationMemoryRefreshSuperseded() {
+        mock_->memoryMode = true;
+        openkey::ApplicationMemory memory; memory.remember("code", "keyboard-us");
+        mock_->memoryEntries = QString::fromStdString(memory.encode());
+        ApplicationMemoryController controller(*client_);
+        controller.reload(); QTRY_COMPARE(controller.result(), QString("loaded"));
+        mock_->holdReads = true;
+        controller.refresh(); QTRY_COMPARE(mock_->pendingReads.size(), 1);
+        controller.update("code", "keyboard-us", "openkey-vni"); // Must cancel the background read, not block editing.
+        QTRY_COMPARE(mock_->pendingReads.size(), 2);
+        mock_->releaseReads(); QTRY_COMPARE(controller.result(), QString("confirmed"));
+        QCOMPARE(mock_->writes, 1);
+        controller.reload(); QTRY_COMPARE(controller.result(), QString("loaded"));
+        mock_->holdReads = true;
+        controller.refresh(); QTRY_COMPARE(mock_->pendingReads.size(), 1);
+        const auto preview = controller.inspectBackup(controller.backupJson(), "replace");
+        QVERIFY(preview.value("ok").toBool()); QVERIFY(controller.backupPreviewReady());
+        mock_->releaseReads(); QTest::qWait(30); QVERIFY(controller.backupPreviewReady());
+        const auto reads = mock_->reads;
+        controller.refresh(); QTest::qWait(20); QCOMPARE(mock_->reads, reads);
+        controller.cancelBackupPreview();
+        mock_->holdReads = true;
+        controller.refresh(); QTRY_COMPARE(mock_->pendingReads.size(), 1);
+        controller.reload(); QTRY_COMPARE(mock_->pendingReads.size(), 2);
+        mock_->releaseReads(); QTRY_COMPARE(controller.result(), QString("loaded"));
+        QVERIFY(controller.ready()); QVERIFY(!controller.busy());
+    }
+    void applicationMemoryRefreshFailure() {
+        mock_->memoryMode = true;
+        ApplicationMemoryController controller(*client_);
+        controller.reload(); QTRY_COMPARE(controller.result(), QString("loaded"));
+        mock_->failReads = true;
+        controller.refresh(); QTRY_COMPARE(controller.result(), QString("unsupported")); QVERIFY(!controller.ready());
+        mock_->failReads = false;
+        controller.reload(); QTRY_COMPARE(controller.result(), QString("loaded"));
+        mock_->holdReads = true;
+        controller.refresh(); QTRY_COMPARE(mock_->pendingReads.size(), 1);
+        QVERIFY(server_->unregisterService(service)); QTRY_VERIFY(!controller.ready());
+        mock_->releaseReads(); QTest::qWait(30);
+        QCOMPARE(controller.result(), QString("unavailable")); QVERIFY(!controller.busy()); QCOMPARE(mock_->writes, 0);
+    }
+    void applicationMemoryBackupRestore() {
+        mock_->memoryMode = true;
+        openkey::ApplicationMemory current, incoming;
+        current.remember("code", "keyboard-us"); current.remember("keep", "openkey-vni");
+        incoming.remember("code", "openkey-telex"); incoming.remember("chrome", "openkey-simple-telex2");
+        mock_->memoryEntries = QString::fromStdString(current.encode());
+        ApplicationMemoryController controller(*client_);
+        controller.reload(); QTRY_COMPARE(controller.result(), QString("loaded"));
+        const auto exported = controller.backupJson();
+        QVERIFY(exported.contains("openkey-application-memory")); QCOMPARE(mock_->writes, 0);
+        const auto json = ApplicationMemoryBackup::encode(QString::fromStdString(incoming.encode()));
+        controller.restoreBackup(json, "merge"); QCOMPARE(controller.result(), QString("invalid")); QCOMPARE(mock_->writes, 0);
+        const auto preview = controller.inspectBackup(json, "merge");
+        QVERIFY(preview.value("ok").toBool()); QVERIFY(controller.backupPreviewReady());
+        QCOMPARE(preview.value("added").toInt(), 1); QCOMPARE(preview.value("updated").toInt(), 1); QCOMPARE(mock_->writes, 0);
+        controller.restoreBackup(json, "merge"); QVERIFY(!controller.backupPreviewReady());
+        QTRY_COMPARE(controller.result(), QString("confirmed")); QCOMPARE(mock_->writes, 1); QCOMPARE(controller.entries().size(), 3);
+        controller.restoreBackup(json, "merge"); QCOMPARE(controller.result(), QString("invalid")); QCOMPARE(mock_->writes, 1);
+        QVERIFY(controller.inspectBackup(json, "replace").value("ok").toBool());
+        controller.restoreBackup(json, "replace"); QTRY_COMPARE(controller.result(), QString("confirmed"));
+        QCOMPARE(controller.entries().size(), 2); QCOMPARE(mock_->writes, 2);
+        const auto empty = ApplicationMemoryBackup::encode("");
+        QVERIFY(controller.inspectBackup(empty, "replace").value("ok").toBool());
+        controller.restoreBackup(empty, "replace"); QTRY_COMPARE(controller.result(), QString("confirmed"));
+        QCOMPARE(controller.entries().size(), 0); QCOMPARE(mock_->writes, 3);
+        QVERIFY(controller.inspectBackup(empty, "replace").value("ok").toBool());
+        controller.restoreBackup(empty, "replace"); QTRY_COMPARE(controller.result(), QString("confirmed"));
+        QCOMPARE(mock_->writes, 3); // No-op still preflights, but never writes.
+    }
+    void applicationMemoryBackupInvalidation() {
+        mock_->memoryMode = true;
+        ApplicationMemoryController controller(*client_);
+        controller.reload(); QTRY_COMPARE(controller.result(), QString("loaded"));
+        openkey::ApplicationMemory memory; memory.remember("code", "keyboard-us");
+        const auto json = ApplicationMemoryBackup::encode(QString::fromStdString(memory.encode()));
+        QVERIFY(controller.inspectBackup(json, "merge").value("ok").toBool());
+        controller.restoreBackup(json, "replace"); QCOMPARE(controller.result(), QString("invalid")); QCOMPARE(mock_->writes, 0);
+        QVERIFY(controller.inspectBackup(json, "merge").value("ok").toBool());
+        controller.restoreBackup(json + " ", "merge"); QCOMPARE(controller.result(), QString("invalid")); QCOMPARE(mock_->writes, 0);
+        QVERIFY(controller.inspectBackup(json, "merge").value("ok").toBool());
+        controller.cancelBackupPreview(); QVERIFY(!controller.backupPreviewReady());
+        QVERIFY(controller.inspectBackup(json, "merge").value("ok").toBool());
+        controller.reload(); QTRY_COMPARE(controller.result(), QString("loaded")); QVERIFY(!controller.backupPreviewReady());
+        QVERIFY(controller.inspectBackup(json, "merge").value("ok").toBool());
+        mock_->memoryEntries = QString::fromStdString(memory.encode()); // Learning changed after preview.
+        controller.restoreBackup(json, "merge"); QTRY_COMPARE(controller.result(), QString("conflict")); QCOMPARE(mock_->writes, 0);
+        QVERIFY(controller.inspectBackup(ApplicationMemoryBackup::encode(""), "replace").value("ok").toBool());
+        mock_->staleMemoryWrite = true; // Addon CAS rejects a race after preflight.
+        controller.restoreBackup(ApplicationMemoryBackup::encode(""), "replace");
+        QTRY_COMPARE(controller.result(), QString("unconfirmed")); QCOMPARE(controller.entries().size(), 1);
+        QVERIFY(!controller.backupPreviewReady());
+    }
+    void applicationMemoryBackupOwnerLoss() {
+        mock_->memoryMode = true;
+        ApplicationMemoryController controller(*client_);
+        controller.reload(); QTRY_COMPARE(controller.result(), QString("loaded"));
+        QVERIFY(controller.inspectBackup(ApplicationMemoryBackup::encode(""), "replace").value("ok").toBool());
+        QVERIFY(server_->unregisterService(service)); QTRY_VERIFY(!controller.ready()); QVERIFY(!controller.backupPreviewReady());
+        QCOMPARE(controller.backupJson(), QString()); QCOMPARE(mock_->writes, 0);
+    }
+    void applicationMemoryManagement() {
+        mock_->memoryMode = true;
+        openkey::ApplicationMemory memory;
+        memory.remember("gnome:google-chrome.desktop", "openkey-telex");
+        memory.remember("test-code", "keyboard-us");
+        mock_->memoryEntries = QString::fromStdString(memory.encode());
+        ApplicationMemoryController controller(*client_);
+        controller.reload(); QTRY_COMPARE(controller.result(), QString("loaded"));
+        QVERIFY(controller.ready()); QCOMPARE(controller.entries().size(), 2);
+        QCOMPARE(controller.currentApplication(), mock_->memoryApplication);
+        QCOMPARE(controller.identityStatus(), QString("connected"));
+        QCOMPARE(mock_->writes, 0); // Reading never writes or changes the IM.
+        controller.update("test-code", "keyboard-us", "openkey-simple-telex2");
+        QTRY_COMPARE(controller.result(), QString("confirmed"));
+        QVERIFY(memory.load(mock_->memoryEntries.toStdString()));
+        QCOMPARE(memory.lookup("test-code"), std::string("openkey-simple-telex2"));
+        QCOMPARE(memory.lookup("gnome:google-chrome.desktop"), std::string("openkey-telex"));
+        controller.remove("test-code", "openkey-simple-telex2");
+        QTRY_COMPARE(controller.result(), QString("confirmed"));
+        QCOMPARE(controller.entries().size(), 1);
+        controller.update("test-code", "keyboard-us", "openkey-vni");
+        QCOMPARE(controller.result(), QString("conflict")); QCOMPARE(mock_->writes, 2);
+        controller.update("gnome:google-chrome.desktop", "openkey-telex", "third-party");
+        QCOMPARE(controller.result(), QString("invalid")); QCOMPARE(mock_->writes, 2);
+    }
+    void applicationMemoryConcurrentLearning() {
+        mock_->memoryMode = true;
+        openkey::ApplicationMemory memory; memory.remember("code", "keyboard-us");
+        mock_->memoryEntries = QString::fromStdString(memory.encode());
+        ApplicationMemoryController controller(*client_);
+        controller.reload(); QTRY_COMPARE(controller.result(), QString("loaded"));
+        memory.remember("chrome", "openkey-telex");
+        mock_->memoryEntries = QString::fromStdString(memory.encode());
+        controller.update("code", "keyboard-us", "openkey-vni");
+        QTRY_COMPARE(controller.result(), QString("conflict"));
+        QCOMPARE(mock_->writes, 0); QCOMPARE(controller.entries().size(), 2);
+        // A change between preflight and SetConfig must fail readback too.
+        mock_->staleMemoryWrite = true;
+        controller.update("code", "keyboard-us", "openkey-vni");
+        QTRY_COMPARE(controller.result(), QString("unconfirmed")); QCOMPARE(mock_->writes, 1);
+        QVERIFY(memory.load(mock_->memoryEntries.toStdString()));
+        QCOMPARE(memory.lookup("code"), std::string("keyboard-us"));
+    }
+    void applicationMemoryUnsupportedAndBadReply() {
+        ApplicationMemoryController legacy(*client_);
+        legacy.reload(); QTRY_COMPARE(legacy.result(), QString("unsupported"));
+        QVERIFY(!legacy.ready()); QCOMPARE(mock_->writes, 0);
+        mock_->memoryMode = true;
+        for (const auto& invalid : QStringList{"bad-data", "636f6465:74686972642d7061727479;"}) {
+            mock_->memoryEntries = invalid;
+            legacy.reload(); QTRY_COMPARE(legacy.result(), QString("unsupported"));
+            QVERIFY(!legacy.ready()); QVERIFY(legacy.entries().isEmpty());
+        }
+        mock_->memoryEntries.clear(); mock_->memorySchemaType = "Boolean";
+        legacy.reload(); QTRY_COMPARE(legacy.result(), QString("unsupported")); QVERIFY(!legacy.ready());
+        mock_->memorySchemaType = "String";
+        mock_->memoryStatus = "forged";
+        legacy.reload(); QTRY_COMPARE(legacy.result(), QString("unsupported")); QVERIFY(!legacy.ready());
+    }
+    void applicationMemoryOwnerLossAndWriteFailure() {
+        mock_->memoryMode = true;
+        openkey::ApplicationMemory memory; memory.remember("code", "keyboard-us");
+        mock_->memoryEntries = QString::fromStdString(memory.encode());
+        ApplicationMemoryController controller(*client_);
+        controller.reload(); QTRY_COMPARE(controller.result(), QString("loaded"));
+        mock_->ignoreApply = true;
+        controller.remove("code", "keyboard-us");
+        QTRY_COMPARE(controller.result(), QString("unconfirmed")); QCOMPARE(controller.entries().size(), 1);
+        mock_->ignoreApply = false; mock_->holdReads = true;
+        controller.update("code", "keyboard-us", "openkey-vni");
+        QTRY_COMPARE(mock_->pendingReads.size(), 1);
+        QVERIFY(server_->unregisterService(service));
+        QTRY_VERIFY(!controller.ready()); QTRY_VERIFY(!controller.busy());
+        mock_->releaseReads(); QTest::qWait(30);
+        QCOMPARE(mock_->writes, 1); QVERIFY(controller.entries().isEmpty());
+    }
     void advancedOptions() {
-        const QStringList fields{"FreeMark", "AllowConsonantZFWJ", "QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling", "RememberInputMethodPerApplication"};
+        const QStringList fields{"FreeMark", "AllowConsonantZFWJ", "QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling", "RememberInputMethodPerApplication", "UseGnomeApplicationIdentity"};
         for (const auto& key : fields) {
             mock_->optionalRuntime[key] = "False";
             mock_->optionalSchema.append({key, "Boolean", key, QDBusVariant(QString("False")), {}});
         }
         SettingsController controller(*client_);
         load(controller);
-        QCOMPARE(controller.runtimeAdvanced().size(), 6);
+        QCOMPARE(controller.runtimeAdvanced().size(), 7);
         for (const auto& key : fields) {
             controller.applyAdvanced(key, "True"); QTRY_COMPARE(controller.result(), QString("confirmed"));
             QCOMPARE(controller.runtimeAdvanced().value(key).toString(), "True");
         }
-        QCOMPARE(mock_->writes, 6);
+        QCOMPARE(mock_->writes, 7);
         const auto backup = controller.backupJson();
         QVERIFY(backup.contains("QuickEndConsonant"));
         QVERIFY(backup.contains("RememberInputMethodPerApplication"));
         controller.applyAdvanced("Unknown", "True"); QCOMPARE(controller.result(), QString("invalid"));
-        QCOMPARE(mock_->writes, 6);
+        QCOMPARE(mock_->writes, 7);
     }
     void applicationRulesApply() {
         mock_->optionalRuntime = {{"ApplicationRules", ""}};

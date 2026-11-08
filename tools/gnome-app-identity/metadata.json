@@ -1,0 +1,8 @@
+{
+  "uuid": "openkey-app-identity@openkey.local",
+  "name": "OpenKey Application Identity",
+  "description": "Provide focused application IDs to OpenKey without window titles or text.",
+  "shell-version": ["50"],
+  "version": 1,
+  "url": "https://github.com/minhtuan9922/OpenKey"
+}

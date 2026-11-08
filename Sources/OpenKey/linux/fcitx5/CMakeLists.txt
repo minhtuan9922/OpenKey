@@ -19,6 +19,19 @@ install(FILES openkey-telex.conf openkey-vni.conf openkey-simple-telex1.conf ope
     COMPONENT openkey_fcitx5)
 
 if(OPENKEY_BUILD_SMOKE_TESTS)
+    find_program(OPENKEY_GNOME_DBUS_RUN_SESSION dbus-run-session REQUIRED)
+    find_program(OPENKEY_GNOME_NODE node)
+    find_program(OPENKEY_GNOME_GJS gjs)
+    if(OPENKEY_GNOME_GJS)
+        add_test(NAME openkey_gnome_gio_tests COMMAND "${CMAKE_COMMAND}" -E env GIO_USE_VFS=local
+            "${OPENKEY_GNOME_DBUS_RUN_SESSION}" -- "${OPENKEY_GNOME_GJS}" -m "${PROJECT_SOURCE_DIR}/Tests/LinuxGnomeGioTests.js")
+        set_tests_properties(openkey_gnome_gio_tests PROPERTIES TIMEOUT 10)
+    endif()
+    if(OPENKEY_GNOME_NODE)
+        add_test(NAME openkey_gnome_extension_tests COMMAND "${OPENKEY_GNOME_NODE}"
+            "${PROJECT_SOURCE_DIR}/Tests/LinuxGnomeExtensionTests.mjs")
+        set_tests_properties(openkey_gnome_extension_tests PROPERTIES TIMEOUT 20)
+    endif()
     # --prefix cannot relocate absolute install destinations. Keep the CTest
     # staging fixture confined to the build directory even with custom flags.
     if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}" OR IS_ABSOLUTE "${CMAKE_INSTALL_DATADIR}")
@@ -65,7 +78,7 @@ if(OPENKEY_BUILD_SMOKE_TESTS)
     add_test(NAME openkey_fcitx5_stage COMMAND ${CMAKE_COMMAND} --install ${PROJECT_BINARY_DIR}
         --prefix ${OPENKEY_TEST_PREFIX} --config $<CONFIG> --component openkey_fcitx5)
     set_tests_properties(openkey_fcitx5_stage PROPERTIES FIXTURES_SETUP openkey_installed TIMEOUT 20)
-    add_test(NAME openkey_fcitx5_integration_tests COMMAND openkey_fcitx5_integration_tests
+    add_test(NAME openkey_fcitx5_integration_tests COMMAND "${OPENKEY_GNOME_DBUS_RUN_SESSION}" -- $<TARGET_FILE:openkey_fcitx5_integration_tests>
         ${OPENKEY_TEST_PREFIX} ${CMAKE_INSTALL_LIBDIR})
     set_tests_properties(openkey_fcitx5_integration_tests PROPERTIES
         FIXTURES_REQUIRED openkey_installed TIMEOUT 20)

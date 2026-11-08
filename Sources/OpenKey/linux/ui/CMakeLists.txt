@@ -6,7 +6,7 @@ if(Qt6_VERSION VERSION_GREATER_EQUAL "6.8")
     qt_policy(SET QTP0004 NEW)
 endif()
 set(CMAKE_AUTOMOC ON)
-add_library(openkey_settings_model STATIC SettingsOverview.cpp SettingsOverview.h SettingsController.cpp SettingsController.h
+add_library(openkey_settings_model STATIC ApplicationMemoryBackup.cpp ApplicationMemoryBackup.h ApplicationMemoryController.cpp ApplicationMemoryController.h SettingsOverview.cpp SettingsOverview.h SettingsController.cpp SettingsController.h
     UiPreferences.cpp UiPreferences.h HotkeyOverview.cpp HotkeyOverview.h UiEnvironment.cpp UiEnvironment.h
     TextConverter.cpp TextConverter.h AboutInfo.cpp AboutInfo.h ClipboardBridge.cpp ClipboardBridge.h
     InputConfigBackup.cpp InputConfigBackup.h BackupFiles.cpp BackupFiles.h MacroModel.cpp MacroModel.h InputMethodController.cpp InputMethodController.h FileConversion.cpp FileConversion.h)
@@ -22,7 +22,7 @@ qt_add_qml_module(openkey-settings
     URI OpenKey.Settings VERSION 1.0 RESOURCE_PREFIX /qt/qml
     QML_FILES qml/Main.qml qml/UiPalette.qml qml/NavIcon.qml qml/NavButton.qml qml/InfoCard.qml qml/StyleSettings.qml qml/SettingsComboBox.qml
         qml/DiagnosticsSettings.qml qml/ConfigFeedback.qml qml/SettingsButton.qml qml/SpellingOption.qml qml/HotkeySettings.qml
-        qml/CompatibilitySettings.qml qml/ConversionSettings.qml qml/AboutSettings.qml qml/PreferencesBackup.qml qml/RuntimeStatus.qml
+        qml/ApplicationMemoryBackup.qml qml/ApplicationMemorySettings.qml qml/CompatibilitySettings.qml qml/ConversionSettings.qml qml/AboutSettings.qml qml/PreferencesBackup.qml qml/RuntimeStatus.qml
         qml/TypingTest.qml qml/InputSettingsBackup.qml qml/LegacyConversion.qml qml/MacroSettings.qml qml/ApplicationSettings.qml qml/SettingsTextField.qml qml/SettingsTextArea.qml qml/InputMethodSettings.qml qml/FileConversionSettings.qml)
 target_link_libraries(openkey-settings PRIVATE Qt6::Quick Qt6::QuickControls2 openkey_settings_model)
 # Shared Qt loads distro QML plugins at runtime; their static CMake targets

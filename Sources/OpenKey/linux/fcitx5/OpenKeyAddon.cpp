@@ -3,6 +3,7 @@
 #include "../MacroTable.h"
 #include "../ApplicationRules.h"
 #include "../ApplicationMemory.h"
+#include "GnomeFocusBridge.h"
 #include <string>
 #include <string_view>
 #include <vector>
@@ -29,6 +30,7 @@ FCITX_CONFIGURATION(InputConfig,
     fcitx::Option<InputStyle> style{this, "InputStyle", "Chế độ gõ / Input style", InputStyle::Preedit};
     fcitx::Option<bool> diagnostics{this, "DirectDiagnostics", "Direct diagnostics (no text content)", false};
     fcitx::Option<bool> rememberApplication{this, "RememberInputMethodPerApplication", "Ghi nhớ bộ gõ theo ứng dụng", false};
+    fcitx::Option<bool> gnomeIdentity{this, "UseGnomeApplicationIdentity", "Nhận diện ứng dụng qua extension GNOME", false};
     fcitx::Option<std::string> applicationRules{this, "ApplicationRules", "Chế độ theo ứng dụng / Application rules (encoded)", ""};
     fcitx::Option<bool> macrosEnabled{this, "MacrosEnabled", "Bật gõ tắt / Enable macros", false};
     fcitx::Option<std::string> macroTable{this, "MacroTable", "Bảng gõ tắt / Macro table (encoded)", ""};
@@ -43,6 +45,13 @@ FCITX_CONFIGURATION(InputConfig,
 );
 FCITX_CONFIGURATION(ApplicationMemoryConfig,
     fcitx::Option<std::string> entries{this, "Entries", "Remembered input methods", ""};
+);
+// Runtime-only management endpoint; never merged into the main input config.
+FCITX_CONFIGURATION(ApplicationMemoryView,
+    fcitx::Option<std::string> entries{this, "Entries", "Remembered input methods", ""};
+    fcitx::Option<std::string> expected{this, "ExpectedEntries", "Compare before write", ""};
+    fcitx::Option<std::string> application{this, "CurrentApplication", "Identified focused application", ""};
+    fcitx::Option<std::string> identity{this, "IdentityStatus", "GNOME identity connection", "disabled"};
 );
 struct QueuedKey { fcitx::Key key; bool release; int time; };
 bool printable(uint32_t value) {
@@ -241,7 +250,8 @@ bool nativeResetStillHere(const State& state, const std::optional<openkey::Snaps
 
 class OpenKeyAddon : public fcitx::InputMethodEngine {
 public:
-    explicit OpenKeyAddon(fcitx::Instance* instance) : instance_(instance) {
+    explicit OpenKeyAddon(fcitx::Instance* instance) : instance_(instance),
+        gnomeBridge_(instance->eventLoop(), [this] { bridgeFocus_.reset(); ++memoryEpoch_; }) {
         instance->inputContextManager().registerProperty("openkeyState", &factory_);
         fcitx::readAsIni(config_, "conf/openkey.conf");
         openkey::ApplicationRules::parse(*config_.applicationRules, appRules_);
@@ -251,25 +261,29 @@ public:
                 auto* ic = static_cast<fcitx::InputContextEvent&>(event).inputContext();
                 // Core focus activation has completed. Its incidental switch
                 // notifications must not replace this application's preference.
-                memoryFocus_ = nullptr;
-                if (memoryEligible(ic)) {
-                    const auto target = applicationMemory_.lookup(ic->program());
-                    if (!target.empty() && target != instance_->inputMethod(ic) && methodInGroup(target)) {
-                        restoringMemory_ = true;
-                        instance_->setCurrentInputMethod(ic, target, true);
-                        restoringMemory_ = false;
-                    }
+                resetMemoryFocus();
+                if (baseMemoryEligible(ic) && gnomeContext(ic) && *config_.gnomeIdentity) {
                     memoryFocus_ = ic;
-                    // Do not overwrite a saved choice if its method is absent
-                    // from the group or the frontend rejects restoration.
-                    if (target.empty()) rememberApplication(ic);
+                    const auto epoch = memoryEpoch_, keys = memoryKeys_;
+                    resolveGnome([this, ic, epoch, keys](const auto& focus) {
+                        if (epoch != memoryEpoch_ || memoryFocus_ != ic || !baseMemoryEligible(ic) || !focus) return;
+                        bridgeFocus_ = focus;
+                        // Never change method after typing began while waiting
+                        // for the bridge, or while a composition is in flight.
+                        const auto& state = *ic->propertyFor(&factory_);
+                        if (keys == memoryKeys_ && state.composition.empty() && state.queue.empty() && state.recovery.empty())
+                            restoreApplication(ic);
+                    });
+                } else if (memoryEligible(ic)) {
+                    memoryFocus_ = ic;
+                    restoreApplication(ic);
                 }
             }));
         for (auto type : {fcitx::EventType::InputContextFocusOut, fcitx::EventType::InputContextDestroyed}) {
             memoryWatchers_.push_back(instance->watchEvent(type, fcitx::EventWatcherPhase::PreInputMethod,
                 [this](fcitx::Event& event) {
                     if (static_cast<fcitx::InputContextEvent&>(event).inputContext() == memoryFocus_)
-                        memoryFocus_ = nullptr;
+                        resetMemoryFocus();
                 }));
         }
         memoryWatchers_.push_back(instance->watchEvent(fcitx::EventType::InputContextSwitchInputMethod,
@@ -278,7 +292,22 @@ public:
                 if (change.inputContext() != memoryFocus_ || restoringMemory_ ||
                     change.reason() == fcitx::InputMethodSwitchedReason::CapabilityChanged ||
                     change.reason() == fcitx::InputMethodSwitchedReason::GroupChange) return;
-                rememberApplication(change.inputContext());
+                auto* ic = change.inputContext();
+                if (gnomeContext(ic) && *config_.gnomeIdentity && baseMemoryEligible(ic)) {
+                    const auto epoch = memoryEpoch_;
+                    const auto method = instance_->inputMethod(ic);
+                    resolveGnome([this, ic, epoch, method](const auto& focus) {
+                        if (epoch != memoryEpoch_ || memoryFocus_ != ic || !baseMemoryEligible(ic) || !focus ||
+                            instance_->inputMethod(ic) != method) return;
+                        bridgeFocus_ = focus;
+                        rememberApplication(ic);
+                    });
+                } else rememberApplication(ic);
+            }));
+        memoryWatchers_.push_back(instance->watchEvent(fcitx::EventType::InputContextKeyEvent,
+            fcitx::EventWatcherPhase::PreInputMethod, [this](fcitx::Event& event) {
+                auto& key = static_cast<fcitx::KeyEvent&>(event);
+                if (key.inputContext() == memoryFocus_ && !key.isRelease() && !key.key().isModifier()) ++memoryKeys_;
             }));
         surroundingWatcher_ = instance->watchEvent(fcitx::EventType::InputContextSurroundingTextUpdated,
             fcitx::EventWatcherPhase::InputMethod, [this](fcitx::Event& event) {
@@ -414,6 +443,33 @@ public:
     }
 
     const fcitx::Configuration* getConfig() const override { return &config_; }
+    const fcitx::Configuration* getSubConfig(const std::string& path) const override {
+        if (path != "application-memory") return nullptr;
+        memoryView_.entries.setValue(applicationMemory_.encode());
+        memoryView_.expected.setValue("");
+        memoryView_.application.setValue(memoryEligible(memoryFocus_) ? memoryProgram(memoryFocus_) : "");
+        memoryView_.identity.setValue(!*config_.rememberApplication || !*config_.gnomeIdentity ?
+            "disabled" : gnomeBridge_.status());
+        return &memoryView_;
+    }
+    void setSubConfig(const std::string& path, const fcitx::RawConfig& raw) override {
+        if (path != "application-memory") return;
+        const auto* expected = raw.valueByPath("ExpectedEntries");
+        const auto* entries = raw.valueByPath("Entries");
+        bool valid = true;
+        raw.visitSubItems([&valid](const fcitx::RawConfig&, const std::string& key) {
+            if (key != "Entries" && key != "ExpectedEntries") valid = false;
+            return true;
+        }, "", true);
+        openkey::ApplicationMemory next;
+        if (!valid || !expected || !entries || *expected != applicationMemory_.encode() || !next.load(*entries)) return;
+        // Serialize with automatic learning on the Fcitx event thread. Publish
+        // only after persistence succeeds; never switch the active method here.
+        ApplicationMemoryConfig saved;
+        saved.entries.setValue(next.encode());
+        if (!fcitx::safeSaveAsIni(saved, "conf/openkey-app-memory.conf")) return;
+        applicationMemory_ = std::move(next);
+    }
     void setConfig(const fcitx::RawConfig& raw) override {
         const auto previous = config_;
         config_.load(raw, true);
@@ -427,8 +483,8 @@ public:
         if (compositionConfigChanged(previous)) finishContexts();
         openkey::ApplicationRules::parse(*config_.applicationRules, appRules_);
         // Keep future/third-party keys when applying a partial settings update.
-        if (*previous.rememberApplication != *config_.rememberApplication) {
-            memoryFocus_ = nullptr;
+        if (*previous.rememberApplication != *config_.rememberApplication || *previous.gnomeIdentity != *config_.gnomeIdentity) {
+            resetMemoryFocus();
             auto* ic = instance_->mostRecentInputContext();
             if (memoryEligible(ic)) {
                 memoryFocus_ = ic;
@@ -455,8 +511,8 @@ public:
         if (compositionConfigChanged(previous)) finishContexts();
         openkey::ApplicationRules::parse(*config_.applicationRules, appRules_);
         loadApplicationMemory();
-        if (*previous.rememberApplication != *config_.rememberApplication) {
-            memoryFocus_ = nullptr;
+        if (*previous.rememberApplication != *config_.rememberApplication || *previous.gnomeIdentity != *config_.gnomeIdentity) {
+            resetMemoryFocus();
             auto* ic = instance_->mostRecentInputContext();
             if (memoryEligible(ic)) memoryFocus_ = ic;
         }
@@ -1397,14 +1453,49 @@ private:
     fcitx::SimpleInputContextPropertyFactory<State> factory_;
     std::unique_ptr<fcitx::HandlerTableEntry<fcitx::EventHandler>> surroundingWatcher_;
     openkey::ApplicationMemory applicationMemory_;
+    mutable ApplicationMemoryView memoryView_;
     fcitx::InputContext* memoryFocus_ = nullptr;
     bool restoringMemory_ = false;
     std::vector<std::unique_ptr<fcitx::HandlerTableEntry<fcitx::EventHandler>>> memoryWatchers_;
+    std::optional<openkey::GnomeFocus> bridgeFocus_;
+    uint64_t memoryEpoch_ = 0, memoryKeys_ = 0;
+    openkey::GnomeFocusBridge gnomeBridge_;
+
+    static bool gnomeContext(fcitx::InputContext* ic) {
+        return ic && ic->program() == "gnome-shell" && ibusClient(ic);
+    }
+    void resetMemoryFocus() {
+        gnomeBridge_.cancel(); bridgeFocus_.reset(); memoryFocus_ = nullptr; ++memoryEpoch_;
+    }
+    void resolveGnome(openkey::GnomeFocusBridge::Callback callback) {
+        gnomeBridge_.resolve([this, callback](const auto& first) {
+            if (!first) { callback({}); return; }
+            gnomeBridge_.resolve([first, callback](const auto& second) {
+                callback(second && *first == *second ? second : std::nullopt);
+            });
+        });
+    }
+    std::string memoryProgram(fcitx::InputContext* ic) const {
+        if (openkey::ApplicationRules::identifiable(ic->program())) return ic->program();
+        if (*config_.gnomeIdentity && gnomeContext(ic) && memoryFocus_ == ic && bridgeFocus_) return bridgeFocus_->key();
+        return {};
+    }
+    void restoreApplication(fcitx::InputContext* ic) {
+        const auto target = applicationMemory_.lookup(memoryProgram(ic));
+        if (!target.empty() && target != instance_->inputMethod(ic) && methodInGroup(target)) {
+            restoringMemory_ = true;
+            instance_->setCurrentInputMethod(ic, target, true);
+            restoringMemory_ = false;
+        }
+        if (target.empty()) rememberApplication(ic);
+    }
+    bool baseMemoryEligible(fcitx::InputContext* ic) const {
+        return *config_.rememberApplication && ic && ic->hasFocus() &&
+            !(ic->capabilityFlags() & fcitx::CapabilityFlags{fcitx::CapabilityFlag::PasswordOrSensitive, fcitx::CapabilityFlag::Disable});
+    }
 
     bool memoryEligible(fcitx::InputContext* ic) const {
-        return *config_.rememberApplication && ic && ic->hasFocus() &&
-            !(ic->capabilityFlags() & fcitx::CapabilityFlags{fcitx::CapabilityFlag::PasswordOrSensitive, fcitx::CapabilityFlag::Disable}) &&
-            openkey::ApplicationRules::identifiable(ic->program());
+        return baseMemoryEligible(ic) && !memoryProgram(ic).empty();
     }
     bool methodInGroup(const std::string& method) const {
         const auto& items = instance_->inputMethodManager().currentGroup().inputMethodList();
@@ -1413,7 +1504,7 @@ private:
     void rememberApplication(fcitx::InputContext* ic) {
         if (!memoryEligible(ic)) return;
         const auto method = instance_->inputMethod(ic);
-        if (!applicationMemory_.remember(ic->program(), method)) return;
+        if (!applicationMemory_.remember(memoryProgram(ic), method)) return;
         ApplicationMemoryConfig saved;
         saved.entries.setValue(applicationMemory_.encode());
         if (!fcitx::safeSaveAsIni(saved, "conf/openkey-app-memory.conf"))

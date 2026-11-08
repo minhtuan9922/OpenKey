@@ -1,6 +1,7 @@
 // Config writes only on explicit Apply through the fixed Fcitx D-Bus API.
 #include "SettingsOverview.h"
 #include "SettingsController.h"
+#include "ApplicationMemoryController.h"
 #include "SettingsActivation.h"
 #include "UiPreferences.h"
 #include "HotkeyOverview.h"
@@ -72,9 +73,11 @@ int main(int argc, char** argv) {
         QDir(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation))
             .filePath("fcitx5/conf/openkey.conf"));
     std::unique_ptr<SettingsController> controller;
+    std::unique_ptr<ApplicationMemoryController> applicationMemory;
     std::unique_ptr<HotkeyOverview> hotkeys;
     std::unique_ptr<InputMethodController> inputMethods;
     if (online) {
+        applicationMemory = std::make_unique<ApplicationMemoryController>(QDBusConnection::sessionBus());
         controller = std::make_unique<SettingsController>(QDBusConnection::sessionBus());
         inputMethods = std::make_unique<InputMethodController>(QDBusConnection::sessionBus());
         QObject::connect(inputMethods.get(), &InputMethodController::changed, &overview, [&] {
@@ -103,6 +106,7 @@ int main(int argc, char** argv) {
                                  {"pageIndex", pages.indexOf(parser.value("page"))},
                                  {"overviewModel", QVariant::fromValue(&overview)},
                                  {"configController", QVariant::fromValue(controller.get())},
+                                 {"applicationMemoryController", QVariant::fromValue(applicationMemory.get())},
                                  {"hotkeyOverview", QVariant::fromValue(hotkeys.get())},
                                  {"inputMethodController", QVariant::fromValue(inputMethods.get())},
                                  {"textConverter", QVariant::fromValue(&converter)},

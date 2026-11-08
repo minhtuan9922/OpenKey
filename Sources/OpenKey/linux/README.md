@@ -196,3 +196,9 @@ sao lưu IM/phím tắt bằng file: [hướng dẫn và giới hạn](../../../
 UI preview.12 và service mới: [menu mở Gõ tắt/Chuyển mã/Giới thiệu](../../../docs/UBUNTU_TRAY_PAGES.md).
 
 Alpha.51 / UI preview.13: [ghi nhớ bộ gõ theo ứng dụng](../../../docs/UBUNTU_APP_MEMORY.md).
+
+Alpha.52 / UI preview.14: [extension nhận diện ứng dụng GNOME](../../../docs/UBUNTU_GNOME_IDENTITY.md).
+
+Alpha.53 / UI preview.15: [xem, sửa, xóa bộ gõ đã nhớ và xem trạng thái nhận diện](../../../docs/UBUNTU_APP_MEMORY.md).
+
+UI preview.16: [sao lưu/khôi phục bảng nhớ ứng dụng bằng JSON/file, xem trước gộp/thay thế](../../../docs/UBUNTU_APP_MEMORY.md). Dùng addon alpha.53.

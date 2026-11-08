@@ -16,6 +16,7 @@ ApplicationWindow {
     property bool sidebarExpanded: true
     property var overviewModel: null
     property var configController: null
+    property var applicationMemoryController: null
     property var hotkeyOverview: null
     property var inputMethodController: null
     property var uiEnvironment: ({})
@@ -295,7 +296,29 @@ ApplicationWindow {
                         controller: root.configController
                         settingKey: "RememberInputMethodPerApplication"
                         heading: "Ghi nhớ bộ gõ theo ứng dụng"
-                        description: "Tự nhớ English (US), Telex, VNI, Simple Telex 1/2 và khôi phục khi quay lại ứng dụng. Mặc định tắt. Chỉ dùng program ID chính xác; gnome-shell/unknown không phân biệt được từng app nên bị bỏ qua. Không lưu nội dung gõ. Các lựa chọn đã nhớ được giữ khi tắt; cần addon alpha.51."
+                        description: "Tự nhớ English (US), Telex, VNI, Simple Telex 1/2 và khôi phục khi quay lại ứng dụng. Mặc định tắt. Chỉ dùng program ID chính xác; ID chung bị bỏ qua; với gnome-shell có thể bật nhận diện GNOME bên dưới. Không lưu nội dung gõ. Các lựa chọn đã nhớ được giữ khi tắt; cần addon alpha.51."
+                    }
+                    SpellingOption {
+                        visible: root.pageIndex === 3
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        controller: root.configController
+                        settingKey: "UseGnomeApplicationIdentity"
+                        heading: "Nhận diện ứng dụng GNOME"
+                        description: "Dùng extension OpenKey Application Identity để phân biệt app khi Fcitx5 chỉ báo gnome-shell. Cần bật Ghi nhớ bộ gõ theo ứng dụng ở trên và cài/bật extension riêng. Mặc định tắt; chưa xác nhận focus thì bỏ qua. Không đọc tiêu đề hoặc nội dung cửa sổ. Cần addon alpha.52."
+                    }
+                    ApplicationMemorySettings {
+                        visible: root.pageIndex === 3
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        controller: root.applicationMemoryController
+                    }
+                    ApplicationMemoryBackup {
+                        visible: root.pageIndex === 3
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        controller: root.applicationMemoryController
+                        fileAccess: root.backupFiles
                     }
                     CompatibilitySettings {
                         visible: root.pageIndex === 0 || root.pageIndex === 3

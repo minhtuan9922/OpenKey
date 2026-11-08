@@ -5,6 +5,7 @@
 #include "ClipboardBridge.h"
 #include "InputConfigBackup.h"
 #include "BackupFiles.h"
+#include "ApplicationMemoryBackup.h"
 #include <QGuiApplication>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -30,6 +31,41 @@
 #include <algorithm>
 
 // UI interaction double; no D-Bus or config writes, real controller tested separately.
+class ApplicationMemoryDouble : public QObject {
+    Q_OBJECT
+    Q_PROPERTY(bool backupPreviewReady MEMBER previewReady NOTIFY changed)
+    Q_PROPERTY(QVariantList entries MEMBER rows NOTIFY changed)
+    Q_PROPERTY(QString currentApplication MEMBER current NOTIFY changed)
+    Q_PROPERTY(QString identityStatus MEMBER identity NOTIFY changed)
+    Q_PROPERTY(QString result MEMBER result NOTIFY changed)
+    Q_PROPERTY(bool ready MEMBER ready NOTIFY changed)
+    Q_PROPERTY(bool busy MEMBER busy NOTIFY changed)
+public:
+    QVariantList rows{QVariantMap{{"application", "gnome:google-chrome.desktop"}, {"method", "openkey-telex"}}};
+    QString current = "gnome:google-chrome.desktop", identity = "connected", result = "loaded";
+    QString updatedApplication, updatedExpected, updatedMethod, removedApplication;
+    bool ready = true, busy = false;
+    bool previewReady = false;
+    int inspections = 0, restores = 0;
+    Q_INVOKABLE QString backupJson() const { return "{\"format\":\"openkey-application-memory\",\"version\":1,\"entries\":[]}"; }
+    Q_INVOKABLE QVariantMap inspectBackup(const QString& json, const QString& mode) {
+        ++inspections;
+        const auto preview = ApplicationMemoryBackup::plan(json, mode, "");
+        previewReady = preview.value("ok").toBool(); emit changed(); return preview;
+    }
+    Q_INVOKABLE void cancelBackupPreview() { previewReady = false; emit changed(); }
+    Q_INVOKABLE void restoreBackup(const QString&, const QString&) { ++restores; ++writes; previewReady = false; emit changed(); }
+    int reloads = 0, writes = 0, refreshes = 0;
+    Q_INVOKABLE void reload() { ++reloads; }
+    Q_INVOKABLE void refresh() { ++refreshes; }
+    Q_INVOKABLE void update(const QString& app, const QString& expected, const QString& method) {
+        ++writes; updatedApplication = app; updatedExpected = expected; updatedMethod = method;
+    }
+    Q_INVOKABLE void remove(const QString& app, const QString&) { ++writes; removedApplication = app; }
+signals:
+    void changed();
+};
+
 class StyleControllerDouble : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString runtimeStyle MEMBER style NOTIFY changed)
@@ -57,7 +93,7 @@ public:
     bool supportsSpelling = true;
     bool supportsCommitOnly = false;
     bool supportsNativeDirect = false;
-    QVariantMap advanced{{"FreeMark", "False"}, {"AllowConsonantZFWJ", "False"}, {"QuickStartConsonant", "False"}, {"QuickEndConsonant", "False"}, {"RestoreWrongSpelling", "False"}, {"RememberInputMethodPerApplication", "False"}};
+    QVariantMap advanced{{"FreeMark", "False"}, {"AllowConsonantZFWJ", "False"}, {"QuickStartConsonant", "False"}, {"QuickEndConsonant", "False"}, {"RestoreWrongSpelling", "False"}, {"RememberInputMethodPerApplication", "False"}, {"UseGnomeApplicationIdentity", "False"}};
     Q_INVOKABLE void applyAdvanced(const QString& key, const QString& value) { advanced[key] = value; emit changed(); }
     bool supportsRules = true;
     QString appRules;
@@ -1026,8 +1062,8 @@ private slots:
     void advancedControls() {
         StyleControllerDouble controller;
         window->setProperty("configController", QVariant::fromValue(&controller));
-        for (const auto& key : {QString("FreeMark"), QString("AllowConsonantZFWJ"), QString("QuickStartConsonant"), QString("QuickEndConsonant"), QString("RestoreWrongSpelling"), QString("RememberInputMethodPerApplication")}) {
-            window->setProperty("pageIndex", key == "RememberInputMethodPerApplication" ? 3 : key == "FreeMark" || key == "AllowConsonantZFWJ" ? 4 : 1);
+        for (const auto& key : {QString("FreeMark"), QString("AllowConsonantZFWJ"), QString("QuickStartConsonant"), QString("QuickEndConsonant"), QString("RestoreWrongSpelling"), QString("RememberInputMethodPerApplication"), QString("UseGnomeApplicationIdentity")}) {
+            window->setProperty("pageIndex", (key == "RememberInputMethodPerApplication" || key == "UseGnomeApplicationIdentity") ? 3 : key == "FreeMark" || key == "AllowConsonantZFWJ" ? 4 : 1);
             auto prefix = key; prefix[0] = prefix[0].toLower();
             auto* picker = item(qPrintable(prefix + "Picker")); QVERIFY(picker);
             reveal(picker); picker->forceActiveFocus(); QTest::keyClick(window, Qt::Key_End);
@@ -1077,6 +1113,76 @@ private slots:
         QTRY_COMPARE(picker->property("currentIndex").toInt(), 1);
         window->setProperty("inputMethodController", QVariant::fromValue<QObject*>(nullptr));
         QTRY_VERIFY(!picker->isEnabled());
+    }
+    void applicationMemoryBackupActions() {
+        ApplicationMemoryDouble controller; BackupFiles files; QTemporaryDir dir;
+        window->setProperty("applicationMemoryController", QVariant::fromValue(&controller));
+        window->setProperty("backupFiles", QVariant::fromValue(&files));
+        window->setProperty("pageIndex", 3);
+        auto* text = item("memoryBackupJson"); auto* restore = item("restoreMemoryBackup");
+        QVERIFY(text && restore); QVERIFY(!restore->isEnabled());
+        reveal(item("exportMemoryBackup")); click("exportMemoryBackup");
+        QVERIFY(files.validApplicationMemoryBackup(text->property("text").toString()));
+        QCOMPARE(controller.writes, 0);
+        openkey::MacroTable::Entries entries{{"code", "openkey-vni"}};
+        const auto json = ApplicationMemoryBackup::encode(QString::fromStdString(openkey::MacroTable::encode(entries)));
+        text->setProperty("text", json);
+        reveal(item("inspectMemoryBackup")); click("inspectMemoryBackup");
+        QCOMPARE(controller.inspections, 1); QCOMPARE(controller.writes, 0); QVERIFY(restore->isEnabled());
+        QVERIFY(item("memoryBackupSummary")->property("text").toString().contains("Thêm: 1"));
+        auto* mode = item("memoryBackupMode"); reveal(mode); mode->forceActiveFocus(); QTest::keyClick(window, Qt::Key_End);
+        QTRY_VERIFY(!restore->isEnabled()); QVERIFY(!controller.previewReady);
+        reveal(item("inspectMemoryBackup")); click("inspectMemoryBackup");
+        QVERIFY(restore->isEnabled());
+        reveal(restore); click("restoreMemoryBackup");
+        QCOMPARE(controller.restores, 1); QCOMPARE(controller.writes, 1); QVERIFY(!restore->isEnabled());
+        reveal(item("inspectMemoryBackup")); click("inspectMemoryBackup");
+        text->setProperty("text", json + " "); QTRY_VERIFY(!restore->isEnabled()); QVERIFY(!controller.previewReady);
+        auto* card = item("applicationMemoryBackup"); const auto url = QUrl::fromLocalFile(dir.filePath("app-memory.json"));
+        QVERIFY(QMetaObject::invokeMethod(card, "saveFile", Q_ARG(QVariant, QVariant(url))));
+        QCOMPARE(files.loadApplicationMemory(url).value("text").toString(), json + " ");
+        text->setProperty("text", "{}");
+        QVERIFY(QMetaObject::invokeMethod(card, "loadFile", Q_ARG(QVariant, QVariant(url))));
+        QCOMPARE(text->property("text").toString(), json + " "); QCOMPARE(controller.writes, 1); QVERIFY(!restore->isEnabled());
+        reveal(item("inspectMemoryBackup")); click("inspectMemoryBackup");
+        QVERIFY(restore->isEnabled()); controller.cancelBackupPreview(); QTRY_VERIFY(!restore->isEnabled());
+        QVERIFY(item("memoryBackupFeedback")->property("text").toString().contains("hết hiệu lực"));
+        controller.busy = true; emit controller.changed(); QVERIFY(!item("inspectMemoryBackup")->isEnabled());
+        window->setProperty("applicationMemoryController", QVariant::fromValue<QObject*>(nullptr));
+        window->setProperty("backupFiles", QVariant::fromValue<QObject*>(nullptr));
+    }
+    void applicationMemoryActions() {
+        ApplicationMemoryDouble controller;
+        window->setProperty("applicationMemoryController", QVariant::fromValue(&controller));
+        window->setProperty("pageIndex", 3);
+        QTRY_VERIFY(item("memoryCurrentApplication")->property("text").toString().contains("google-chrome.desktop"));
+        QVERIFY(item("memoryIdentityStatus")->property("text").toString().contains("Đã nhận phản hồi"));
+        QCOMPARE(controller.writes, 0);
+        reveal(item("editRememberedApplication")); click("editRememberedApplication");
+        QTRY_VERIFY(item("rememberedMethodPicker")->isVisible());
+        auto* picker = item("rememberedMethodPicker");
+        reveal(picker); picker->forceActiveFocus(); QTest::keyClick(window, Qt::Key_End);
+        QCOMPARE(controller.writes, 0);
+        const auto explicitReads = controller.reloads;
+        QTRY_VERIFY_WITH_TIMEOUT(controller.refreshes > 0, 3500);
+        QCOMPARE(controller.reloads, explicitReads); // Timer uses the silent path.
+        QCOMPARE(picker->property("currentIndex").toInt(), 4); // Keep the draft selection.
+        reveal(item("saveRememberedApplication")); click("saveRememberedApplication");
+        QCOMPARE(controller.writes, 1);
+        QCOMPARE(controller.updatedApplication, QString("gnome:google-chrome.desktop"));
+        QCOMPARE(controller.updatedExpected, QString("openkey-telex"));
+        QCOMPARE(controller.updatedMethod, QString("openkey-simple-telex2"));
+        reveal(item("deleteRememberedApplication")); click("deleteRememberedApplication");
+        QCOMPARE(controller.writes, 2); QCOMPARE(controller.removedApplication, controller.current);
+        controller.busy = true; emit controller.changed();
+        QTRY_VERIFY(!item("saveRememberedApplication")->isEnabled());
+        QVERIFY(!item("deleteRememberedApplication")->isEnabled());
+        controller.busy = false; controller.result = "conflict"; emit controller.changed();
+        QTRY_VERIFY(item("applicationMemoryFeedback")->property("text").toString().contains("Danh sách đã thay đổi"));
+        controller.ready = false; emit controller.changed();
+        QTRY_VERIFY(!item("saveRememberedApplication")->isEnabled());
+        window->setProperty("applicationMemoryController", QVariant::fromValue<QObject*>(nullptr));
+        QTRY_VERIFY(!item("reloadApplicationMemory")->isEnabled());
     }
     void applicationRulesActions() {
         StyleControllerDouble controller;

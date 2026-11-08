@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=OpenKey Tray
+Name[vi]=Biểu tượng OpenKey
+Comment=OpenKey input method status and settings
+Exec=/usr/bin/openkey-service --run-tray
+TryExec=/usr/bin/openkey-service
+Icon=preferences-desktop-keyboard
+Terminal=false
+X-GNOME-Autostart-enabled=true
