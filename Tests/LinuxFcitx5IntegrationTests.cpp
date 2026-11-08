@@ -1,15 +1,21 @@
 // Test discovery and event routing through a real initialized Fcitx instance.
 // Paths are isolated by Fcitx's test helper; no real display/frontend is loaded.
 #include "DirectInput.h"
+#include "../Sources/OpenKey/linux/ApplicationMemory.h"
+#include <fcitx-config/iniparser.h>
 #include <fcitx-utils/testing.h>
 #include <fcitx/addonmanager.h>
 #include <fcitx/inputcontext.h>
 #include <fcitx/inputcontextmanager.h>
 #include <fcitx/inputmethodgroup.h>
 #include <fcitx/inputmethodmanager.h>
+#include <fcitx/inputmethodengine.h>
 #include <fcitx/inputpanel.h>
 #include <fcitx/instance.h>
 #include <iostream>
+#include <filesystem>
+#include <fstream>
+#include <cstdlib>
 #include <stdexcept>
 
 namespace {
@@ -18,7 +24,7 @@ void require(bool value, const char* label) {
 }
 class Editor : public fcitx::InputContext {
 public:
-    explicit Editor(fcitx::InputContextManager& manager) : InputContext(manager) {
+    explicit Editor(fcitx::InputContextManager& manager, const std::string& program = {}) : InputContext(manager, program) {
         created();
         setCapabilityFlags(fcitx::CapabilityFlag::Preedit);
     }
@@ -71,9 +77,32 @@ private:
 
 int main(int argc, char** args) {
     require(argc == 3, "Expected install prefix and relative library directory");
-    // The string-path helper also exists in Ubuntu 24.04's Fcitx 5.1.7 SDK.
-    fcitx::setupTestingEnvironment(args[1], {std::string(args[2]) + "/fcitx5"},
-                                   {"share/fcitx5"});
+    // Unlike setupTestingEnvironment (which disables all config writes), this
+    // fixture needs persistence. All paths are owned temporary directories;
+    // no installed addon/data/configuration is modified.
+    struct Paths {
+        std::filesystem::path root;
+        Paths() {
+            char pattern[] = "/tmp/openkey-fcitx-test-XXXXXX";
+            const auto* directory = mkdtemp(pattern);
+            require(directory, "Cannot create private test paths");
+            root = directory;
+        }
+        ~Paths() { std::filesystem::remove_all(root); }
+    } paths;
+    std::filesystem::create_directories(paths.root / "config");
+    std::filesystem::create_directories(paths.root / "data/inputmethod");
+    // Test descriptor for the English slot; no real keyboard frontend needed.
+    std::ofstream(paths.root / "data/inputmethod/keyboard-us.conf") <<
+        "[InputMethod]\nName=English fixture\nUniqueName=keyboard-us\nAddon=openkey\n";
+    setenv("SKIP_FCITX_PATH", "1", 1);
+    unsetenv("SKIP_FCITX_USER_PATH");
+    setenv("FCITX_CONFIG_HOME", (paths.root / "config").c_str(), 1);
+    setenv("FCITX_DATA_HOME", (paths.root / "user-data").c_str(), 1);
+    setenv("FCITX_CACHE_HOME", (paths.root / "cache").c_str(), 1);
+    setenv("FCITX_ADDON_DIRS", (std::filesystem::path(args[1]) / args[2] / "fcitx5").c_str(), 1);
+    const auto dataDirs = (paths.root / "data").string() + ":" + (std::filesystem::path(args[1]) / "share/fcitx5").string();
+    setenv("FCITX_DATA_DIRS", dataDirs.c_str(), 1);
     char name[] = "openkey-integration-test";
     char disable[] = "--disable=all";
     char enable[] = "--enable=openkey";
@@ -84,7 +113,7 @@ int main(int argc, char** args) {
     auto& manager = instance.inputMethodManager();
     require(manager.entry("openkey-telex"), "Telex descriptor not discovered");
     require(manager.entry("openkey-vni"), "VNI descriptor not discovered");
-    require(instance.addonManager().addon("openkey", true), "Addon could not load from install prefix");
+    require(instance.addonManager().addon("openkey", false), "Memory addon must load at startup before selecting a Vietnamese method");
 
     auto group = manager.currentGroup();
     group.inputMethodList().clear();
@@ -249,5 +278,103 @@ int main(int argc, char** args) {
         "URL capability must not disable NativeDirect conversion in the key pipeline");
     nativeUrl.focusOut();
     require(nativeUrl.committed == "tiếng việt", "NativeDirect URL focus-out duplicated text");
+
+    // Real focus/switch pipeline, including English when OpenKey is inactive.
+    // No desktop process or user's input-method group is involved.
+    openkey::ApplicationMemory model;
+    require(!model.remember("gnome-shell", "openkey-telex") &&
+            !model.remember("gtk:unknown", "keyboard-us"), "Bridge ID must not be remembered");
+    for (unsigned i = 0; i < openkey::ApplicationMemory::MaxApplications; ++i)
+        require(model.remember("app-" + std::to_string(i), "openkey-vni"), "Memory capacity fixture");
+    require(!model.remember("over-limit", "keyboard-us"), "Memory must be bounded");
+    const auto encoded = model.encode();
+    require(!model.load("not-encoded") && model.encode() == encoded, "Malformed memory must not replace valid state");
+    openkey::ApplicationMemory loaded;
+    require(loaded.load(encoded) && loaded.lookup("app-0") == "openkey-vni", "Memory persistence roundtrip");
+    require(loaded.remember("app-0", "unsupported-ime") && loaded.lookup("app-0").empty(),
+            "Explicit unsupported method must discard the prior preference");
+
+    auto memoryGroup = manager.currentGroup();
+    memoryGroup.inputMethodList().insert(memoryGroup.inputMethodList().begin(), fcitx::InputMethodGroupItem("keyboard-us"));
+    manager.setGroup(std::move(memoryGroup));
+    auto* engine = dynamic_cast<fcitx::InputMethodEngine*>(instance.addonManager().addon("openkey", true));
+    require(engine, "Memory engine missing");
+    fcitx::RawConfig remember;
+    remember.setValueByPath("RememberInputMethodPerApplication", "True");
+    remember.setValueByPath("InputStyle", "Preedit");
+    engine->setConfig(remember);
+    Editor browser(instance.inputContextManager(), "test-browser");
+    Editor code(instance.inputContextManager(), "test-code");
+    for (const auto* desired : {"openkey-telex", "openkey-vni", "openkey-simple-telex1", "openkey-simple-telex2", "keyboard-us"}) {
+        browser.focusIn();
+        instance.setCurrentInputMethod(&browser, desired, false);
+        if (instance.inputMethod(&browser) != desired) throw std::runtime_error(std::string("User-selected method: ") + desired + " actual: " + instance.inputMethod(&browser));
+        browser.focusOut();
+        code.focusIn();
+        instance.setCurrentInputMethod(&code, std::string(desired) == "openkey-vni" ? "openkey-telex" : "openkey-vni", false);
+        code.focusOut();
+        const auto defaultBefore = manager.currentGroup().defaultInputMethod();
+        Editor nextWindow(instance.inputContextManager(), "test-browser");
+        nextWindow.focusIn();
+        require(instance.inputMethod(&nextWindow) == desired, "New context must restore the application's remembered method");
+        require(manager.currentGroup().defaultInputMethod() == defaultBefore, "Restore must not change global group default");
+        nextWindow.focusOut();
+    }
+    fcitx::RawConfig savedMemory;
+    fcitx::readAsIni(savedMemory, "conf/openkey-app-memory.conf");
+    const auto* entries = savedMemory.valueByPath("Entries");
+    require(entries && loaded.load(*entries) && loaded.lookup("test-browser") == "keyboard-us",
+            "English selection must persist while OpenKey is inactive");
+    require(loaded.lookup("test-code") == "openkey-vni", "Applications must have separate remembered methods");
+    // Change the fixture file independently: reload must actually read it,
+    // not just preserve a previously cached preference.
+    loaded.remember("test-code", "openkey-simple-telex2");
+    savedMemory.setValueByPath("Entries", loaded.encode());
+    require(fcitx::safeSaveAsIni(savedMemory, "conf/openkey-app-memory.conf"), "Cannot save private memory fixture");
+    engine->reloadConfig();
+    code.focusIn();
+    require(instance.inputMethod(&code) == "openkey-simple-telex2", "Changed file must load on config reload");
+    instance.setCurrentInputMethod(&code, "openkey-vni", false);
+    code.type("vie6t5");
+    code.focusOut();
+    require(code.committed == "việt", "Focus restore must preserve normal composition/focus-out commit");
+    // Shared bridge and password contexts must neither learn nor restore.
+    Editor bridge(instance.inputContextManager(), "gnome-shell");
+    bridge.focusIn(); instance.setCurrentInputMethod(&bridge, "openkey-telex", false); bridge.focusOut();
+    Editor secret(instance.inputContextManager(), "test-private");
+    secret.setCapabilityFlags(fcitx::CapabilityFlag::Password);
+    secret.focusIn(); instance.setCurrentInputMethod(&secret, "openkey-vni", false); secret.focusOut();
+    Editor knownSecret(instance.inputContextManager(), "test-code");
+    knownSecret.setCapabilityFlags(fcitx::CapabilityFlag::Password);
+    knownSecret.focusIn(); knownSecret.focusOut();
+    fcitx::readAsIni(savedMemory, "conf/openkey-app-memory.conf");
+    entries = savedMemory.valueByPath("Entries");
+    require(entries && loaded.load(*entries) && loaded.lookup("gnome-shell").empty() && loaded.lookup("test-private").empty() &&
+            loaded.lookup("test-code") == "openkey-vni",
+            "Bridge and sensitive contexts must never be stored");
+    const auto completeGroup = manager.currentGroup();
+    auto reducedGroup = completeGroup;
+    auto& list = reducedGroup.inputMethodList();
+    list.erase(std::remove_if(list.begin(), list.end(), [](const auto& item) { return item.name() == "openkey-vni"; }), list.end());
+    reducedGroup.setDefaultInputMethod("openkey-telex");
+    manager.setGroup(std::move(reducedGroup));
+    Editor missingMethod(instance.inputContextManager(), "test-code");
+    missingMethod.focusIn();
+    require(instance.inputMethod(&missingMethod) != "openkey-vni", "Absent method must not be restored or added");
+    missingMethod.focusOut();
+    fcitx::readAsIni(savedMemory, "conf/openkey-app-memory.conf");
+    require(savedMemory.valueByPath("Entries") && loaded.load(*savedMemory.valueByPath("Entries")) &&
+            loaded.lookup("test-code") == "openkey-vni", "Missing group entry must not overwrite the saved preference");
+    manager.setGroup(completeGroup);
+    remember.setValueByPath("RememberInputMethodPerApplication", "False"); engine->setConfig(remember);
+    code.focusIn(); instance.setCurrentInputMethod(&code, "openkey-telex", false); code.focusOut();
+    fcitx::readAsIni(savedMemory, "conf/openkey-app-memory.conf");
+    require(savedMemory.valueByPath("Entries") && loaded.load(*savedMemory.valueByPath("Entries")) &&
+            loaded.lookup("test-code") == "openkey-vni", "Disabled feature must not learn new selections");
+    Editor disabled(instance.inputContextManager(), "test-browser");
+    instance.setCurrentInputMethod(&disabled, "openkey-telex", true);
+    disabled.focusIn();
+    require(instance.inputMethod(&disabled) == "openkey-telex", "Disabled feature must not restore saved English preference");
+    disabled.focusOut();
     std::cout << "Fcitx5 integration: installed descriptors, addon loading, key pipeline, focus and method switching passed\n";
 }

@@ -879,3 +879,8 @@ sao lưu IM/phím tắt bằng file: [hướng dẫn và giới hạn](UBUNTU_FE
 Service mới có lệnh Gõ tắt, Chuyển mã và Giới thiệu, mở đúng trang trong
 singleton UI qua ShowPage. UI cũ cần đóng/mở sau cập nhật; gói UI không kèm
 service. [Cài thử, giao thức và giới hạn](UBUNTU_TRAY_PAGES.md).
+
+## Preview.13 — nhớ bộ gõ theo ứng dụng
+
+Công tắc ở đầu trang Ứng dụng & tương thích; cần addon alpha.51.
+[Hướng dẫn sử dụng, lưu bền và giới hạn program ID](UBUNTU_APP_MEMORY.md).

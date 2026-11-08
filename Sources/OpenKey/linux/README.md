@@ -194,3 +194,5 @@ Context riêng, năm tùy chọn nâng cao, chuyển file lớn có Hủy/timeou
 sao lưu IM/phím tắt bằng file: [hướng dẫn và giới hạn](../../../docs/UBUNTU_FEATURES_50.md).
 
 UI preview.12 và service mới: [menu mở Gõ tắt/Chuyển mã/Giới thiệu](../../../docs/UBUNTU_TRAY_PAGES.md).
+
+Alpha.51 / UI preview.13: [ghi nhớ bộ gõ theo ứng dụng](../../../docs/UBUNTU_APP_MEMORY.md).

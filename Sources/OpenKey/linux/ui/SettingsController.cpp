@@ -12,7 +12,7 @@
 
 namespace {
 const QString service = QStringLiteral("org.fcitx.Fcitx5");
-const QStringList advancedKeys{"FreeMark", "AllowConsonantZFWJ", "QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling"};
+const QStringList advancedKeys{"FreeMark", "AllowConsonantZFWJ", "QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling", "RememberInputMethodPerApplication"};
 const QString uri = QStringLiteral("fcitx://config/addon/openkey");
 bool validStyle(const QString& style) {
     return style == "Preedit" || style == "Direct" || style == "CommitOnly" || style == "NativeDirect";

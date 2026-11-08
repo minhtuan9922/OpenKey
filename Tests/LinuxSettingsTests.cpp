@@ -57,7 +57,7 @@ public:
     bool supportsSpelling = true;
     bool supportsCommitOnly = false;
     bool supportsNativeDirect = false;
-    QVariantMap advanced{{"FreeMark", "False"}, {"AllowConsonantZFWJ", "False"}, {"QuickStartConsonant", "False"}, {"QuickEndConsonant", "False"}, {"RestoreWrongSpelling", "False"}};
+    QVariantMap advanced{{"FreeMark", "False"}, {"AllowConsonantZFWJ", "False"}, {"QuickStartConsonant", "False"}, {"QuickEndConsonant", "False"}, {"RestoreWrongSpelling", "False"}, {"RememberInputMethodPerApplication", "False"}};
     Q_INVOKABLE void applyAdvanced(const QString& key, const QString& value) { advanced[key] = value; emit changed(); }
     bool supportsRules = true;
     QString appRules;
@@ -1026,8 +1026,8 @@ private slots:
     void advancedControls() {
         StyleControllerDouble controller;
         window->setProperty("configController", QVariant::fromValue(&controller));
-        for (const auto& key : {QString("FreeMark"), QString("AllowConsonantZFWJ"), QString("QuickStartConsonant"), QString("QuickEndConsonant"), QString("RestoreWrongSpelling")}) {
-            window->setProperty("pageIndex", key == "FreeMark" || key == "AllowConsonantZFWJ" ? 4 : 1);
+        for (const auto& key : {QString("FreeMark"), QString("AllowConsonantZFWJ"), QString("QuickStartConsonant"), QString("QuickEndConsonant"), QString("RestoreWrongSpelling"), QString("RememberInputMethodPerApplication")}) {
+            window->setProperty("pageIndex", key == "RememberInputMethodPerApplication" ? 3 : key == "FreeMark" || key == "AllowConsonantZFWJ" ? 4 : 1);
             auto prefix = key; prefix[0] = prefix[0].toLower();
             auto* picker = item(qPrintable(prefix + "Picker")); QVERIFY(picker);
             reveal(picker); picker->forceActiveFocus(); QTest::keyClick(window, Qt::Key_End);

@@ -288,6 +288,15 @@ ApplicationWindow {
                         controller: root.inputMethodController
                         fileAccess: root.backupFiles
                     }
+                    SpellingOption {
+                        visible: root.pageIndex === 3
+                        Layout.fillWidth: true
+                        uiPalette: ui
+                        controller: root.configController
+                        settingKey: "RememberInputMethodPerApplication"
+                        heading: "Ghi nhớ bộ gõ theo ứng dụng"
+                        description: "Tự nhớ English (US), Telex, VNI, Simple Telex 1/2 và khôi phục khi quay lại ứng dụng. Mặc định tắt. Chỉ dùng program ID chính xác; gnome-shell/unknown không phân biệt được từng app nên bị bỏ qua. Không lưu nội dung gõ. Các lựa chọn đã nhớ được giữ khi tắt; cần addon alpha.51."
+                    }
                     CompatibilitySettings {
                         visible: root.pageIndex === 0 || root.pageIndex === 3
                         Layout.fillWidth: true

@@ -190,10 +190,10 @@ public:
         const bool optionalPatch = (optionalKey == QStringLiteral("CheckSpelling") ||
                                     optionalKey == QStringLiteral("UseModernOrthography") ||
                                     optionalKey == QStringLiteral("QuickTelex") || optionalKey == QStringLiteral("MacrosEnabled") ||
-                                    QStringList{"FreeMark", "AllowConsonantZFWJ", "QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling"}.contains(optionalKey)) &&
+                                    QStringList{"FreeMark", "AllowConsonantZFWJ", "QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling", "RememberInputMethodPerApplication"}.contains(optionalKey)) &&
             optionalValue.metaType() == QMetaType::fromType<QString>() &&
             (optionalValue.toString() == QStringLiteral("True") || optionalValue.toString() == QStringLiteral("False"));
-        bool validBatch = allowBatch && lastPatch.size() >= 2 && lastPatch.size() <= 10;
+        bool validBatch = allowBatch && lastPatch.size() >= 2 && lastPatch.size() <= 11;
         if (validBatch) {
             for (auto it = lastPatch.cbegin(); it != lastPatch.cend(); ++it) {
                 validBatch = validBatch && it.value().metaType() == QMetaType::fromType<QString>();
@@ -282,23 +282,24 @@ class LinuxSettingsControllerTests : public QObject {
 
 private slots:
     void advancedOptions() {
-        const QStringList fields{"FreeMark", "AllowConsonantZFWJ", "QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling"};
+        const QStringList fields{"FreeMark", "AllowConsonantZFWJ", "QuickStartConsonant", "QuickEndConsonant", "RestoreWrongSpelling", "RememberInputMethodPerApplication"};
         for (const auto& key : fields) {
             mock_->optionalRuntime[key] = "False";
             mock_->optionalSchema.append({key, "Boolean", key, QDBusVariant(QString("False")), {}});
         }
         SettingsController controller(*client_);
         load(controller);
-        QCOMPARE(controller.runtimeAdvanced().size(), 5);
+        QCOMPARE(controller.runtimeAdvanced().size(), 6);
         for (const auto& key : fields) {
             controller.applyAdvanced(key, "True"); QTRY_COMPARE(controller.result(), QString("confirmed"));
             QCOMPARE(controller.runtimeAdvanced().value(key).toString(), "True");
         }
-        QCOMPARE(mock_->writes, 5);
+        QCOMPARE(mock_->writes, 6);
         const auto backup = controller.backupJson();
         QVERIFY(backup.contains("QuickEndConsonant"));
+        QVERIFY(backup.contains("RememberInputMethodPerApplication"));
         controller.applyAdvanced("Unknown", "True"); QCOMPARE(controller.result(), QString("invalid"));
-        QCOMPARE(mock_->writes, 5);
+        QCOMPARE(mock_->writes, 6);
     }
     void applicationRulesApply() {
         mock_->optionalRuntime = {{"ApplicationRules", ""}};

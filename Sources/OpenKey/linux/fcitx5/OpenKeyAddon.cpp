@@ -2,6 +2,7 @@
 #include "DirectInput.h"
 #include "../MacroTable.h"
 #include "../ApplicationRules.h"
+#include "../ApplicationMemory.h"
 #include <string>
 #include <string_view>
 #include <vector>
@@ -16,6 +17,8 @@
 #include <fcitx/inputcontextmanager.h>
 #include <fcitx/inputcontextproperty.h>
 #include <fcitx/inputmethodengine.h>
+#include <fcitx/inputmethodmanager.h>
+#include <fcitx/inputmethodgroup.h>
 #include <fcitx/inputpanel.h>
 #include <fcitx/instance.h>
 #include <fcitx/text.h>
@@ -25,6 +28,7 @@ FCITX_CONFIG_ENUM(InputStyle, Preedit, Direct, CommitOnly, NativeDirect);
 FCITX_CONFIGURATION(InputConfig,
     fcitx::Option<InputStyle> style{this, "InputStyle", "Chế độ gõ / Input style", InputStyle::Preedit};
     fcitx::Option<bool> diagnostics{this, "DirectDiagnostics", "Direct diagnostics (no text content)", false};
+    fcitx::Option<bool> rememberApplication{this, "RememberInputMethodPerApplication", "Ghi nhớ bộ gõ theo ứng dụng", false};
     fcitx::Option<std::string> applicationRules{this, "ApplicationRules", "Chế độ theo ứng dụng / Application rules (encoded)", ""};
     fcitx::Option<bool> macrosEnabled{this, "MacrosEnabled", "Bật gõ tắt / Enable macros", false};
     fcitx::Option<std::string> macroTable{this, "MacroTable", "Bảng gõ tắt / Macro table (encoded)", ""};
@@ -36,6 +40,9 @@ FCITX_CONFIGURATION(InputConfig,
     fcitx::Option<bool> quickTelex{this, "QuickTelex", "Gõ nhanh Telex / Quick Telex", false};
     fcitx::Option<bool> checkSpelling{this, "CheckSpelling", "Kiểm tra chính tả / Check spelling", true};
     fcitx::Option<bool> useModernOrthography{this, "UseModernOrthography", "Đặt dấu kiểu mới / Modern tone placement", true};
+);
+FCITX_CONFIGURATION(ApplicationMemoryConfig,
+    fcitx::Option<std::string> entries{this, "Entries", "Remembered input methods", ""};
 );
 struct QueuedKey { fcitx::Key key; bool release; int time; };
 bool printable(uint32_t value) {
@@ -238,6 +245,41 @@ public:
         instance->inputContextManager().registerProperty("openkeyState", &factory_);
         fcitx::readAsIni(config_, "conf/openkey.conf");
         openkey::ApplicationRules::parse(*config_.applicationRules, appRules_);
+        loadApplicationMemory();
+        memoryWatchers_.push_back(instance->watchEvent(fcitx::EventType::InputContextFocusIn,
+            fcitx::EventWatcherPhase::PostInputMethod, [this](fcitx::Event& event) {
+                auto* ic = static_cast<fcitx::InputContextEvent&>(event).inputContext();
+                // Core focus activation has completed. Its incidental switch
+                // notifications must not replace this application's preference.
+                memoryFocus_ = nullptr;
+                if (memoryEligible(ic)) {
+                    const auto target = applicationMemory_.lookup(ic->program());
+                    if (!target.empty() && target != instance_->inputMethod(ic) && methodInGroup(target)) {
+                        restoringMemory_ = true;
+                        instance_->setCurrentInputMethod(ic, target, true);
+                        restoringMemory_ = false;
+                    }
+                    memoryFocus_ = ic;
+                    // Do not overwrite a saved choice if its method is absent
+                    // from the group or the frontend rejects restoration.
+                    if (target.empty()) rememberApplication(ic);
+                }
+            }));
+        for (auto type : {fcitx::EventType::InputContextFocusOut, fcitx::EventType::InputContextDestroyed}) {
+            memoryWatchers_.push_back(instance->watchEvent(type, fcitx::EventWatcherPhase::PreInputMethod,
+                [this](fcitx::Event& event) {
+                    if (static_cast<fcitx::InputContextEvent&>(event).inputContext() == memoryFocus_)
+                        memoryFocus_ = nullptr;
+                }));
+        }
+        memoryWatchers_.push_back(instance->watchEvent(fcitx::EventType::InputContextSwitchInputMethod,
+            fcitx::EventWatcherPhase::PostInputMethod, [this](fcitx::Event& event) {
+                auto& change = static_cast<fcitx::InputContextSwitchInputMethodEvent&>(event);
+                if (change.inputContext() != memoryFocus_ || restoringMemory_ ||
+                    change.reason() == fcitx::InputMethodSwitchedReason::CapabilityChanged ||
+                    change.reason() == fcitx::InputMethodSwitchedReason::GroupChange) return;
+                rememberApplication(change.inputContext());
+            }));
         surroundingWatcher_ = instance->watchEvent(fcitx::EventType::InputContextSurroundingTextUpdated,
             fcitx::EventWatcherPhase::InputMethod, [this](fcitx::Event& event) {
                 auto* ic = static_cast<fcitx::InputContextEvent&>(event).inputContext();
@@ -385,6 +427,14 @@ public:
         if (compositionConfigChanged(previous)) finishContexts();
         openkey::ApplicationRules::parse(*config_.applicationRules, appRules_);
         // Keep future/third-party keys when applying a partial settings update.
+        if (*previous.rememberApplication != *config_.rememberApplication) {
+            memoryFocus_ = nullptr;
+            auto* ic = instance_->mostRecentInputContext();
+            if (memoryEligible(ic)) {
+                memoryFocus_ = ic;
+                if (applicationMemory_.lookup(ic->program()).empty()) rememberApplication(ic);
+            }
+        }
         fcitx::RawConfig saved;
         fcitx::readAsIni(saved, "conf/openkey.conf");
         raw.visitSubItems([&saved](const fcitx::RawConfig& item, const std::string& path) {
@@ -404,6 +454,12 @@ public:
             !openkey::ApplicationRules::parse(*config_.applicationRules, rules)) { config_ = previous; return; }
         if (compositionConfigChanged(previous)) finishContexts();
         openkey::ApplicationRules::parse(*config_.applicationRules, appRules_);
+        loadApplicationMemory();
+        if (*previous.rememberApplication != *config_.rememberApplication) {
+            memoryFocus_ = nullptr;
+            auto* ic = instance_->mostRecentInputContext();
+            if (memoryEligible(ic)) memoryFocus_ = ic;
+        }
     }
 
     void activate(const fcitx::InputMethodEntry& entry, fcitx::InputContextEvent& event) override {
@@ -1340,6 +1396,34 @@ private:
     InputConfig config_;
     fcitx::SimpleInputContextPropertyFactory<State> factory_;
     std::unique_ptr<fcitx::HandlerTableEntry<fcitx::EventHandler>> surroundingWatcher_;
+    openkey::ApplicationMemory applicationMemory_;
+    fcitx::InputContext* memoryFocus_ = nullptr;
+    bool restoringMemory_ = false;
+    std::vector<std::unique_ptr<fcitx::HandlerTableEntry<fcitx::EventHandler>>> memoryWatchers_;
+
+    bool memoryEligible(fcitx::InputContext* ic) const {
+        return *config_.rememberApplication && ic && ic->hasFocus() &&
+            !(ic->capabilityFlags() & fcitx::CapabilityFlags{fcitx::CapabilityFlag::PasswordOrSensitive, fcitx::CapabilityFlag::Disable}) &&
+            openkey::ApplicationRules::identifiable(ic->program());
+    }
+    bool methodInGroup(const std::string& method) const {
+        const auto& items = instance_->inputMethodManager().currentGroup().inputMethodList();
+        return std::any_of(items.begin(), items.end(), [&](const auto& item) { return item.name() == method; });
+    }
+    void rememberApplication(fcitx::InputContext* ic) {
+        if (!memoryEligible(ic)) return;
+        const auto method = instance_->inputMethod(ic);
+        if (!applicationMemory_.remember(ic->program(), method)) return;
+        ApplicationMemoryConfig saved;
+        saved.entries.setValue(applicationMemory_.encode());
+        if (!fcitx::safeSaveAsIni(saved, "conf/openkey-app-memory.conf"))
+            FCITX_WARN() << "OpenKey could not save application input method memory";
+    }
+    void loadApplicationMemory() {
+        ApplicationMemoryConfig saved;
+        fcitx::readAsIni(saved, "conf/openkey-app-memory.conf");
+        applicationMemory_.load(*saved.entries);
+    }
 
     bool finishBoundary(fcitx::InputContext* ic, fcitx::KeyEvent& event) {
         const bool finishWord = *config_.quickStartConsonant || *config_.quickEndConsonant || *config_.restoreWrongSpelling;

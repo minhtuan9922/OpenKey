@@ -53,7 +53,7 @@ Pane {
         if (!preview.ok) return ""
         const labels = {InputStyle: "Chế độ gõ", DirectDiagnostics: "Chẩn đoán", CheckSpelling: "Kiểm tra chính tả",
             UseModernOrthography: "Đặt dấu kiểu mới", QuickTelex: "Gõ nhanh Telex", FreeMark: "Đặt dấu tự do", AllowConsonantZFWJ: "Phụ âm Z F W J",
-            QuickStartConsonant: "Phụ âm đầu", QuickEndConsonant: "Phụ âm cuối", RestoreWrongSpelling: "Khôi phục từ sai"}
+            QuickStartConsonant: "Phụ âm đầu", QuickEndConsonant: "Phụ âm cuối", RestoreWrongSpelling: "Khôi phục từ sai", RememberInputMethodPerApplication: "Nhớ bộ gõ theo ứng dụng"}
         const lines = []
         for (const key of Object.keys(labels)) {
             if (preview.settings[key] !== undefined)

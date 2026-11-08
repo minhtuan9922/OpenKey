@@ -860,3 +860,28 @@ không restart Fcitx5. Cửa sổ UI cũ cần người dùng đóng/mở lại.
 - [ ] Tái hiện desktop có chuỗi phím/kết quả cụ thể để quyết định sửa backend.
 
 [Cách đọc báo cáo v2 và chạy ca thử](UBUNTU_DESKTOP_QA.md).
+
+## Ghi nhớ bộ gõ theo ứng dụng — alpha.51 / preview.13
+
+- [x] Tùy chọn mặc định tắt; học/khôi phục English (US), Telex, VNI, Simple
+  Telex 1/2 theo program ID chính xác. Bỏ qua ID bridge chung và ô nhạy cảm.
+- [x] Hook focus/switch chạy cả khi English đang dùng; addon nạp lúc startup,
+  khôi phục local và không đổi group default hoặc tự thêm IM.
+- [x] Bảng nhớ riêng, tối đa 128 app; lưu khi đổi, đọc lại từ file; tắt giữ
+  bảng nhớ. Không học từ restore/capability/group change hoặc context khác.
+- [x] Công tắc UI tại Ứng dụng & tương thích, khóa với addon cũ; nối qua
+  preflight/readback và sao lưu cờ boolean. Chưa xuất/nhập bảng nhớ app qua UI.
+- [ ] Nghiệm thu app thật/hotkey/menu, đăng nhập lại, hai cửa sổ cùng app và
+  backend GNOME/KDE/Wayland/X11. GNOME bridge thiếu ID vẫn không hỗ trợ riêng.
+
+[Hướng dẫn và giới hạn](UBUNTU_APP_MEMORY.md). Không coi chức năng này là sửa
+lỗi nhập liệu Chrome/VS Code hoặc đã tách được app phía sau gnome-shell.
+
+Kết quả alpha.51: native 11/11 CTest, ASan/UBSan 11/11; nhóm integration được
+chạy lại sau khi mở rộng fixture file/capability/disabled và đạt. Gói addon
+đã giải nén qua kiểm tra payload/dependency, pipeline focus/switch/memory và
+Direct. UI đã chạy 21 nhóm; sau khi cập nhật allowlist mock, controller và
+các nhóm UI thay đổi chạy lại đều đạt, gồm scale 100%/200%. Gói UI preview.13
+qua verifier và lifecycle sáu bước root tạm, SHA-256 hai gói khớp.
+Đã cập nhật nguyên tử UI user-local, có backup và smoke; không cài addon,
+không restart Fcitx5/tray hoặc tự bật chức năng trong phiên desktop.
