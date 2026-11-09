@@ -4,6 +4,7 @@
 #include "../ApplicationRules.h"
 #include "../ApplicationMemory.h"
 #include "GnomeFocusBridge.h"
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -28,6 +29,7 @@ namespace {
 FCITX_CONFIG_ENUM(InputStyle, Preedit, Direct, CommitOnly, NativeDirect);
 FCITX_CONFIGURATION(InputConfig,
     fcitx::Option<InputStyle> style{this, "InputStyle", "Chế độ gõ / Input style", InputStyle::Preedit};
+    fcitx::Option<bool> terminalDeleteFix{this, "TerminalDeleteFix", "Sửa dấu trong terminal VS Code/Cursor bằng DEL (thử nghiệm)", false};
     fcitx::Option<bool> diagnostics{this, "DirectDiagnostics", "Direct diagnostics (no text content)", false};
     fcitx::Option<bool> rememberApplication{this, "RememberInputMethodPerApplication", "Ghi nhớ bộ gõ theo ứng dụng", false};
     fcitx::Option<bool> gnomeIdentity{this, "UseGnomeApplicationIdentity", "Nhận diện ứng dụng qua extension GNOME", false};
@@ -230,6 +232,26 @@ struct State : fcitx::InputContextProperty {
     bool nativeKeepOnReset = false; // editor reset after our own commit is not a new word
     bool nativeResetHeld = false; // that syllable must be dropped if the caret then moves
     bool nativeAwaitingUpdate = false;
+    // URL completion clear in flight: the new tail was committed over the
+    // selected suggestion (go|ogle.com -> goô). The caret edit finishing the
+    // word runs only after the client reports exactly `stage` (that text with
+    // a collapsed caret at its end).
+    struct NativeClear { openkey::Snapshot base, stage; std::u32string after; unsigned removed; };
+    std::optional<NativeClear> nativeClear;
+    // This field autocompleted a committed tail too: stop two-step clears
+    // until focus changes, so intermediate tails never pile up.
+    bool nativeClearBlocked = false;
+    // Chrome sends no surrounding text after Ctrl+L, Ctrl+A, Delete or
+    // Backspace (ibus bus capture, 2026-11-09 14:48): the cache still shows the
+    // text from before. Set when such a key passes natively; any update clears it.
+    bool nativeStale = false;
+    // First letter typed over a stale cache: adopt the next update as the
+    // baseline if the character before its caret is this letter.
+    char32_t nativeAdopt = 0;
+    // Diagnostics only: what the client reports around a URL completion clear.
+    struct ClearTrace { openkey::Snapshot base; uint64_t started = 0; unsigned events = 0, left = 0; };
+    std::optional<ClearTrace> clearTrace;
+    std::string terminalWord; // Only text committed by the opt-in terminal path, never native keys.
     std::string placed; // UTF-8 of that word currently in the document
     bool preeditDrifted = false; // surrounding changed; keep the syllable until Enter leaves it
     bool repairNativePrime = false;
@@ -314,12 +336,24 @@ public:
                 auto* ic = static_cast<fcitx::InputContextEvent&>(event).inputContext();
                 auto& state = *ic->propertyFor(&factory_);
                 if (!state.active) return;
+                traceClear(ic, "update");
                 if (styleFor(ic) == InputStyle::NativeDirect &&
                     (state.nativeExpected || state.nativeObserved)) {
                     // deleteSurroundingText notifies before commitString. That
                     // intermediate snapshot is not a focus change.
                     if (state.emitting) return;
                     const auto snapshot = openkey::Snapshot::read(ic->surroundingText(), true);
+                    state.nativeStale = false;
+                    if (state.nativeAdopt) {
+                        const auto letter = std::exchange(state.nativeAdopt, U'\0');
+                        if (adoptNativeBase(ic, snapshot, letter)) return;
+                    }
+                    if (state.nativeClear) {
+                        // Only the exact committed tail with a collapsed caret
+                        // authorizes the edit; anything else waits for the next key.
+                        resolveNativeClear(ic, false);
+                        return;
+                    }
                     // A text editor wipes surrounding text when it resets after
                     // commitString. That empty cache is not a focus change; hôị
                     // and côngj were the tone key starting a new syllable.
@@ -520,6 +554,8 @@ public:
 
     void activate(const fcitx::InputMethodEntry& entry, fcitx::InputContextEvent& event) override {
         auto* state = event.inputContext()->propertyFor(&factory_);
+        dropNativeClear(event.inputContext(), "context-changed");
+        state->nativeClearBlocked = false;
         state->active = true;
         state->lastReason.clear();
         // EN/VI comes back through activate. A recovery buffer left by the
@@ -545,6 +581,9 @@ public:
     void keyEvent(const fcitx::InputMethodEntry&, fcitx::KeyEvent& event) override {
         auto* ic = event.inputContext();
         auto& state = *ic->propertyFor(&factory_);
+        { const auto rawKey = event.rawKey(); traceClear(ic, event.isRelease() ? "key-release" : "key-press", &rawKey); }
+        // A key overtook the clear's ACK: resolve it first, in order.
+        if (!event.isRelease() && !event.key().isModifier()) resolveNativeClear(ic, true);
         auto& composition = state.composition;
         if (ic->capabilityFlags() & fcitx::CapabilityFlag::PasswordOrSensitive) {
             diagnose(ic, "bypass:sensitive-field");
@@ -554,6 +593,7 @@ public:
             update(ic);
             return;
         }
+        if (styleFor(ic) == InputStyle::NativeDirect && terminalDeleteKey(ic, event)) return;
         if (finishBoundary(ic, event)) return;
         if (styleFor(ic) == InputStyle::CommitOnly) {
             commitOnlyKey(ic, event);
@@ -1096,6 +1136,7 @@ public:
         // key apply only to what follows (hôị).
         auto* ic = event.inputContext();
         auto& state = *ic->propertyFor(&factory_);
+        dropNativeClear(ic, "context-reset");
         if (styleFor(ic) == InputStyle::NativeDirect && state.nativeKeepOnReset) {
             state.nativeKeepOnReset = false;
             state.nativeResetHeld = true;
@@ -1111,6 +1152,7 @@ public:
     void deactivate(const fcitx::InputMethodEntry&, fcitx::InputContextEvent& event) override {
         auto* ic = event.inputContext();
         auto& state = *ic->propertyFor(&factory_);
+        dropNativeClear(ic, "context-changed");
         const bool sensitive = static_cast<bool>(ic->capabilityFlags() &
             fcitx::CapabilityFlag::PasswordOrSensitive);
         // Focus-out with client preedit: the frontend commits that preedit.
@@ -1136,6 +1178,92 @@ public:
     }
 
 private:
+    bool terminalDeleteContext(fcitx::InputContext* ic) const {
+        if (!*config_.terminalDeleteFix || styleFor(ic) != InputStyle::NativeDirect ||
+            (ic->capabilityFlags() & fcitx::CapabilityFlags{fcitx::CapabilityFlag::Url,
+                fcitx::CapabilityFlag::Email, fcitx::CapabilityFlag::PasswordOrSensitive,
+                fcitx::CapabilityFlag::Disable})) return false;
+        auto program = ic->program();
+        const auto slash = program.find_last_of('/');
+        if (slash != std::string::npos) program.erase(0, slash + 1);
+        for (auto& ch : program) if (ch >= 'A' && ch <= 'Z') ch += 'a' - 'A';
+        if (program.ends_with(".desktop")) program.resize(program.size() - 8);
+        // Never treat gnome-shell, Electron in general or an unknown identity
+        // as Code. Cached GNOME application memory is not proof of focus.
+        if (program != "code" && program != "code-insiders" && program != "cursor") return false;
+        const auto snapshot = openkey::Snapshot::read(ic->surroundingText());
+        if (!snapshot) return false; // Missing/invalid text is NOT an empty report.
+        return std::all_of(snapshot->text.begin(), snapshot->text.end(), [](char32_t ch) {
+            return ch == U' ' || ch == U'\t' || ch == U'\n' || ch == U'\r' || ch == U'\f' || ch == U'\v';
+        });
+    }
+
+    // DEL goes through xterm's insertText -> PTY path. This is deliberately
+    // opt-in: only canonical UTF-8 line discipline can erase codepoints safely.
+    bool terminalDeleteKey(fcitx::InputContext* ic, fcitx::KeyEvent& event) {
+        auto& state = *ic->propertyFor(&factory_);
+        if (!terminalDeleteContext(ic)) {
+            if (!state.terminalWord.empty()) {
+                const auto snapshot = openkey::Snapshot::read(ic->surroundingText());
+                const auto word = openkey::codepoints(state.terminalWord);
+                // An initially empty editor also matches the textarea signature.
+                // When it reports the committed first letter, hand the same
+                // syllable to NativeDirect, without DEL or losing its first key.
+                if (snapshot && snapshot->cursor >= word.size() &&
+                    snapshot->text.substr(snapshot->cursor - word.size(), word.size()) == word) {
+                    state.nativeExpected = snapshot;
+                    state.nativeObserved = snapshot;
+                    state.placed = state.terminalWord;
+                    state.terminalWord.clear();
+                    state.plainCommit = false;
+                } else {
+                    state.composition.clear();
+                    clearDirect(state);
+                }
+            }
+            return false;
+        }
+        if (event.isRelease() || event.key().isModifier()) return true;
+        const auto key = event.key();
+        const auto symbol = fcitx::Key::keySymToUnicode(key.sym());
+        const bool textKey = letterOrDigit(symbol);
+        const bool backspace = key.sym() == FcitxKey_BackSpace;
+        if (shortcutKey(key) || (!textKey && !backspace)) {
+            // Boundaries stay native. No reopening earlier words across spaces,
+            // cursor movement, Enter/Tab, shortcuts or focus/reset events.
+            state.composition.clear();
+            clearDirect(state);
+            return true;
+        }
+        if (state.terminalWord.empty()) {
+            // Do not adopt a native prefix, even if a late spaces-only report
+            // arrives mid-word. We may erase only our own successful commits.
+            state.composition.clear();
+            clearDirect(state);
+            if (backspace) return true;
+        }
+        auto candidate = state.composition;
+        if (!(backspace ? candidate.backspace() : candidate.append(static_cast<char>(symbol)))) {
+            state.composition.clear();
+            clearDirect(state);
+            return true;
+        }
+        const auto before = openkey::codepoints(state.terminalWord);
+        const auto after = openkey::codepoints(candidate.text());
+        std::size_t same = 0;
+        while (same < before.size() && same < after.size() && before[same] == after[same]) ++same;
+        const auto payload = std::string(before.size() - same, '\x7f') +
+            openkey::utf8(after.substr(same));
+        state.composition = std::move(candidate);
+        state.terminalWord = state.composition.text();
+        state.plainCommit = !state.terminalWord.empty();
+        state.emitting = true;
+        if (!payload.empty()) ic->commitString(payload);
+        state.emitting = false;
+        event.filterAndAccept();
+        return true;
+    }
+
     // Native keys own insertion, selection replacement and ordinary Backspace.
     // Only a real engine transformation uses an IM edit, after exact validation
     // of the entire expected document/caret. Never queue, forward or show preedit.
@@ -1147,6 +1275,17 @@ private:
         const bool textKey = letterOrDigit(symbol);
         const bool backspace = key.sym() == FcitxKey_BackSpace;
         const bool boundary = shortcutKey(key) || (!textKey && !backspace);
+        // A letter after an unreported native edit starts a new word whose
+        // baseline is the client's next update, never the stale cache.
+        const bool adopt = textKey && !shortcutKey(key) && state.nativeStale && !state.nativeClear;
+        if (adopt) {
+            diagnose(ic, "native:stale-cache", "adopt-next-update");
+            state.composition.clear();
+            clearDirect(state);
+        }
+        // Chrome reports nothing after these (see nativeStale). Mark before any
+        // early return; a later notification clears it.
+        if (shortcutKey(key) || (!textKey && symbol != U' ')) state.nativeStale = true;
         const auto snapshot = openkey::Snapshot::read(ic->surroundingText(), true);
         const bool cacheWiped = snapshot && snapshot->text.empty() && snapshot->cursor == snapshot->anchor &&
             !state.composition.empty() && !state.placed.empty() &&
@@ -1337,11 +1476,16 @@ private:
             update(ic);
             return;
         }
-        // Only the selected suffix is extra. Native insertion replaces it;
-        // a transforming key uses Chromium's selection-aware IM deletion plus
-        // insertion, replacing that suffix and the owned letters before it.
+        // Only the selected suffix is extra. Native insertion replaces it.
         // No asynchronous update alone ever edits or deletes the selection.
         const auto editBase = (completion || predict) ? *state.nativeExpected : *snapshot;
+        if (backspace && state.placed != state.composition.text() &&
+            (ic->capabilityFlags() & fcitx::CapabilityFlag::Url)) {
+            // Raw letters held behind a URL completion (below) are what the
+            // user sees; Backspace removes one of them, not the engine syllable.
+            forget();
+            return;
+        }
         if (state.composition.full()) forget();
         auto candidate = state.composition;
         if (textKey) candidate.append(static_cast<char>(symbol));
@@ -1361,6 +1505,62 @@ private:
         else if (textKey) native = after == before + std::u32string(1, rawChar);
         else if (backspace && !before.empty()) native = after == before.substr(0, before.size() - 1);
         else if (boundary) native = after == before;
+        if (completion && !native) {
+            // Chrome's omnibox completion is a REVERSED selection (anchor at the
+            // end, caret after the typed text). Chrome 157 on Wayland measures an
+            // IM deletion from the anchor (zwp_text_input_v3.cc), rejects the
+            // range for not covering the selection and drops it, then the commit
+            // replaces the selection: goo -> goô. A plain commit is safe, but
+            // anything that must delete owned letters keeps the native key and
+            // holds the raw letters; a later key or boundary with a confirmed
+            // plain caret repairs them through the ordinary verified edit.
+            std::size_t common = 0;
+            while (common < before.size() && common < after.size() && before[common] == after[common]) ++common;
+            const auto insert = after.substr(common);
+            if (common < before.size() && textKey && rawChar < 128 && !insert.empty() && !state.nativeClearBlocked &&
+                editBase.cursor == editBase.anchor && editBase.cursor == editBase.text.size() &&
+                editBase.cursor >= before.size() &&
+                editBase.text.compare(editBase.cursor - before.size(), before.size(), before) == 0) {
+                // No deletion reaches the typed letters while the suggestion is
+                // selected, and GNOME 50 never delivers a forwarded key to Chrome
+                // (alpha.4 trace: no update in 150 ms after a forwarded BackSpace).
+                // A plain commit does work: it replaces the selection. So commit
+                // the new tail first (go|ogle.com -> goô), and once the client
+                // reports exactly that with a collapsed caret, finish with the
+                // ordinary caret delete + commit (goô -> gô).
+                auto stage = editBase;
+                stage.text += insert;
+                stage.cursor = stage.anchor = static_cast<unsigned>(stage.text.size());
+                state.composition = std::move(candidate);
+                state.nativeCompletion.reset();
+                state.placed = openkey::utf8(before + insert);
+                state.nativeObserved = editBase;
+                state.nativeExpected = stage;
+                state.nativeAwaitingUpdate = true;
+                state.nativeKeepOnReset = true;
+                state.plainCommit = true;
+                state.nativeClear = State::NativeClear{editBase, stage, after,
+                    static_cast<unsigned>(before.size() - common)};
+                diagnose(ic, "native:url-completion-clear", "verified-prefix-selection");
+                if (*config_.diagnostics)
+                    state.clearTrace = State::ClearTrace{editBase, fcitx::now(CLOCK_MONOTONIC), 0, 12};
+                traceClear(ic, "armed");
+                event.filterAndAccept();
+                state.emitting = true;
+                ic->commitString(openkey::utf8(insert));
+                state.emitting = false;
+                traceClear(ic, "committed");
+                resolveNativeClear(ic, false); // a synchronous client already reported
+                update(ic);
+                return;
+            }
+            if (common < before.size()) {
+                diagnose(ic, "native:url-completion-raw", "selection-blocks-delete");
+                if (textKey) after = before + std::u32string(1, rawChar);
+                else after = before;
+                native = true;
+            }
+        }
         if (!initial && (editBase.cursor != editBase.anchor || editBase.cursor < before.size() ||
                 editBase.text.substr(editBase.cursor - before.size(), before.size()) != before)) {
             forget();
@@ -1389,6 +1589,7 @@ private:
         if (!predict) state.nativeObserved = editBase;
         state.nativeExpected = std::move(expected);
         state.nativeAwaitingUpdate = initial || after != before;
+        if (initial && adopt) state.nativeAdopt = rawChar;
         state.plainCommit = true; // Never re-commit this word on focus/config changes.
         if (!native) {
             state.nativeKeepOnReset = true;
@@ -1410,6 +1611,151 @@ private:
         }
         if (boundary) forget();
         else update(ic);
+    }
+
+    // Record what the client must report after an IM edit of the native word.
+    void observeNativeEdit(fcitx::InputContext* ic) {
+        auto& state = *ic->propertyFor(&factory_);
+        const auto seen = openkey::Snapshot::read(ic->surroundingText(), true);
+        if (seen && state.nativeExpected && *seen == *state.nativeExpected) {
+            state.nativeAwaitingUpdate = false;
+            state.nativeObserved = seen;
+        } else if (seen && state.nativeExpected &&
+                   (ic->capabilityFlags() & fcitx::CapabilityFlag::Url) &&
+                   openkey::selectedUrlCompletion(*state.nativeExpected, *seen)) {
+            state.nativeCompletion = seen;
+            state.nativeAwaitingUpdate = false;
+        }
+    }
+
+    // The client reports the committed tail with a collapsed caret: ordinary
+    // checked caret edit, as in any field.
+    void applyNativeClear(fcitx::InputContext* ic) {
+        auto& state = *ic->propertyFor(&factory_);
+        if (!state.nativeClear) return;
+        traceClear(ic, "apply");
+        const auto clear = std::move(*state.nativeClear);
+        state.nativeClear.reset();
+        const auto tail = static_cast<unsigned>(clear.stage.text.size() - clear.base.text.size());
+        const auto start = clear.base.cursor - clear.removed;
+        const auto insert = clear.stage.text.substr(clear.base.cursor);
+        auto expected = clear.base;
+        expected.text.replace(start, clear.removed, insert);
+        expected.cursor = expected.anchor = start + static_cast<unsigned>(insert.size());
+        state.placed = openkey::utf8(clear.after);
+        state.nativeObserved = clear.stage;
+        state.nativeExpected = std::move(expected);
+        state.nativeAwaitingUpdate = true;
+        state.nativeCompletion.reset();
+        state.nativeKeepOnReset = true;
+        state.plainCommit = true;
+        state.emitting = true;
+        ic->deleteSurroundingText(-static_cast<int>(clear.removed + tail), clear.removed + tail);
+        ic->commitString(openkey::utf8(insert));
+        state.emitting = false;
+        observeNativeEdit(ic);
+        diagnose(ic, "native:url-completion-edit", "verified-clear");
+        update(ic);
+    }
+
+    // The first letter after an unreported edit landed: the update is the
+    // baseline when the character before its caret is that letter, with a
+    // plain caret or a selected URL completion after it. Only that letter is
+    // ever edited later (every edit re-checks the placed suffix).
+    bool adoptNativeBase(fcitx::InputContext* ic, const std::optional<openkey::Snapshot>& snapshot, char32_t letter) {
+        auto& state = *ic->propertyFor(&factory_);
+        if (!snapshot || snapshot->cursor == 0 || snapshot->cursor > snapshot->text.size() ||
+            snapshot->text[snapshot->cursor - 1] != letter || state.placed != openkey::utf8(std::u32string(1, letter)))
+            return false;
+        const bool collapsed = snapshot->cursor == snapshot->anchor;
+        const bool completion = (ic->capabilityFlags() & fcitx::CapabilityFlag::Url) &&
+            snapshot->cursor < snapshot->anchor && snapshot->anchor == snapshot->text.size();
+        if (!collapsed && !completion) return false;
+        openkey::Snapshot base{snapshot->text.substr(0, collapsed ? snapshot->text.size() : snapshot->cursor),
+                               snapshot->cursor, snapshot->cursor};
+        if (collapsed) base = *snapshot;
+        state.nativeExpected = base;
+        state.nativeObserved = base;
+        state.nativeCompletion.reset();
+        if (completion) state.nativeCompletion = snapshot;
+        state.nativeAwaitingUpdate = false;
+        diagnose(ic, "native:stale-cache", "adopted-update");
+        return true;
+    }
+
+    // `final`: a key or settings change needs the state now. The committed
+    // tail is already in the document and `placed`/`nativeExpected` describe
+    // it, so an unconfirmed clear simply becomes an ordinary awaited edit.
+    void resolveNativeClear(fcitx::InputContext* ic, bool final) {
+        auto& state = *ic->propertyFor(&factory_);
+        if (!state.nativeClear) return;
+        const auto snapshot = openkey::Snapshot::read(ic->surroundingText(), true);
+        if (snapshot && *snapshot == state.nativeClear->stage) {
+            applyNativeClear(ic);
+            return;
+        }
+        if (snapshot && (ic->capabilityFlags() & fcitx::CapabilityFlag::Url) &&
+            openkey::selectedUrlCompletion(state.nativeClear->stage, *snapshot)) {
+            // The intermediate text was autocompleted again: it stays the
+            // word's document text; the next key repeats the same two steps.
+            traceClear(ic, "reautocompleted");
+            state.nativeClear.reset();
+            state.nativeClearBlocked = true;
+            state.nativeCompletion = snapshot;
+            state.nativeAwaitingUpdate = false;
+            diagnose(ic, "native:url-completion-raw", "clear-reautocompleted");
+            return;
+        }
+        if (!final) return;
+        traceClear(ic, "unconfirmed");
+        state.nativeClear.reset();
+        diagnose(ic, "native:url-completion-raw", "clear-unconfirmed");
+    }
+
+    // Diagnostics only. Lengths, offsets and relations to the confirmed typed
+    // text (base), never text or keysyms of letters. Bounded per clear.
+    void traceClear(fcitx::InputContext* ic, const char* what, const fcitx::Key* key = nullptr) {
+        auto& state = *ic->propertyFor(&factory_);
+        if (!*config_.diagnostics || !state.clearTrace || !state.clearTrace->left) return;
+        auto& trace = *state.clearTrace;
+        --trace.left;
+        ++trace.events;
+        const auto& base = trace.base;
+        const auto& source = ic->surroundingText();
+        const auto snapshot = openkey::Snapshot::read(source, true);
+        const auto elapsed = fcitx::now(CLOCK_MONOTONIC) - trace.started;
+        std::ostringstream line;
+        line << "OpenKey Direct trace: event=" << what << " n=" << trace.events
+             << " elapsed_us=" << elapsed << " pending=" << state.nativeClear.has_value()
+             << " emitting=" << state.emitting << " valid=" << snapshot.has_value()
+             << " base_len=" << base.text.size() << " base_cursor=" << base.cursor;
+        if (snapshot) {
+            const auto& text = snapshot->text;
+            const bool hasBase = text.size() >= base.text.size() && text.compare(0, base.text.size(), base.text) == 0;
+            const bool inBase = text.size() <= base.text.size() && base.text.compare(0, text.size(), text) == 0;
+            line << " len=" << text.size() << " cursor=" << snapshot->cursor << " anchor=" << snapshot->anchor
+                 << " equals_base=" << (*snapshot == base) << " text_equals_base=" << (text == base.text)
+                 << " starts_with_base=" << hasBase << " prefix_of_base=" << inBase
+                 << " equals_expected=" << (state.nativeExpected && *snapshot == *state.nativeExpected);
+        }
+        if (key) {
+            // Class only. A keycode or keysym would reveal what was typed
+            // (alpha.4 logged letter keycodes when NumLock was on).
+            const bool backspace = key->sym() == FcitxKey_BackSpace;
+            const bool printable = !backspace && fcitx::Key::keySymToUnicode(key->sym()) >= 0x20;
+            line << " key=" << (backspace ? "backspace" : printable ? "printable" :
+                                key->isModifier() ? "modifier" : "other");
+        }
+        FCITX_INFO() << line.str();
+    }
+
+    // Focus/context changed while the clear was in flight: never edit what may
+    // now be another field. The committed tail is already where it was typed.
+    void dropNativeClear(fcitx::InputContext* ic, const char* cause) {
+        auto& state = *ic->propertyFor(&factory_);
+        if (!state.nativeClear) return;
+        state.nativeClear.reset();
+        diagnose(ic, "native:url-completion-raw", cause);
     }
 
     // Keep the syllable exclusively in Fcitx's panel. In particular, never
@@ -1574,7 +1920,8 @@ private:
             *config_.quickEndConsonant, *config_.restoreWrongSpelling};
     }
     bool compositionConfigChanged(const InputConfig& previous) const {
-        return *config_.freeMark != *previous.freeMark ||
+        return *config_.terminalDeleteFix != *previous.terminalDeleteFix ||
+            *config_.freeMark != *previous.freeMark ||
             *config_.allowConsonantZFWJ != *previous.allowConsonantZFWJ ||
             *config_.quickStartConsonant != *previous.quickStartConsonant ||
             *config_.quickEndConsonant != *previous.quickEndConsonant ||
@@ -1635,6 +1982,8 @@ private:
 
     static void clearDirect(State& state) {
         if (state.timeout) state.timeout->setEnabled(false);
+        state.nativeClear.reset();
+        state.nativeAdopt = 0;
         state.tracker.clear();
         state.queue.clear();
         state.direct = state.bypass = false;
@@ -1658,6 +2007,7 @@ private:
         state.nativeResetHeld = false;
         state.nativeAwaitingUpdate = false;
         state.placed.clear();
+        state.terminalWord.clear();
         state.preeditDrifted = false;
         state.repairNativePrime = false;
         state.nativePrimeChar = 0;
@@ -1711,6 +2061,8 @@ private:
         instance_->inputContextManager().foreach([this](fcitx::InputContext* ic) {
             auto& state = *ic->propertyFor(&factory_);
             if (!state.active) return true;
+            // Same field, new settings: finish or release the clear first.
+            if (state.nativeClear) resolveNativeClear(ic, true);
             if (state.composition.empty() && !state.direct && !state.bypass && state.queue.empty()) {
                 if (state.nativeExpected || state.nativeRawWord) clearDirect(state);
                 state.composition.setOptions(compositionOptions());

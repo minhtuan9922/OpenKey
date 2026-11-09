@@ -17,7 +17,7 @@ def run(*args, **kwargs):
 def main():
     deb, build = (Path(arg).resolve() for arg in sys.argv[1:])
     assert run('dpkg-deb', '-f', str(deb), 'Package').strip() == 'openkey'
-    assert run('dpkg-deb', '-f', str(deb), 'Version').strip() == '3.1.0~beta.1-1'
+    assert run('dpkg-deb', '-f', str(deb), 'Version').strip() == '3.1.0~beta.2~alpha.7-1'
     deps = run('dpkg-deb', '-f', str(deb), 'Depends')
     for name in ('fcitx5', 'fcitx5-module-dbus', 'fcitx5-frontend-gtk3', 'fcitx5-frontend-qt6',
                  'qml6-module-qtquick-dialogs', 'libqt6core6', 'libsystemd0', 'python3'):
@@ -72,7 +72,7 @@ def main():
             return run('dpkg', '--force-not-root', '--root='+str(private), '--admindir='+str(database), *args)
         shutil.copytree(control, root/'DEBIAN')
         metadata = root/'DEBIAN/control'
-        metadata.write_text(metadata.read_text().replace('Version: 3.1.0~beta.1-1\n', 'Version: 3.1.0~beta.1-1+qa1\n'))
+        metadata.write_text(metadata.read_text().replace('Version: 3.1.0~beta.2~alpha.7-1\n', 'Version: 3.1.0~beta.2~alpha.7-1+qa1\n'))
         upgrade = Path(temporary)/'upgrade.deb'
         run('dpkg-deb', '--build', str(root), str(upgrade))
         for label, action, value in [('base', '--unpack', str(deb)), ('reinstall', '--unpack', str(deb)),

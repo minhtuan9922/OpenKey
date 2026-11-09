@@ -5,6 +5,21 @@ chữ hiện ngay bằng phím gốc, sửa dấu khi surrounding-text được 
 không tự fallback ô nổi. Thiếu hỗ trợ thì giữ nguyên phím gõ; chưa nghiệm thu
 desktop/mọi ứng dụng. Alpha.38 thêm xử lý phần gợi ý đuôi được chọn trong ô URL
 khi toàn bộ phần đã gõ khớp notification; alpha.37 còn đi raw ở các từ đó.
+Từ beta.2~alpha.2 (addon 0.2.46), khi gợi ý đuôi còn được chọn, NativeDirect
+không gửi lệnh xóa (Chrome trên Wayland bỏ lệnh đó nên `goo` → `goô`): phím
+đi nguyên dạng, từ giữ raw và chỉ được sửa khi con trỏ không còn vùng chọn.
+Từ beta.2~alpha.3 (addon 0.2.47), chữ Latin đổi dấu trong trường hợp đó hiện
+kết quả ngay (`goo` → `gô`, `gooo` → `goo`): bộ gõ nuốt phím, gửi một BackSpace
+(keycode 22) để Chrome xóa gợi ý, rồi chỉ sửa sau notification xác nhận đúng phần
+đã gõ; không xác nhận trong 150 ms hoặc có phím kế thì commit phím raw.
+Beta.2~alpha.5 (addon 0.2.49): trace alpha.4 cho thấy GNOME 50 không bao giờ
+đưa phím forward tới Chrome, nên bỏ BackSpace forward. Thay bằng hai commit
+thường: commit phần đuôi mới thay vùng chọn (`go|ogle.com` → `goô`), khi Chrome
+báo đúng text đó với con trỏ không chọn thì xóa/commit tại con trỏ (`gô`).
+Dòng `OpenKey Direct trace:` (DirectDiagnostics) chỉ ghi độ dài/vị trí và loại phím.
+Beta.2~alpha.6 (addon 0.2.50): Chrome không gửi surrounding text sau Ctrl+L,
+Ctrl+A, Delete, Backspace; chữ đầu của từ kế tiếp lấy notification sau phím đó
+làm mốc (ký tự trước con trỏ phải đúng chữ vừa gõ) thay vì cache cũ.
 Ô trong trang web đã được người dùng xác nhận trên alpha.36.
 Xem [cài thử và giới hạn](../../../docs/UBUNTU_NATIVE_DIRECT.md).
 
@@ -202,3 +217,47 @@ Alpha.52 / UI preview.14: [extension nhận diện ứng dụng GNOME](../../../
 Alpha.53 / UI preview.15: [xem, sửa, xóa bộ gõ đã nhớ và xem trạng thái nhận diện](../../../docs/UBUNTU_APP_MEMORY.md).
 
 UI preview.16: [sao lưu/khôi phục bảng nhớ ứng dụng bằng JSON/file, xem trước gộp/thay thế](../../../docs/UBUNTU_APP_MEMORY.md). Dùng addon alpha.53.
+
+## Beta.2~alpha.7 — DEL trong terminal (thử nghiệm, mặc định tắt)
+
+Addon 0.2.51 thêm `TerminalDeleteFix=False`. Bật bằng `fcitx5-configtool` →
+Add-ons → OpenKey → **Sửa dấu trong terminal VS Code/Cursor bằng DEL (thử nghiệm)**,
+hoặc đặt các dòng sau trong `~/.config/fcitx5/conf/openkey.conf` rồi reload cấu hình:
+
+```ini
+InputStyle=NativeDirect
+TerminalDeleteFix=True
+```
+
+Chỉ bật khi thực sự cần và tắt lại (`False`) trước khi dùng vim/raw apps, SSH
+hay terminal không rõ cấu hình. Không dùng CommitOnly và không có preedit gạch chân.
+Tùy chọn chỉ nhận program `code`, `code-insiders`, `cursor` (không phân biệt hoa
+thường; chấp nhận đường dẫn và hậu tố `.desktop`), cùng surrounding text hợp lệ,
+không có selection, chỉ chứa khoảng trắng hoặc rỗng. URL/email và ứng dụng khác
+không dùng DEL. Khi editor báo chữ thật, addon quay lại NativeDirect bình thường;
+editor rỗng cũng có thể khớp chữ ký nên chữ ký này không chứng minh terminal focus.
+
+Mỗi lần sửa, addon giữ tiền tố chung, commit N ký tự U+007F (DEL) rồi đuôi mới.
+N không vượt số codepoint addon đã tự commit trong từ hiện tại; không xóa tiền tố
+native, không mở lại từ trước dấu cách. Focus/reset, Enter/Tab, điều hướng,
+Ctrl/Alt và Backspace vượt vùng đã ghi đều bỏ quyền sửa. Không log nội dung gõ.
+
+**Giới hạn quan trọng:** trên GNOME Wayland, ibus thường chỉ báo program
+`gnome-shell`, không phải Code/Cursor. Khi đó tùy chọn cố ý **không hoạt động**,
+kể cả khi surrounding toàn dấu cách; không dùng tên app đoán hoặc cache GNOME
+cũ để gửi DEL. Alpha.7 chưa giải quyết nhận diện app cho trường hợp này.
+Cần frontend báo đúng program; không tự thay thiết lập ứng dụng/GNOME hay config
+người dùng để ép nhận diện.
+
+DEL chỉ xóa một codepoint khi line discipline đang canonical, UTF-8 (`IUTF8`)
+và `VERASE=^?`. `IUTF8` tắt, mã hóa khác UTF-8, SSH tới host cấu hình lạ, vim/raw
+apps, bracketed-paste hoặc app xử lý control char riêng có thể để lộ DEL, xóa sai
+byte hoặc làm hỏng chữ. Addon không thể xác minh tty/host ở xa và cũng không thể
+biết một commit đã thật sự đến PTY. Đây là tùy chọn thử nghiệm, không bảo đảm an
+toàn cho mọi terminal; không bật khi gõ lệnh quan trọng.
+
+Test giả lập canonical UTF-8 kiểm tra `ddaay laf tieengs vieetj` → `đây là tiếng việt`,
+`goo` → `gô`, `gooo` → `goo`, giới hạn DEL, reset/focus/điều hướng và editor `mer` → `mẻ`.
+Không đồng nghĩa đã xác minh VS Code/Cursor thật. Script thủ công chuẩn bị tại
+`/tmp/openkey-e2e/term-alpha7.sh`; chỉ dùng profile tạm, accessibilitySupport=off,
+terminal `cat`, không đổi config thật và không tự bật tùy chọn.

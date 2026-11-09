@@ -20,10 +20,13 @@ hay khởi động lại daemon khi build/cài gói.
 - Ngoại lệ giới hạn từ alpha.38 cho ô Url: notification xác nhận toàn bộ phần
   đã gõ tại cuối tài liệu, kèm phần đuôi được chọn từ con trỏ đến hết nội dung.
   Bộ gõ giữ riêng snapshot thực này, không đưa dự đoán vào cache của client.
-  Phím gõ tiếp thay vùng chọn theo semantics thông thường; khi đổi dấu dùng
-  thao tác IM sửa phần từ thuộc bộ gõ và thay phần đuôi đang chọn. Không xóa
-  vùng chọn chỉ vì một notification đến. Không áp dụng cho ô web/terminal khác,
-  selection ngược, selection ở giữa, phần đầu thay đổi hoặc cache chưa báo cập nhật.
+  Phím gõ tiếp thay vùng chọn theo semantics thông thường. Từ beta.2~alpha.2,
+  khi đổi dấu cần xóa chữ trước con trỏ mà gợi ý đuôi còn được chọn, phím đi
+  nguyên dạng và từ giữ raw (xem mục beta.2~alpha.2 bên dưới); chỉ commit
+  không cần xóa mới được gửi. Từ beta.2~alpha.3, phím chữ Latin dùng một
+  BackSpace forward để xóa gợi ý trước rồi sửa sau xác nhận (mục alpha.3). Không xóa vùng chọn chỉ vì một notification đến.
+  Không áp dụng cho ô web/terminal khác, selection ở giữa, phần đầu thay đổi
+  hoặc cache chưa báo cập nhật.
 - Không dùng một snapshot dự đoán làm ACK. Không xếp hàng các phím đang gõ,
   không forward/synthesize phím, không đọc clipboard, không global hook.
 - Nếu mất xác nhận hoặc thiếu hỗ trợ, phần còn lại của từ đi nguyên phím gốc
@@ -290,3 +293,184 @@ Có [bộ ca Chrome/VS Code và công cụ tổng hợp diagnostics](UBUNTU_DESK
 để tách lỗi thiếu capability, chờ surrounding-text và hạn chế định danh bridge.
 Công cụ không xuất nội dung gõ và không thay guard của NativeDirect. Chưa có
 kết quả desktop mới chứng minh Chrome omnibox hoặc terminal VS Code đã đạt.
+
+## Beta.2~alpha.2 — `goo` → `goô` trên thanh địa chỉ Chrome (2026-11-09)
+
+Người dùng gõ Telex `goo` trên thanh địa chỉ Chrome 157 (Wayland gốc, GNOME,
+frontend ibus) và nhận `goô`. Journal lúc đó không còn (daemon chạy với stdout
+vào pty đã đóng), nên nguyên nhân được xác định từ mã nguồn đúng tag
+157.0.8103.38 và tái hiện bằng client giả:
+
+1. Omnibox đặt gợi ý đuôi bằng
+   `SetTextAndSelectedRange(display_text, {display_text.size(), user_text.length()})`:
+   anchor ở cuối, con trỏ sau phần đã gõ (selection **ngược**, đúng hình dạng
+   `selectedUrlCompletion` nhận).
+2. Ở phím `o` thứ ba, OpenKey gọi `deleteSurroundingText(-1, 1)` rồi
+   `commitString("ô")`. Mutter đổi thành `delete_surrounding_text(1, 0)` tính
+   theo con trỏ.
+3. `zwp_text_input_v3.cc` tính `index = delete_around_range.start() - before`,
+   với `delete_around_range` là selection (start = anchor = 10), nên được
+   vùng `[9, 10)`. `WaylandInputMethodContext::OnDeleteSurroundingText` thấy
+   vùng không bao trọn selection `[2, 10)` → `LOG(DFATAL)` và bỏ lệnh xóa.
+4. Commit `ô` thay vùng chọn → `go` + `ô` = `goô`. Nếu `before` ≥ độ dài phần
+   gợi ý, Chrome xóa sai vị trí, nên không có độ dài xóa nào an toàn.
+
+Mô hình client cũ (`selectionAwareDeletes`) giả định Chrome xóa cả vùng chọn
+lẫn phần trước con trỏ, nên test alpha.38 đạt dù Chrome thật lỗi.
+
+Sửa (addon 0.2.46): khi gợi ý đuôi đang được chọn và phím cần xóa chữ đã có,
+OpenKey không gửi lệnh xóa. Phím đi nguyên dạng (Chrome thay vùng chọn như gõ
+thường), bộ gõ ghi nhận chữ raw thực tế trong ô và giữ lịch sử engine. Khi một
+phím/ranh giới sau đó thấy con trỏ thu gọn khớp đúng snapshot dự kiến, phần raw
+được sửa bằng edit kiểm chứng thông thường (`goos ` → `gố `). Nếu gợi ý vẫn còn
+đến ranh giới, từ giữ raw (`goo ` vẫn là `goo ` khi lịch sử có `google.com`).
+Backspace trên chữ raw đang giữ trong ô Url đi native, xóa đúng một ký tự nhìn
+thấy. Diagnostics: `reason=native:url-completion-raw cause=selection-blocks-delete`.
+
+Đánh đổi: thà để từ raw còn hơn làm hỏng chữ. Trong khi Chrome còn tự điền đuôi
+(tiền tố trùng lịch sử), dấu không được đặt; từ được sửa khi gợi ý biến mất.
+Không thêm fallback CommitOnly/preedit, không gửi Backspace giả.
+
+Test mới mô phỏng đúng chuỗi Mutter → text-input-v3 → WaylandInputMethodContext
+→ Textfield (`chromiumWaylandDeletes`, `completionTarget`). Với addon cũ test
+thất bại: `Omnibox completion corrupted the typed word: [goô]`.
+
+Kiểm tra trên desktop sau khi cài:
+- Thanh địa chỉ, khi đã có `google.com` trong lịch sử: `goo` hiện `goo` +
+  gợi ý (không còn `goô`); `goos ` → `gố `; `tieengs vieetj` → `tiếng việt`.
+- Ô thường (Chrome trang web, Cursor/VS Code editor, gedit, LibreOffice, Qt):
+  `tieengs vieetj ddaay laf mer ` → `tiếng việt đây là mẻ `.
+
+## Beta.2~alpha.3 — hiện `gô` ngay khi gợi ý đang được chọn (2026-11-09)
+
+Alpha.2 đúng nhưng chậm: `goo` hiện `goo`, sửa khi gõ Space. Yêu cầu: `goo` →
+`gô`, `gooo` → `goo` ngay lúc gõ. Ba cách đã xét (Chromium 157, Mutter):
+
+- (a) Commit/preedit rỗng: `OnDone` bỏ commit rỗng; preedit gây gạch chân và
+  Chrome bỏ lệnh xóa khi đang có composition (`OnDeleteSurroundingText`). Loại.
+- (c) Lệnh xóa tính từ anchor: Mutter đổi offset quanh **con trỏ** sang byte và
+  giới hạn `before` ở vị trí con trỏ (`meta-wayland-text-input.c`); Chrome tính
+  `index = selection.start() - before` từ anchor (`zwp_text_input_v3.cc`) và bỏ
+  mọi range không phủ hết vùng chọn (`wayland_input_method_context.cc`). Không
+  giá trị nào xóa được cả chữ đã gõ lẫn phần gợi ý. Loại.
+- (b) Forward BackSpace: chọn. BackSpace trên vùng chọn đảo của omnibox xóa đúng
+  gợi ý, `just_deleted_text` chặn autocomplete hiện lại
+  (`omnibox_view.cc`, `omnibox_edit_model.cc`).
+
+Cơ chế (chỉ ô Url, gợi ý đuôi đã xác nhận, phím chữ ASCII): nuốt phím, forward
+BackSpace có hardware keycode 22 (keycode 0 bị Chrome bỏ qua), chờ notification
+bằng đúng phần đã gõ với con trỏ không có vùng chọn rồi mới xóa/commit như ô
+thường. Phím kế hoặc 150 ms không xác nhận → commit phím raw (`clear-unconfirmed`,
+từ được sửa ở phím sau như alpha.2). Reset/đổi focus → bỏ phím, không commit
+sang ô khác; đổi cấu hình → commit raw. Phím ranh giới vẫn theo alpha.2.
+Diagnostics: `native:url-completion-clear`, `verified-clear`, `clear-unconfirmed`.
+
+Rủi ro: forward key từng bị nuốt trên stack này (alpha.13) → chậm tối đa 150 ms
+rồi ra raw; thoáng thấy `go` giữa BackSpace và sửa; chưa nghiệm thu desktop.
+
+Kiểm tra: lịch sử có `google.com`, gõ `goo` → `gô` ngay, `gooo` → `goo`,
+`goos` → `gố`, VNI `go6` → `gô`, `tieengs vieetj` → `tiếng việt`; Backspace sau
+`gô` còn `g`. Log nên có `verified-clear`, không có `clear-unconfirmed`.
+
+## Beta.2~alpha.4 — chẩn đoán bước xóa gợi ý (2026-11-09)
+
+Log alpha.3 thật (14:04): mỗi từ có `url-completion-clear`, rồi 50–250 ms sau
+`clear-unconfirmed`, rồi `awaiting-surrounding-update`/`raw-word-in-progress`.
+Log không đủ phân biệt: dòng `clear-unconfirmed` so với kỳ vọng *sau* commit raw
+nên mọi `*_changed=1` khớp cả “BackSpace đã tới (go@2)” lẫn “không tới
+(go|ogle.com)”. Hai lỗi phụ đã thấy: timer tạo với accuracy 0 nên sd-event cho
+trễ thêm tới 250 ms (sửa: 1 ms); một lần fallback và `passthrough` cách nhau
+38 µs, tức do một phím (có thể chính BackSpace forward quay lại) kích hoạt.
+
+Alpha.4 giữ nguyên cơ chế, thêm tối đa 12 dòng `OpenKey Direct trace:` cho mỗi
+lần xóa (armed/forwarded/update/key-press/key-release/timer/settle-raw/apply):
+`elapsed_us`, `len`, `cursor`, `anchor`, `base_len`, `base_cursor`, các cờ
+`equals_base`, `starts_with_base`, `prefix_of_base`, `equals_expected`,
+`emitting`, `pending`; với phím chỉ loại (`backspace`/`printable`/...) và
+keycode của phím không phải chữ. Không có nội dung văn bản hay ký tự gõ.
+
+## Beta.2~alpha.5 — hai commit thường thay BackSpace forward (2026-11-09)
+
+Trace alpha.4 thật (14:19–14:20, mỗi lần đổi dấu trên `google.com`):
+`armed` → `forwarded` (~30 µs) → không có `update` nào trong 150 ms, vùng chọn
+giữ nguyên `len=10 cursor=2 anchor=10` → `timer` (151 ms) → commit raw → `update`
+sau ~6 ms `cursor=3 anchor=10` (Chrome autocomplete lại). BackSpace forward không
+quay lại fcitx5, không đến muộn, không xóa chữ: Chrome không bao giờ nhận nó
+(GNOME Shell 50.1, `clutter_input_method_forward_key` tạo sự kiện không thiết bị).
+Ngoài ra alpha.4 ghi keycode chữ khi NumLock bật (`key=other code=32 states=16`);
+alpha.5 chỉ ghi loại phím.
+
+Cơ chế alpha.5 (ô Url, gợi ý đuôi đã xác nhận, phím chữ ASCII cần đổi chữ đã gõ):
+1. Commit phần đuôi mới; commit luôn thay vùng chọn: `go|ogle.com` → `goô`.
+2. Khi notification đúng bằng text đó, con trỏ không chọn, ở cuối: xóa
+   `removed + |đuôi|` trước con trỏ và commit đuôi → `gô` (lệnh xóa ở caret
+   thường Chrome chấp nhận). Trace thật cho thấy ACK sau ~6 ms.
+Chrome autocomplete lại đuôi trung gian (cần lịch sử bắt đầu bằng chuỗi như
+`goô`, `viêtệt`): không xóa, ngừng cách hai bước tới khi đổi focus, từ giữ như
+alpha.2. Phím đến trước ACK: không xóa gì, từ có thể giữ đuôi trung gian.
+Reset/đổi focus: bỏ, không sửa ô khác. Không forward phím, không preedit.
+
+Kiểm tra: `goo` → `gô`, `gooo` → `goo`, `goos` → `gố`, VNI `go6` → `gô`,
+`tieengs vieetj` → `tiếng việt`. Log nên có `verified-clear`; nếu thấy
+`clear-unconfirmed` hoặc `clear-reautocompleted` thì gửi trace.
+
+## Beta.2~alpha.6 — từ sau khi xóa ô địa chỉ (2026-11-09)
+
+Kiểm thử thật bằng ydotool (uinput → GNOME → Fcitx5 → Chrome 157), alpha.5:
+`goo` → `gô` đúng ngay (commit đuôi, ACK 7,4 ms, sửa ở con trỏ). Nhưng mọi từ
+sau Ctrl+L, Ctrl+A, Delete (hoặc Backspace) giữ raw (`gooo`, `goos`, `tieengs`):
+`awaiting-surrounding-update` rồi `raw-word-in-progress`. Bắt bus ibus bằng
+dbus-monitor: Chrome không gửi `SetSurroundingText` sau Ctrl+L/Ctrl+A/Delete, chỉ
+`SetCursorLocation`; lần kế tiếp là sau chữ đầu của từ mới. Chữ đầu dự đoán từ
+cache cũ (từ trước) nên không bao giờ khớp.
+
+Alpha.6: phím không phải chữ/Space đi native đánh dấu cache cũ (`nativeStale`,
+notification bất kỳ xóa cờ). Chữ đầu trên cache cũ bắt đầu từ mới; notification
+kế tiếp là mốc nếu ký tự ngay trước con trỏ đúng chữ đó, con trỏ không chọn hoặc
+có gợi ý URL chọn tới cuối (`native:stale-cache`, `adopted-update`). Mọi lệnh sửa
+sau đó vẫn kiểm tra đúng các chữ đã đặt trước con trỏ.
+
+
+## Beta.2~alpha.7 — DEL trong terminal (thử nghiệm, mặc định tắt)
+
+Addon 0.2.51 thêm `TerminalDeleteFix=False`. Bật bằng `fcitx5-configtool` →
+Add-ons → OpenKey → **Sửa dấu trong terminal VS Code/Cursor bằng DEL (thử nghiệm)**,
+hoặc đặt các dòng sau trong `~/.config/fcitx5/conf/openkey.conf` rồi reload cấu hình:
+
+```ini
+InputStyle=NativeDirect
+TerminalDeleteFix=True
+```
+
+Chỉ bật khi thực sự cần và tắt lại (`False`) trước khi dùng vim/raw apps, SSH
+hay terminal không rõ cấu hình. Không dùng CommitOnly và không có preedit gạch chân.
+Tùy chọn chỉ nhận program `code`, `code-insiders`, `cursor` (không phân biệt hoa
+thường; chấp nhận đường dẫn và hậu tố `.desktop`), cùng surrounding text hợp lệ,
+không có selection, chỉ chứa khoảng trắng hoặc rỗng. URL/email và ứng dụng khác
+không dùng DEL. Khi editor báo chữ thật, addon quay lại NativeDirect bình thường;
+editor rỗng cũng có thể khớp chữ ký nên chữ ký này không chứng minh terminal focus.
+
+Mỗi lần sửa, addon giữ tiền tố chung, commit N ký tự U+007F (DEL) rồi đuôi mới.
+N không vượt số codepoint addon đã tự commit trong từ hiện tại; không xóa tiền tố
+native, không mở lại từ trước dấu cách. Focus/reset, Enter/Tab, điều hướng,
+Ctrl/Alt và Backspace vượt vùng đã ghi đều bỏ quyền sửa. Không log nội dung gõ.
+
+**Giới hạn quan trọng:** trên GNOME Wayland, ibus thường chỉ báo program
+`gnome-shell`, không phải Code/Cursor. Khi đó tùy chọn cố ý **không hoạt động**,
+kể cả khi surrounding toàn dấu cách; không dùng tên app đoán hoặc cache GNOME
+cũ để gửi DEL. Alpha.7 chưa giải quyết nhận diện app cho trường hợp này.
+Cần frontend báo đúng program; không tự thay thiết lập ứng dụng/GNOME hay config
+người dùng để ép nhận diện.
+
+DEL chỉ xóa một codepoint khi line discipline đang canonical, UTF-8 (`IUTF8`)
+và `VERASE=^?`. `IUTF8` tắt, mã hóa khác UTF-8, SSH tới host cấu hình lạ, vim/raw
+apps, bracketed-paste hoặc app xử lý control char riêng có thể để lộ DEL, xóa sai
+byte hoặc làm hỏng chữ. Addon không thể xác minh tty/host ở xa và cũng không thể
+biết một commit đã thật sự đến PTY. Đây là tùy chọn thử nghiệm, không bảo đảm an
+toàn cho mọi terminal; không bật khi gõ lệnh quan trọng.
+
+Test giả lập canonical UTF-8 kiểm tra `ddaay laf tieengs vieetj` → `đây là tiếng việt`,
+`goo` → `gô`, `gooo` → `goo`, giới hạn DEL, reset/focus/điều hướng và editor `mer` → `mẻ`.
+Không đồng nghĩa đã xác minh VS Code/Cursor thật. Script thủ công chuẩn bị tại
+`/tmp/openkey-e2e/term-alpha7.sh`; chỉ dùng profile tạm, accessibilitySupport=off,
+terminal `cat`, không đổi config thật và không tự bật tùy chọn.

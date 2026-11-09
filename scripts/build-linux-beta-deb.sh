@@ -12,4 +12,4 @@ cmake --build "$build_dir" --parallel 4
 ctest --test-dir "$build_dir" --output-on-failure
 cpack --config "$build_dir/CPackConfig.cmake"
 python3 "$repo_dir/scripts/verify-linux-beta-deb.py" \
-    "$repo_dir/dist/linux/openkey_3.1.0~beta.1-1_$(dpkg --print-architecture).deb" "$build_dir"
+    "$repo_dir/dist/linux/openkey_3.1.0~beta.2~alpha.7-1_$(dpkg --print-architecture).deb" "$build_dir"

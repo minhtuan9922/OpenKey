@@ -10,6 +10,7 @@
 #include <fcitx/instance.h>
 #include <fcitx-config/iniparser.h>
 #include <dlfcn.h>
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -43,10 +44,37 @@ public:
     unsigned deletions = 0, commits = 0, nonemptyPreedits = 0, synthesized = 0;
     bool dropNonAsciiDeletes = false;
     bool dropAllDeletes = false;
+    bool terminalDel = false;
+    unsigned terminalDels = 0;
+    std::string reportedWhitespace = "   ";
     bool holdSurrounding = false;
     bool completeNative = false, completeCommits = false, selectionAwareDeletes = false;
     bool deletionKeepsSelection = false;
     std::u32string completionTail = U"_suggestion";
+    // Chrome omnibox inline autocomplete: while the typed text is a strict
+    // prefix of this URL, show the rest of it selected with the caret after
+    // the typed text and the anchor at the end (a REVERSED selection,
+    // OmniboxViewViews::OnInlineAutocompleteTextMaybeChanged).
+    std::u32string completionTarget, completionTarget2;
+    // Chrome 157 native Wayland through GNOME: Mutter converts the IM request
+    // to text-input-v3 byte lengths around the caret; zwp_text_input_v3.cc
+    // measures from delete_around_range.start() (the ANCHOR of a reversed
+    // selection); WaylandInputMethodContext drops a range that does not cover
+    // the whole selection; Textfield::ExtendSelectionAndDelete extends
+    // Range(anchor, caret). commitString then replaces the selection.
+    bool chromiumWaylandDeletes = false;
+    unsigned droppedDeletes = 0;
+    // Observed on GNOME 50.1 + Chrome 157 (alpha.4 trace, 2026-11-09 14:19):
+    // a key forwarded by the IM (gnome-shell _onForwardKeyEvent ->
+    // clutter_input_method_forward_key) never changes the omnibox; no
+    // surrounding update arrived within 150 ms. Chromium fixtures lose every
+    // forwarded key. `dropForwarded` does the same for other fixtures.
+    bool dropForwarded = false;
+    // Observed on the ibus bus (2026-11-09 14:48): Chrome's omnibox sends NO
+    // SetSurroundingText after Ctrl+L, Ctrl+A, Delete or Backspace, only after
+    // inserted characters. `silentEdits` applies those edits without a report.
+    bool silentEdits = false;
+    unsigned lostForwards = 0;
     // Behavioral fault injection for the reported post-Enter loss, NOT a full
     // Chromium/xterm.js implementation. A native text key reopens IM delivery.
     bool requireNativeAfterEnter = false;
@@ -59,13 +87,32 @@ public:
         surroundingText().setText(value.text, value.cursor, value.anchor);
         updateSurroundingText();
     }
+    bool silencing = false;
     void report() {
-        if (holdSurrounding) return;
-        Notification value{text(), cursor, anchor};
+        if (holdSurrounding || silencing) return;
+        Notification value = terminalDel ? Notification{reportedWhitespace,
+            static_cast<unsigned>(reportedWhitespace.size()), static_cast<unsigned>(reportedWhitespace.size())} :
+            Notification{text(), cursor, anchor};
+        // xterm reports after textarea whitespace changes, not after native
+        // letter keys. Repeated unchanged reports would falsely ACK a native
+        // first letter and reproduce the old append bug instead of alpha.6.
+        if (terminalDel && surroundingText().isValid() &&
+            surroundingText().text() == value.text && surroundingText().cursor() == value.cursor &&
+            surroundingText().anchor() == value.anchor) return;
         if (delayed) notifications.push_back(value);
         else notify(value);
     }
     void reportCompletion() {
+        if (!completionTarget.empty()) {
+            for (const auto* target : {&completionTarget, &completionTarget2})
+                if (cursor == anchor && cursor == document.size() && !document.empty() &&
+                    document.size() < target->size() && target->compare(0, document.size(), document) == 0) {
+                    document = *target;
+                    anchor = static_cast<unsigned>(document.size());
+                }
+            report();
+            return;
+        }
         if (cursor == anchor && cursor == document.size() && !document.empty() && document.back() != U' ') {
             document += completionTail;
             anchor = static_cast<unsigned>(document.size());
@@ -85,9 +132,15 @@ public:
     void raw(const fcitx::Key& key, bool release = false) {
         if (release || key.isModifier()) return;
         ++forwarded;
+        silencing = silentEdits && (key.sym() == FcitxKey_BackSpace || key.sym() == FcitxKey_Delete ||
+            (key.states() & fcitx::KeyState::Ctrl));
+        rawImpl(key);
+        silencing = false;
+    }
+    void rawImpl(const fcitx::Key& key) {
         if (key.states() & fcitx::KeyStates{fcitx::KeyState::Ctrl, fcitx::KeyState::Alt,
                                            fcitx::KeyState::Super}) {
-            if ((key.states() & fcitx::KeyState::Ctrl) && key.sym() == FcitxKey_a) {
+            if ((key.states() & fcitx::KeyState::Ctrl) && (key.sym() == FcitxKey_a || (silentEdits && key.sym() == FcitxKey_l))) {
                 anchor = 0;
                 cursor = static_cast<unsigned>(document.size());
                 report();
@@ -100,6 +153,12 @@ public:
                 document.erase(at, std::max(cursor, anchor) - at);
                 cursor = anchor = at; report();
             } else if (cursor) { document.erase(--cursor, 1); anchor = cursor; report(); }
+        } else if (key.sym() == FcitxKey_Delete) {
+            if (cursor != anchor) {
+                const auto at = std::min(cursor, anchor);
+                document.erase(at, std::max(cursor, anchor) - at);
+                cursor = anchor = at; report();
+            } else if (cursor < document.size()) { document.erase(cursor, 1); report(); }
         } else if (key.sym() == FcitxKey_Left) {
             if (cursor) --cursor;
             anchor = cursor; report();
@@ -133,13 +192,76 @@ private:
         ++commits;
         if (waitingForNativeText) return;
         const auto value = openkey::codepoints(text);
+        if (terminalDel) {
+            for (const auto ch : value) {
+                if (ch == U'\x7f') {
+                    ++terminalDels;
+                    require(cursor == anchor && cursor > 0, "Terminal DEL crossed beginning of document");
+                    document.erase(--cursor, 1);
+                    anchor = cursor;
+                } else {
+                    document.insert(cursor++, 1, ch);
+                    anchor = cursor;
+                }
+            }
+            report();
+            return;
+        }
         const auto start = std::min(cursor, anchor);
         document.replace(start, std::max(cursor, anchor) - start, value);
         cursor = anchor = start + static_cast<unsigned>(value.size());
         if (completeCommits && !text.empty()) reportCompletion();
         else report();
     }
+    std::size_t bytesBefore(unsigned codepoint) const {
+        return openkey::utf8(document.substr(0, codepoint)).size();
+    }
+    unsigned codepointAt(std::size_t byte) const {
+        unsigned index = 0;
+        while (index < document.size() && bytesBefore(index) < byte) ++index;
+        require(bytesBefore(index) == byte, "Chromium model split a UTF-8 character");
+        return index;
+    }
+    void chromiumWaylandDelete(int offset, unsigned size) {
+        // Mutter meta_wayland_text_input_focus_delete_surrounding.
+        offset = std::min(offset, 0);
+        if (-offset > static_cast<int>(cursor) ||
+            static_cast<int>(cursor) + offset + static_cast<int>(size) > static_cast<int>(document.size())) return;
+        const auto caret = bytesBefore(cursor);
+        const auto beforeLength = caret - bytesBefore(static_cast<unsigned>(static_cast<int>(cursor) + offset));
+        const auto afterEnd = bytesBefore(static_cast<unsigned>(static_cast<int>(cursor) + offset + static_cast<int>(size)));
+        const auto afterLength = afterEnd > caret ? afterEnd - caret : 0;
+        // ZwpTextInputV3Impl::OnDone: delete_around_range = Range(anchor, caret).
+        const auto rangeStart = static_cast<long>(bytesBefore(anchor));
+        const auto rangeEnd = static_cast<long>(caret);
+        const auto rangeLength = static_cast<long>(std::max(rangeStart, rangeEnd) - std::min(rangeStart, rangeEnd));
+        const auto full = static_cast<long>(openkey::utf8(document).size());
+        long index = rangeStart - static_cast<long>(beforeLength);
+        long length = (index < 0 ? rangeEnd : static_cast<long>(beforeLength) + rangeLength) +
+            static_cast<long>(afterLength);
+        index = std::max(0L, index);
+        if (index + length > full) length = full - index;
+        // WaylandInputMethodContext::OnDeleteSurroundingText.
+        const auto selectionMin = static_cast<long>(bytesBefore(std::min(cursor, anchor)));
+        const auto selectionMax = static_cast<long>(bytesBefore(std::max(cursor, anchor)));
+        if (selectionMin < index || selectionMax > index + length) {
+            ++droppedDeletes; // LOG(DFATAL): "needs to cover whole selection range"
+            return;
+        }
+        const auto before = std::min(cursor, anchor) - codepointAt(static_cast<std::size_t>(index));
+        const auto after = codepointAt(static_cast<std::size_t>(index + length)) - std::max(cursor, anchor);
+        // Textfield::ExtendSelectionAndDelete on Range(anchor, caret).
+        if (anchor < before) return;
+        const unsigned start = anchor - before, end = cursor + after;
+        const unsigned low = std::min(start, end), high = std::max(start, end);
+        if (high > document.size()) return;
+        ++deletions;
+        document.erase(low, high - low);
+        cursor = anchor = low;
+        report();
+    }
     void deleteSurroundingTextImpl(int offset, unsigned size) override {
+        if (chromiumWaylandDeletes) { chromiumWaylandDelete(offset, size); return; }
         require(cursor == anchor || (selectionAwareDeletes && cursor < anchor && anchor == document.size()),
             "Deletion must not operate on an unverified selection");
         // A client with no character before the caret ignores the request.
@@ -159,7 +281,11 @@ private:
         anchor = deletionKeepsSelection ? anchor - size : cursor;
         report();
     }
-    void forwardKeyImpl(const fcitx::ForwardKeyEvent& event) override { ++synthesized; raw(event.rawKey(), event.isRelease()); }
+    void forwardKeyImpl(const fcitx::ForwardKeyEvent& event) override {
+        ++synthesized;
+        if (dropForwarded || chromiumWaylandDeletes) { ++lostForwards; return; }
+        raw(event.rawKey(), event.isRelease());
+    }
     void updatePreeditImpl() override { if (!preedit().empty()) ++nonemptyPreedits; }
 };
 void style(fcitx::InputMethodEngine& addon, const char* value) {
@@ -168,6 +294,7 @@ void style(fcitx::InputMethodEngine& addon, const char* value) {
     // Deterministic across reruns, including after an interrupted diagnostics test.
     config.setValueByPath("DirectDiagnostics", "False");
     config.setValueByPath("QuickTelex", "False");
+    config.setValueByPath("TerminalDeleteFix", "False");
     addon.setConfig(config);
 }
 void activate(fcitx::InputMethodEngine& addon, const fcitx::InputMethodEntry& entry, Editor& editor) {
@@ -281,6 +408,132 @@ int main(int argc, char** args) {
             press(*addon, simple, editor, fcitx::Key(FcitxKey_space));
             require(editor.text() == "tiếng ", "Simple Telex Direct boundary");
         }
+    }
+    // xterm.js forwards IM commits as PTY bytes; its surrounding textarea
+    // contains only spaces. Model canonical UTF-8 DEL, not surrounding edits.
+    for (const bool enabled : {false, true}) {
+        style(*addon, "NativeDirect");
+        fcitx::RawConfig terminalConfig;
+        terminalConfig.setValueByPath("TerminalDeleteFix", enabled ? "True" : "False");
+        addon->setConfig(terminalConfig);
+        for (const auto* program : {"code", "code-insiders", "cursor", "/usr/share/code/code", "Code", "Cursor"}) {
+            Editor terminal(instance.inputContextManager(), program);
+            terminal.frontendName = "ibus";
+            terminal.terminalDel = true;
+            terminal.dropAllDeletes = terminal.dropForwarded = true;
+            terminal.report();
+            activate(*addon, telex, terminal);
+            press(*addon, telex, terminal, fcitx::Key(FcitxKey_Return));
+            type(*addon, telex, terminal, "ddaay laf tieengs vieetj");
+            if (terminal.text() != (enabled ? "\nđây là tiếng việt" : "\nddaay laf tieengs vieetj"))
+                std::cerr << "Terminal fixture enabled=" << enabled << " app=" << program << " actual=[" << terminal.text() << "]\n";
+            require(terminal.text() == (enabled ? "\nđây là tiếng việt" : "\nddaay laf tieengs vieetj"),
+                "TerminalDeleteFix Telex opt-in gate");
+            require(terminal.deletions == 0 && terminal.synthesized == 0 && terminal.nonemptyPreedits == 0,
+                "Terminal correction must use only commits, never preedit/delete/forward");
+            require(enabled ? terminal.terminalDels > 0 : terminal.terminalDels == 0,
+                "Terminal DEL must remain opt-in");
+        }
+    }
+    style(*addon, "NativeDirect");
+    fcitx::RawConfig terminalConfig;
+    terminalConfig.setValueByPath("TerminalDeleteFix", "True");
+    addon->setConfig(terminalConfig);
+    {
+        Editor terminal(instance.inputContextManager(), "code");
+        terminal.frontendName = "ibus";
+        terminal.terminalDel = true;
+        terminal.reportedWhitespace.clear();
+        terminal.dropAllDeletes = terminal.dropForwarded = true;
+        terminal.report();
+        activate(*addon, telex, terminal);
+        type(*addon, telex, terminal, "goo");
+        require(terminal.text() == "gô", "Terminal goo must transform immediately");
+        type(*addon, telex, terminal, "o");
+        require(terminal.text() == "goo", "Terminal gooo must restore oo immediately");
+        type(*addon, telex, terminal, " ");
+        const auto oldDels = terminal.terminalDels;
+        press(*addon, telex, terminal, fcitx::Key(FcitxKey_BackSpace));
+        type(*addon, telex, terminal, "s");
+        require(terminal.text() == "goos" && terminal.terminalDels == oldDels,
+            "Backspace beyond owned word must not reopen/delete prior text");
+    }
+    for (const auto* program : {"gnome-shell", "google-chrome", "not-code", "cursor-other"}) {
+        Editor other(instance.inputContextManager(), program);
+        other.terminalDel = true;
+        other.dropAllDeletes = other.dropForwarded = true;
+        other.report();
+        activate(*addon, telex, other);
+        press(*addon, telex, other, fcitx::Key(FcitxKey_Return));
+        type(*addon, telex, other, "goo");
+        require(other.text() == "\ngoo" && other.terminalDels == 0,
+            "Unidentified and unrelated apps must never receive terminal DEL");
+    }
+    for (const auto key : {fcitx::Key(FcitxKey_Return), fcitx::Key(FcitxKey_Tab),
+            fcitx::Key(FcitxKey_Left), fcitx::Key(FcitxKey_Home), fcitx::Key(FcitxKey_Escape),
+            fcitx::Key(FcitxKey_a, fcitx::KeyState::Ctrl), fcitx::Key(FcitxKey_x, fcitx::KeyState::Alt)}) {
+        Editor terminal(instance.inputContextManager(), "cursor");
+        terminal.terminalDel = true;
+        terminal.report();
+        activate(*addon, telex, terminal);
+        type(*addon, telex, terminal, "goo");
+        const auto dels = terminal.terminalDels;
+        require(!press(*addon, telex, terminal, key), "Terminal navigation and shortcuts must stay native");
+        type(*addon, telex, terminal, "s");
+        require(terminal.terminalDels == dels, "Terminal boundary must release all DEL ownership");
+    }
+    for (const bool reset : {false, true}) {
+        Editor terminal(instance.inputContextManager(), "code");
+        terminal.terminalDel = true;
+        terminal.report();
+        activate(*addon, telex, terminal);
+        type(*addon, telex, terminal, "goo");
+        const auto dels = terminal.terminalDels;
+        if (reset) {
+            fcitx::InputContextEvent event(&terminal, fcitx::EventType::InputContextReset);
+            addon->reset(telex, event);
+        } else {
+            fcitx::InputContextEvent event(&terminal, fcitx::EventType::InputContextFocusOut);
+            addon->deactivate(telex, event);
+            activate(*addon, telex, terminal);
+        }
+        type(*addon, telex, terminal, "s");
+        require(terminal.text() == "gôs" && terminal.terminalDels == dels,
+            "Terminal reset/focus must neither duplicate nor rewrite the previous word");
+    }
+    {
+        Editor terminal(instance.inputContextManager(), "code");
+        terminal.terminalDel = true;
+        terminal.report();
+        activate(*addon, telex, terminal);
+        type(*addon, telex, terminal, "dd");
+        require(terminal.text() == "đ", "Terminal dd conversion");
+        press(*addon, telex, terminal, fcitx::Key(FcitxKey_BackSpace));
+        require(terminal.text().empty(), "Terminal Backspace must erase one owned UTF-8 character");
+        const auto dels = terminal.terminalDels;
+        require(!press(*addon, telex, terminal, fcitx::Key(FcitxKey_BackSpace)),
+            "Backspace beyond tracked word stays native");
+        require(terminal.terminalDels == dels, "Backspace must not inject DEL past its owned span");
+    }
+    {
+        Editor chrome(instance.inputContextManager(), "code");
+        chrome.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+            fcitx::CapabilityFlag::SurroundingText, fcitx::CapabilityFlag::Url});
+        activate(*addon, telex, chrome);
+        type(*addon, telex, chrome, "goo");
+        require(chrome.text() == "gô" && chrome.text().find('\x7f') == std::string::npos,
+            "URL input must keep the alpha.6 path even when terminal fix is enabled");
+    }
+    for (const auto* word : {"mer", "ddaay", "tieengs", "goo", "gooo"}) {
+        Editor editor(instance.inputContextManager(), "code");
+        editor.frontendName = "ibus";
+        activate(*addon, telex, editor);
+        type(*addon, telex, editor, word);
+        const std::string expected = std::string(word) == "mer" ? "mẻ" :
+            std::string(word) == "ddaay" ? "đây" : std::string(word) == "tieengs" ? "tiếng" :
+            std::string(word) == "goo" ? "gô" : "goo";
+        require(editor.text() == expected && editor.text().find('\x7f') == std::string::npos,
+            "Code editor must retain NativeDirect behavior, including mer regression");
     }
     style(*addon, "Direct");
     fcitx::RawConfig beforeAdvancedTests;
@@ -545,14 +798,223 @@ int main(int argc, char** args) {
         require(suggested.text() == "gô" && suggested.deletions == deletes + 1 && suggested.commits == 1,
             "Confirmed URL completion must preserve the word across native input and a later tone edit");
     }
+    {
+        // The fake must reproduce Chrome 157 on GNOME Wayland: an IM deletion
+        // while the omnibox shows its reversed inline-autocomplete selection is
+        // dropped, and a plain caret deletion works.
+        Editor model(instance.inputContextManager());
+        model.chromiumWaylandDeletes = true;
+        model.document = U"google.com"; model.cursor = 3; model.anchor = 10;
+        model.deleteSurroundingText(-1, 1);
+        require(model.text() == "google.com" && model.cursor == 3 && model.anchor == 10 &&
+            model.droppedDeletes == 1 && model.deletions == 0, "Chromium model must drop reversed-selection deletes");
+        model.document = U"tiêng"; model.cursor = model.anchor = 5;
+        model.deleteSurroundingText(-4, 4);
+        require(model.text() == "t" && model.deletions == 1, "Chromium model must delete at a plain caret");
+    }
+    // Reported on 2026-11-09: Telex goo -> goô in Chrome's address bar while
+    // google.com is the inline completion. The result must be correct
+    // immediately: goo -> gô, gooo -> goo, goos -> gố, VNI go6 -> gô. Since
+    // beta.2~alpha.5: commit the new tail over the selection, then a caret edit.
+    const auto omniboxEditor = [&](Editor& editor, bool completeCommits, bool delayed) {
+        editor.frontendName = "ibus";
+        editor.chromiumWaylandDeletes = true;
+        editor.completeNative = true;
+        editor.completeCommits = completeCommits;
+        editor.completionTarget = U"google.com";
+        editor.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
+            fcitx::CapabilityFlag::FormattedPreedit, fcitx::CapabilityFlag::SurroundingText,
+            fcitx::CapabilityFlag::Url});
+        editor.report();
+        editor.delayed = delayed;
+    };
+    const auto typedPart = [](const Editor& editor) {
+        return openkey::utf8(editor.document.substr(0, std::min(editor.cursor, editor.anchor)));
+    };
+    // Each notification arrives before the next key (asynchronous client).
+    const auto typeAcked = [&](const fcitx::InputMethodEntry& entry, Editor& editor, const std::string& keys) {
+        for (unsigned char ch : keys) {
+            press(*addon, entry, editor, fcitx::Key(fcitx::Key::keySymFromUnicode(ch)));
+            editor.ackAll();
+        }
+    };
     for (const auto* entry : {&telex, &vni}) {
-        for (const unsigned variant : {0u, 1u, 2u, 3u}) {
+        const bool isTelex = entry == &telex;
+        for (const bool completeCommits : {false, true}) {
+            for (const bool delayed : {false, true}) {
+                Editor omnibox(instance.inputContextManager());
+                omniboxEditor(omnibox, completeCommits, delayed);
+                activate(*addon, *entry, omnibox);
+                typeAcked(*entry, omnibox, isTelex ? "goo" : "go6");
+                if (typedPart(omnibox) != "gô")
+                    throw std::runtime_error("Omnibox goo must become gô immediately: [" + omnibox.text() + "]");
+                require(omnibox.droppedDeletes == 0 && omnibox.synthesized == 0 &&
+                    omnibox.preedit().empty() && omnibox.inputPanel().preedit().toString().empty(),
+                    "Omnibox clear must use plain commits, never a rejected deletion, forward or preedit");
+                typeAcked(*entry, omnibox, isTelex ? "o" : "6");
+                if (typedPart(omnibox) != (isTelex ? "goo" : "go6"))
+                    throw std::runtime_error("Omnibox undo must restore the raw letters immediately: [" + omnibox.text() + "]");
+                typeAcked(*entry, omnibox, " ");
+                if (omnibox.text() != (isTelex ? "goo " : "go6 ") || omnibox.droppedDeletes != 0)
+                    throw std::runtime_error("Omnibox undo word: [" + omnibox.text() + "]");
+            }
+            // Real Chrome reports each edit a few ms later (alpha.4 trace: ~6 ms).
+            Editor tone(instance.inputContextManager());
+            omniboxEditor(tone, completeCommits, true);
+            activate(*addon, *entry, tone);
+            typeAcked(*entry, tone, isTelex ? "goos" : "go61");
+            if (typedPart(tone) != "gố")
+                throw std::runtime_error("Omnibox goos must become gố immediately: [" + tone.text() + "]");
+            typeAcked(*entry, tone, isTelex ? " tieengs vieetj " : " tie6ng1 vie6t5 ");
+            if (tone.text() != "gố tiếng việt " || tone.droppedDeletes != 0)
+                throw std::runtime_error("Omnibox sentence: [" + tone.text() + "]");
+        }
+    }
+    for (const bool delayed : {false, true}) {
+        // Real-desktop run (2026-11-09 14:45, ydotool): after goo -> gô the
+        // next case is Ctrl+L, Ctrl+A, Delete, then a new word. That word must
+        // convert from its first letter, not stay raw.
+        Editor again(instance.inputContextManager());
+        omniboxEditor(again, true, delayed);
+        again.silentEdits = true;
+        activate(*addon, telex, again);
+        typeAcked(telex, again, "goo");
+        require(typedPart(again) == "gô", "First omnibox word");
+        for (const auto& key : {fcitx::Key(FcitxKey_l, fcitx::KeyState::Ctrl), fcitx::Key(FcitxKey_a, fcitx::KeyState::Ctrl),
+                                fcitx::Key(FcitxKey_Delete)}) {
+            press(*addon, telex, again, key);
+            again.ackAll();
+        }
+        require(again.text().empty(), "Delete must empty the omnibox");
+        typeAcked(telex, again, "gooo");
+        if (typedPart(again) != "goo")
+            throw std::runtime_error("Word after clearing the omnibox: [" + again.text() + "]");
+        for (const auto& key : {fcitx::Key(FcitxKey_l, fcitx::KeyState::Ctrl), fcitx::Key(FcitxKey_a, fcitx::KeyState::Ctrl),
+                                fcitx::Key(FcitxKey_Delete)}) {
+            press(*addon, telex, again, key);
+            again.ackAll();
+        }
+        typeAcked(telex, again, "tieengs vieetj");
+        if (typedPart(again) != "tiếng việt")
+            throw std::runtime_error("Sentence after clearing the omnibox: [" + again.text() + "]");
+        // Backspace is unreported too: the following letters still convert.
+        for (const auto& key : {fcitx::Key(FcitxKey_l, fcitx::KeyState::Ctrl), fcitx::Key(FcitxKey_a, fcitx::KeyState::Ctrl),
+                                fcitx::Key(FcitxKey_Delete)}) {
+            press(*addon, telex, again, key);
+            again.ackAll();
+        }
+        typeAcked(telex, again, "goo");
+        require(typedPart(again) == "gô", "goo after clearing");
+        press(*addon, telex, again, fcitx::Key(FcitxKey_BackSpace));
+        again.ackAll();
+        require(again.text() == "g", "Backspace after gô");
+        typeAcked(telex, again, "oos");
+        if (typedPart(again) != "gố" || again.droppedDeletes != 0)
+            throw std::runtime_error("Letters after an unreported Backspace: [" + again.text() + "]");
+    }
+    {
+        // Chrome may autocomplete the intermediate tail as well (history has a
+        // goô... entry). Nothing is deleted under that selection; the field
+        // stops two-step clears and the word is repaired at a plain caret.
+        Editor again(instance.inputContextManager());
+        omniboxEditor(again, true, true);
+        again.completionTarget2 = U"goôx.vn";
+        activate(*addon, telex, again);
+        typeAcked(telex, again, "goo");
+        require(typedPart(again) == "goô" && again.anchor == again.document.size() && again.droppedDeletes == 0,
+            "Re-autocompleted tail must stay as committed, unedited");
+        typeAcked(telex, again, "n ");
+        if (again.text() != "gôn " || again.droppedDeletes != 0)
+            throw std::runtime_error("Re-autocompleted tail must be repaired at a plain caret: [" + again.text() + "]");
+    }
+    {
+        // A key that overtakes the tail's ACK never edits an unconfirmed field.
+        Editor fast(instance.inputContextManager());
+        omniboxEditor(fast, false, true);
+        activate(*addon, telex, fast);
+        typeAcked(telex, fast, "go");
+        press(*addon, telex, fast, fcitx::Key(FcitxKey_o)); // ACK still queued
+        press(*addon, telex, fast, fcitx::Key(FcitxKey_s));
+        fast.ackAll();
+        require(fast.deletions == 0 && fast.droppedDeletes == 0, "Unconfirmed clear must not delete");
+    }
+    {
+        // Backspace after the immediate conversion removes one visible character.
+        Editor held(instance.inputContextManager());
+        omniboxEditor(held, false, false);
+        activate(*addon, telex, held);
+        type(*addon, telex, held, "goo");
+        require(!press(*addon, telex, held, fcitx::Key(FcitxKey_BackSpace)) && held.text() == "g",
+            "Backspace after the immediate gô must stay native");
+        Editor undo(instance.inputContextManager());
+        omniboxEditor(undo, true, false);
+        activate(*addon, telex, undo);
+        type(*addon, telex, undo, "gooo");
+        require(typedPart(undo) == "goo", "gooo must undo to goo");
+        require(!press(*addon, telex, undo, fcitx::Key(FcitxKey_BackSpace)), "Backspace on completion must be native");
+        require(!press(*addon, telex, undo, fcitx::Key(FcitxKey_BackSpace)) && undo.text() == "go",
+            "Backspace after the undo removed more than one character");
+    }
+    {
+        // A context change while the clear is in flight never edits what may
+        // now be another field.
+        Editor moved(instance.inputContextManager());
+        omniboxEditor(moved, false, true);
+        activate(*addon, telex, moved);
+        typeAcked(telex, moved, "go");
+        press(*addon, telex, moved, fcitx::Key(FcitxKey_o)); // ACK still queued
+        fcitx::InputContextEvent resetEvent(&moved, fcitx::EventType::InputContextReset);
+        addon->reset(telex, resetEvent);
+        const auto commits = moved.commits;
+        moved.ackAll();
+        require(moved.commits == commits && moved.deletions == 0, "Reset must drop the in-flight clear");
+    }
+    {
+        // Ordinary fields with the same Chromium delete model are untouched.
+        Editor plain(instance.inputContextManager());
+        plain.frontendName = "ibus";
+        plain.chromiumWaylandDeletes = true;
+        activate(*addon, telex, plain);
+        type(*addon, telex, plain, "tieengs vieetj ddaay laf mer ");
+        require(plain.text() == "tiếng việt đây là mẻ " && plain.synthesized == 0 && plain.droppedDeletes == 0,
+            "Ordinary Chromium field must convert without forwarded keys");
+    }
+    {
+        // URL completion clear trace: offsets and relations only, no text.
+        fcitx::RawConfig traceConfig;
+        traceConfig.setValueByPath("InputStyle", "NativeDirect");
+        traceConfig.setValueByPath("DirectDiagnostics", "True");
+        traceConfig.setValueByPath("QuickTelex", "False");
+        addon->setConfig(traceConfig);
+        const auto begin = logs.stream.str().size();
+        Editor traced(instance.inputContextManager());
+        omniboxEditor(traced, false, false);
+        activate(*addon, telex, traced);
+        type(*addon, telex, traced, "goo");
+        require(traced.text() == "gô", "Diagnostics must not change the omnibox clear");
+        press(*addon, telex, traced, fcitx::Key(FcitxKey_s, fcitx::KeyStates{fcitx::KeyState::NumLock}));
+        require(typedPart(traced) == "gố", "NumLock tone key after the clear");
+        const auto emitted = logs.stream.str().substr(begin);
+        for (const char* field : {"OpenKey Direct trace: event=armed n=1 ", "event=committed",
+                                  "event=apply", "base_len=2 base_cursor=2",
+                                  "len=10 cursor=2 anchor=10 equals_base=0 text_equals_base=0 starts_with_base=1",
+                                  "len=3 cursor=3 anchor=3 equals_base=0 text_equals_base=0 starts_with_base=1",
+                                  "emitting=1", "equals_expected=1", "key=printable"})
+            require(emitted.find(field) != std::string::npos, field);
+        require(emitted.find("google") == std::string::npos && emitted.find("gô") == std::string::npos &&
+            emitted.find("code=") == std::string::npos && emitted.find("states=") == std::string::npos,
+            "Clear trace exposed document content or keystrokes");
+        style(*addon, "NativeDirect");
+        logs.stream.str(""); // later checks expect a log written only with diagnostics on
+    }
+    for (const auto* entry : {&telex, &vni}) {
+        for (const bool completeCommits : {false, true}) {
+            // A suggestion re-shown after every key: each word still converts.
             Editor completion(instance.inputContextManager());
             completion.frontendName = "ibus";
             completion.completeNative = true;
-            completion.completeCommits = (variant & 1u) != 0;
-            completion.selectionAwareDeletes = true;
-            completion.deletionKeepsSelection = (variant & 2u) != 0;
+            completion.completeCommits = completeCommits;
+            completion.chromiumWaylandDeletes = true;
             completion.setCapabilityFlags(fcitx::CapabilityFlags{fcitx::CapabilityFlag::Preedit,
                 fcitx::CapabilityFlag::FormattedPreedit, fcitx::CapabilityFlag::SurroundingText,
                 fcitx::CapabilityFlag::Url});
@@ -562,9 +1024,20 @@ int main(int argc, char** args) {
             for (unsigned char ch : input) {
                 press(*addon, *entry, completion, fcitx::Key(fcitx::Key::keySymFromUnicode(ch)));
                 require(completion.preedit().empty() && completion.inputPanel().preedit().toString().empty() &&
-                    completion.synthesized == 0, "URL completion must not introduce preedit or synthetic keys");
+                    completion.lostForwards == 0, "URL completion must not introduce preedit or lose forwarded keys");
             }
-            if (completion.text() != "cộng hoà xã hội chủ nghĩa ")
+            if (completeCommits) {
+                // Unrealistic worst case (Chrome autocompletes only history
+                // prefixes; intermediate tails are like goô/viêtệt): a client
+                // that autocompletes EVERY commit. Bounded: one intermediate
+                // tail, then two-step clears stop and words stay raw (alpha.2).
+                const std::string bounded = entry == &telex ? "coôngj hoaf xax hooij chur nghiax " :
+                    "coông5 hoa2 xa4 ho6i5 chu3 nghia4 ";
+                if (completion.text() != bounded || completion.droppedDeletes != 0)
+                    throw std::runtime_error("Always-autocompleting URL field: [" + completion.text() + "]");
+                continue;
+            }
+            if (completion.text() != "cộng hoà xã hội chủ nghĩa " || completion.droppedDeletes != 0)
                 throw std::runtime_error("URL completion sentence: [" + completion.text() + "]");
             type(*addon, *entry, completion, entry == &telex ? "coong" : "co6ng");
             require(!press(*addon, *entry, completion, fcitx::Key(FcitxKey_BackSpace)),
@@ -572,11 +1045,13 @@ int main(int argc, char** args) {
             require(completion.text() == "cộng hoà xã hội chủ nghĩa công",
                 "URL Backspace must remove the selected suggestion, keeping typed letters");
             type(*addon, *entry, completion, entry == &telex ? "j " : "5 ");
-            require(completion.text() == "cộng hoà xã hội chủ nghĩa cộng ", "Suggestion Backspace lost tone-edit history");
+            if (completion.text() != "cộng hoà xã hội chủ nghĩa cộng ")
+                throw std::runtime_error("Suggestion Backspace lost tone-edit history: [" + completion.text() + "]");
             require(!press(*addon, *entry, completion, fcitx::Key(FcitxKey_a, fcitx::KeyState::Ctrl)),
                 "URL completion select-all swallowed");
             type(*addon, *entry, completion, entry == &telex ? "tieengs " : "tie6ng1 ");
-            require(completion.text() == "tiếng ", "URL completion must not retain another selection's word");
+            require(completion.text() == "tiếng " && completion.droppedDeletes == 0,
+                "URL completion must not retain another selection's word");
         }
     }
     for (const bool url : {false, true}) {
@@ -596,7 +1071,7 @@ int main(int argc, char** args) {
         }
         const auto deletes = unsafe.deletions;
         type(*addon, telex, unsafe, "o");
-        require(unsafe.text() == "goo" && unsafe.deletions == deletes && unsafe.commits == 0,
+        require(unsafe.text() == "goo" && unsafe.deletions == deletes && unsafe.commits == 0 && unsafe.synthesized == 0,
             "Non-URL selection or cache-only URL completion must not authorize deletion");
     }
     for (const auto& invalid : {Editor::Notification{"agogle", 2, 6},

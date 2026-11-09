@@ -24,6 +24,7 @@ ibus:native-start-unconfirmed ibus:word-prime-native ibus:post-enter-append-nati
 fallback:preedit-unreliable-surrounding fallback:preedit-word-in-progress
 fallback:invalid-surrounding-text fallback:no-surrounding-capability
 fallback:passthrough-no-preedit-capability native:passthrough native:url-completion-edit
+native:url-completion-raw native:url-completion-clear native:stale-cache
 edit-aborted bypass:unconfirmed-edit recovery:context-changed context-invalidated
 context-reset context-wait boundary:enter-passthrough boundary:shortcut-passthrough boundary:nav-passthrough
 direct:selection-start direct:ready direct:prime-native boundary-restored
@@ -31,7 +32,7 @@ bypass:sensitive-field'''.split())
 CAUSES = frozenset('''none no-surrounding-capability terminal-context email-context
 unreliable-program awaiting-surrounding-capability awaiting-surrounding-text
 invalid-surrounding raw-word-in-progress awaiting-surrounding-update snapshot-mismatch
-verified-prefix-selection surrounding-mismatch surrounding-invalid late-known-echo
+verified-prefix-selection selection-blocks-delete verified-clear clear-unconfirmed clear-reautocompleted adopt-next-update adopted-update context-reset surrounding-mismatch surrounding-invalid late-known-echo
 ack-timeout context-changed capability-withdrawn key-snapshot-not-current
 queue-overflow prepare-rejected'''.split())
 REFERENCES = frozenset(('none', 'confirmed', 'expected', 'native-expected'))
